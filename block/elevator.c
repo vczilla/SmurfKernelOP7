@@ -948,12 +948,12 @@ void elv_unregister(struct elevator_type *e)
 }
 EXPORT_SYMBOL_GPL(elv_unregister);
 
-static int elevator_switch_mq(struct request_queue *q,
+int elevator_switch_mq(struct request_queue *q,
 			      struct elevator_type *new_e)
 {
 	int ret;
 
-	blk_mq_freeze_queue(q);
+	lockdep_assert_held(&q->sysfs_lock);
 
 	if (q->elevator) {
 		if (q->elevator->registered)
@@ -980,7 +980,6 @@ static int elevator_switch_mq(struct request_queue *q,
 		blk_add_trace_msg(q, "elv switch: none");
 
 out:
-	blk_mq_unfreeze_queue(q);
 	return ret;
 }
 
@@ -996,8 +995,19 @@ static int elevator_switch(struct request_queue *q, struct elevator_type *new_e)
 	bool old_registered = false;
 	int err;
 
-	if (q->mq_ops)
-		return elevator_switch_mq(q, new_e);
+	lockdep_assert_held(&q->sysfs_lock);
+
+	if (q->mq_ops) {
+		blk_mq_freeze_queue(q);
+		blk_mq_quiesce_queue(q);
+
+		err = elevator_switch_mq(q, new_e);
+
+		blk_mq_unquiesce_queue(q);
+		blk_mq_unfreeze_queue(q);
+
+		return err;
+	}
 
 	/*
 	 * Turn on BYPASS and drain all requests w/ elevator private data.
