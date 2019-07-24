@@ -11,7 +11,6 @@
 #include <linux/cpu.h>
 #include <linux/sched.h>
 #include <linux/sched/topology.h>
-#include <linux/early_userspace.h>
 
 #include "blk.h"
 
@@ -167,7 +166,7 @@ void blk_complete_request(struct request *req)
 }
 EXPORT_SYMBOL(blk_complete_request);
 
-static __init inline int _blk_softirq_init(void)
+static __init int blk_softirq_init(void)
 {
 	int i;
 
@@ -179,17 +178,5 @@ static __init inline int _blk_softirq_init(void)
 				  "block/softirq:dead", NULL,
 				  blk_softirq_cpu_dead);
 	return 0;
-}
-
-int __init early_blk_softirq_init(void)
-{
-	return _blk_softirq_init();
-}
-
-static int __init blk_softirq_init(void)
-{
-	if (is_early_userspace)
-		return 0;
-	return _blk_softirq_init();
 }
 subsys_initcall(blk_softirq_init);
