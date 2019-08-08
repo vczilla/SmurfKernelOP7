@@ -72,14 +72,10 @@
 #include <linux/security.h>
 #include <linux/spinlock.h>
 
-#include <linux/proc_fs.h>
 #include <uapi/linux/android/binder.h>
 #include <uapi/linux/sched/types.h>
 #include "binder_alloc.h"
 #include "binder_trace.h"
-#ifdef CONFIG_OPCHAIN
-#include <../drivers/oneplus/coretech/opchain/opchain_binder.h>
-#endif
 
 static HLIST_HEAD(binder_deferred_list);
 static DEFINE_MUTEX(binder_deferred_lock);
@@ -3291,6 +3287,7 @@ static void binder_transaction(struct binder_proc *proc,
 		security_release_secctx(secctx, secctx_sz);
 		secctx = NULL;
 	}
+	t->buffer->allow_user_free = 0;
 	t->buffer->debug_id = t->debug_id;
 	t->buffer->transaction = t;
 	t->buffer->target_node = target_node;
@@ -3347,11 +3344,6 @@ static void binder_transaction(struct binder_proc *proc,
 	sg_buf_end_offset = sg_buf_offset + extra_buffers_size -
 		ALIGN(secctx_sz, sizeof(u64));
 	off_min = 0;
-#ifdef CONFIG_OPCHAIN
-	opc_binder_pass(
-		t->buffer->data_size,
-		(uint32_t *)t->buffer->data, 1);
-#endif
 	for (buffer_offset = off_start_offset; buffer_offset < off_end_offset;
 	     buffer_offset += sizeof(binder_size_t)) {
 		struct binder_object_header *hdr;
@@ -3842,18 +3834,14 @@ static int binder_thread_write(struct binder_proc *proc,
 
 			buffer = binder_alloc_prepare_to_free(&proc->alloc,
 							      data_ptr);
-			if (IS_ERR_OR_NULL(buffer)) {
-				if (PTR_ERR(buffer) == -EPERM) {
-					binder_user_error(
-						"%d:%d BC_FREE_BUFFER u%016llx matched unreturned or currently freeing buffer\n",
-						proc->pid, thread->pid,
-						(u64)data_ptr);
-				} else {
-					binder_user_error(
-						"%d:%d BC_FREE_BUFFER u%016llx no match\n",
-						proc->pid, thread->pid,
-						(u64)data_ptr);
-				}
+			if (buffer == NULL) {
+				binder_user_error("%d:%d BC_FREE_BUFFER u%016llx no match\n",
+					proc->pid, thread->pid, (u64)data_ptr);
+				break;
+			}
+			if (!buffer->allow_user_free) {
+				binder_user_error("%d:%d BC_FREE_BUFFER u%016llx matched unreturned buffer\n",
+					proc->pid, thread->pid, (u64)data_ptr);
 				break;
 			}
 			binder_debug(BINDER_DEBUG_FREE_BUFFER,
@@ -6089,55 +6077,6 @@ static int __init init_binder_device(const char *name)
 	return ret;
 }
 
-static int proc_state_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, binder_state_show, NULL);
-}
-
-static int proc_transactions_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, binder_transactions_show, NULL);
-}
-
-static int proc_transaction_log_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, binder_transaction_log_show,
-		&binder_transaction_log);
-}
-
-
-static const struct file_operations proc_state_operations = {
-	.open       = proc_state_open,
-	.read       = seq_read,
-	.llseek     = seq_lseek,
-	.release    = single_release,
-};
-
-static const struct file_operations proc_transactions_operations = {
-	.open       = proc_transactions_open,
-	.read       = seq_read,
-	.llseek     = seq_lseek,
-	.release    = single_release,
-};
-
-static const struct file_operations proc_transaction_log_operations = {
-	.open       = proc_transaction_log_open,
-	.read       = seq_read,
-	.llseek     = seq_lseek,
-	.release    = single_release,
-};
-
-static int binder_proc_init(void)
-{
-	proc_create("proc_state", 0444, NULL,
-			&proc_state_operations);
-	proc_create("proc_transactions", 0444, NULL,
-			&proc_transactions_operations);
-	proc_create("proc_transaction_log", 0444, NULL,
-			&proc_transaction_log_operations);
-	return 0;
-}
-
 static int __init binder_create_pools(void)
 {
 	int ret;
@@ -6273,7 +6212,6 @@ static int __init binder_init(void)
 		if (ret)
 			goto err_init_binder_device_failed;
 	}
-		binder_proc_init();
 
 	return ret;
 
