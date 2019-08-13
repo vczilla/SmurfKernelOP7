@@ -315,7 +315,7 @@ static uint32_t cam_cci_wait(struct cci_device *cci_dev,
 				if (read_val > 0) {
 					rc = -ETIMEDOUT;
 					CAM_ERR(CAM_CCI,
-					"wait for master %d queue %d timeout again");
+					"wait for master %d queue %d timeout again", master, queue);
 				} else {
 					CAM_DBG(CAM_CCI,
 						"Ignore this timeout for master %d queue %d after re-execute again!!",
@@ -1816,8 +1816,7 @@ static int32_t cam_cci_write_packet(
     uint16_t count)
 {
     int32_t rc = 0;
-    int i = 0;
-
+    int i;
     memset(write_regarray,0,sizeof(write_regarray));
     if (!cci_ctrl || !data)
         return rc;
@@ -1856,8 +1855,6 @@ static int32_t cam_cci_write_packet(
 int32_t cam_cci_control_interface(void* control)
 {
     int32_t rc = 0,exp_byte;
-    int i = 0;
-
     struct v4l2_subdev *sd = cam_cci_get_subdev(CCI_DEVICE_1);
     struct cci_device *cci_dev = v4l2_get_subdevdata(sd);
     struct camera_cci_transfer* pControl = (struct camera_cci_transfer*)control;
@@ -1891,6 +1888,7 @@ int32_t cam_cci_control_interface(void* control)
                             pControl->count);
         rc = cam_cci_read_bytes(sd, &cci_ctrl_interface);
         if(rc < 0){
+            int i;
             CAM_ERR(CAM_CCI, "cmd %d,rc=%d", pControl->cmd,rc);
             exp_byte = ((cci_ctrl_interface.cfg.cci_i2c_read_cfg.num_byte / 4) + 1);
             CAM_ERR(CAM_CCI, "songyt read exp byte=%d", exp_byte);

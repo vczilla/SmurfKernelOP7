@@ -2316,7 +2316,6 @@ int icnss_idle_restart(struct device *dev)
 }
 EXPORT_SYMBOL(icnss_idle_restart);
 
-
 static int icnss_smmu_init(struct icnss_priv *priv)
 {
 	struct dma_iommu_mapping *mapping;

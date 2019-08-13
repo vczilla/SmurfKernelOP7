@@ -26,9 +26,7 @@ static int RamRead32A(struct cam_ois_ctrl_t *o_ctrl,
     UINT32 addr, UINT32* data)
 {
     int32_t rc = 0;
-    int retry = 3;
-    int i = 0;
-
+    int retry = 3, i;
     if (o_ctrl == NULL) {
         CAM_ERR(CAM_OIS, "Invalid Args dev");
         return -EINVAL;
