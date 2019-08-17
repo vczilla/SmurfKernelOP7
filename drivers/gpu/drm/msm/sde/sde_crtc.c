@@ -5718,16 +5718,12 @@ static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
         if (mode ==3)
             aod_index = i;
 	}
-	if(fp_index >=0 && dim_mode!=0)
-		display->panel->dim_status = true;
-	else
-		display->panel->dim_status = false;
 
-	if (fp_mode == 1) {
-		/*Kick for fp scan*/
-    		cpu_input_boost_kick_cluster1_wake(250);
-		cpu_input_boost_kick_cluster2_wake(250);
-		devfreq_boost_kick_wake(DEVFREQ_MSM_CPUBW, 250);
+	if (is_oos()) {
+		if(fp_index >=0 && dim_mode!=0)
+			display->panel->dim_status = true;
+		else
+			display->panel->dim_status = false;
 	}
 
 	if (!is_oos()) {
@@ -5736,6 +5732,7 @@ static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
 			return -EINVAL;
 		}*/
 		if (fp_mode == 1) {
+			display->panel->dim_status = true;
 			cstate->fingerprint_pressed = true;
 			return 0;
 		} else {
@@ -5743,6 +5740,13 @@ static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
 			cstate->fingerprint_dim_layer = NULL;
 			return 0;
 		}
+	}
+
+	if (fp_mode == 1) {
+		/*Kick for fp scan*/
+    		cpu_input_boost_kick_cluster1_wake(250);
+		cpu_input_boost_kick_cluster2_wake(250);
+		devfreq_boost_kick_wake(DEVFREQ_MSM_CPUBW, 250);
 	}
 
 	if(aod_index <0) {
