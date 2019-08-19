@@ -5724,6 +5724,13 @@ static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
 	else
 		display->panel->dim_status = false;
 
+	if (fp_mode == 1) {
+		/*Kick for fp scan*/
+    		cpu_input_boost_kick_cluster1_wake(750);
+		cpu_input_boost_kick_cluster2_wake(750);
+		devfreq_boost_kick_wake(DEVFREQ_MSM_CPUBW, 750);
+	}
+
 	if(aod_index <0) {
 		oneplus_aod_hid = 0;
 		aod_layer_hide = 0;
@@ -5763,6 +5770,7 @@ static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
     }
 
 	if (fp_index >= 0 || fppressed_index >= 0 || oneplus_force_screenfp || dim_backlight == 1) {
+		/*Kick for fp scan*/
 		if (fp_index >= 0 && fppressed_index >= 0) {
 			if (pstates[fp_index].stage >= pstates[fppressed_index].stage) {
 				SDE_ERROR("Bug!!@@@@: fp layer top of fppressed layer\n");
@@ -5868,13 +5876,6 @@ static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
 			cstate->fingerprint_pressed = false;
 			return 0;
 		}
-	}
-
-	if (fp_mode == 1) {
-		/*Kick for fp scan*/
-    		cpu_input_boost_kick_cluster1_wake(250);
-		cpu_input_boost_kick_cluster2_wake(250);
-		devfreq_boost_kick_wake(DEVFREQ_MSM_CPUBW, 250);
 	}
 
 	return 0;
