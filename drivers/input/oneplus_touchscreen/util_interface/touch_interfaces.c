@@ -149,9 +149,14 @@ int touch_i2c_write_block(struct i2c_client* client, u16 addr, unsigned short le
     msg[0].flags = 0;
     msg[0].buf = buffer;
 
-    msg[0].len = length + 1;
-    msg[0].buf[0] = addr & 0xff;
-    memcpy(&buffer[1], &data[0], length);
+    if (!register_is_16bit) {	// if register is 8bit
+		msg[0].len = 1;
+		msg[0].buf[0] = addr & 0xff;
+    } else {
+		msg[0].len = 2;
+		msg[0].buf[0] = addr >> 8 & 0xff;
+		msg[0].buf[1] = addr * 0xff;
+    }
 
     for (retry = 0; retry < MAX_I2C_RETRY_TIME; retry++) {
         if (i2c_transfer(client->adapter, msg, 1) == 1) {
@@ -481,9 +486,11 @@ int32_t CTP_SPI_WRITE(struct spi_device *client, uint8_t *buf, uint16_t len)
 	return ret;
 }
 
-int init_touch_interfaces(void)
+int init_touch_interfaces(struct device *dev, bool flag_register_16bit)
 {
-	rb_buffer = kzalloc(2, GFP_KERNEL | GFP_DMA);
+	if (!flag_register_16bit)
+		rb_buffer = kzalloc(2, GFP_KERNEL | GFP_DMA);
+	else 
 
 	return 0;
 }

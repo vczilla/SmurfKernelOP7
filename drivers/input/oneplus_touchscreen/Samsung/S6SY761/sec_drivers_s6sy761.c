@@ -37,6 +37,7 @@
 
 extern int tp_register_times;
 extern struct touchpanel_data *g_tp;
+u8 *event_buff;
 /****************** Start of Log Tag Declear and level define*******************************/
 #define TPD_DEVICE "sec-s6sy761"
 #define TPD_INFO(a, arg...)  pr_err("[TP]"TPD_DEVICE ": " a, ##arg)
@@ -1001,8 +1002,11 @@ static int sec_get_touch_points(void *chip_data, struct point_info *points, int 
     int left_event = 0;
     struct sec_event_coordinate *p_event_coord = NULL;
     uint32_t obj_attention = 0;
-    u8 event_buff[MAX_EVENT_COUNT * SEC_EVENT_BUFF_SIZE];
     struct chip_data_s6sy761 *chip_info = (struct chip_data_s6sy761 *)chip_data;
+
+    if (unlikely(!event_buff)) {
+	return -ENOMEM;
+    }
 
     p_event_coord = (struct sec_event_coordinate *)chip_info->first_event;
     t_id = (p_event_coord->tid - 1);
@@ -1026,7 +1030,7 @@ static int sec_get_touch_points(void *chip_data, struct point_info *points, int 
     } else if (left_event > max_num - 1) {
         left_event = max_num - 1;
     }
-    memset(event_buff, 0, sizeof(event_buff));
+    memset(event_buff, 0, MAX_EVENT_COUNT*SEC_EVENT_BUFF_SIZE * (sizeof(uint8_t)));
     ret = touch_i2c_read_block(chip_info->client, SEC_READ_ALL_EVENT, sizeof(u8) * (SEC_EVENT_BUFF_SIZE) * (left_event), &event_buff[0]);
     if (ret < 0) {
         return obj_attention;
@@ -2948,6 +2952,7 @@ static int sec_tp_probe(struct i2c_client *client, const struct i2c_device_id *i
     sec_raw_device_init(ts);
     sec_create_proc(ts, &sec_proc_ops);
 	schedule_delayed_work(&ts->work_read_info, msecs_to_jiffies(50));
+    event_buff = kzalloc(MAX_EVENT_COUNT*SEC_EVENT_BUFF_SIZE * (sizeof(uint8_t)), GFP_KERNEL);
     return 0;
 
 err_register_driver:

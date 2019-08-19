@@ -75,6 +75,7 @@ static int lcd_id = 0;
 static int gesture_switch_value = 0;
 char *raw_tmp_data = NULL;
 char *self_tmp_data = NULL;
+struct point_info *points;
 
 
 /* add haptic audio tp mask */
@@ -630,7 +631,6 @@ static void tp_touch_handle(struct touchpanel_data *ts)
     int i = 0;
     uint8_t finger_num = 0, touch_near_edge = 0;
     int obj_attention = 0;
-    struct point_info points[10];
     struct corner_info corner[4];
     static struct point_info last_point = {.x = 0, .y = 0};
     static int touch_report_num = 0;
@@ -644,7 +644,11 @@ static void tp_touch_handle(struct touchpanel_data *ts)
         return;
     }
 
-    memset(points, 0, sizeof(points));
+    if (unlikely(!points)) {
+	return;
+   }
+
+    memset(points, 0, sizeof(struct point_info)*ts->max_num);
     memset(corner, 0, sizeof(corner));
 	if (ts->reject_point) {		//sensor will reject point when call mode.
 		if (ts->touch_count) {
@@ -3683,6 +3687,7 @@ static void init_parse_dts(struct device *dev, struct touchpanel_data *ts)
 
     np = dev->of_node;
 
+    ts->register_is_16bit       = of_property_read_bool(np, "register-is-16bit");
     ts->edge_limit_support      = of_property_read_bool(np, "edge_limit_support");
     ts->glove_mode_support      = of_property_read_bool(np, "glove_mode_support");
     ts->esd_handle_support      = of_property_read_bool(np, "esd_handle_support");
@@ -3780,6 +3785,7 @@ static void init_parse_dts(struct device *dev, struct touchpanel_data *ts)
     if (rc) {
         ts->max_num = 10;
     }
+    points= kzalloc(sizeof(struct point_info)*ts->max_num, GFP_KERNEL);
 
     rc = of_property_read_u32_array(np, "touchpanel,tx-rx-num", tx_rx_num, 2);
     if (rc) {
@@ -4182,7 +4188,7 @@ int register_common_touch_device(struct touchpanel_data *pdata)
     init_parse_dts(ts->dev, ts);
 
     //step2 : IIC interfaces init
-    init_touch_interfaces();
+    init_touch_interfaces(ts->dev, ts->register_is_16bit);
 
     //step3 : mutex init
     mutex_init(&ts->mutex);
