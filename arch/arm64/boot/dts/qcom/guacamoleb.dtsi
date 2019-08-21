@@ -103,12 +103,12 @@
 	skin-msm-therm {
 		trips {
 			freq_config3: freq_config3 {
-				temperature = <63000>;
+				temperature = <64000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
 			freq_config4: freq_config4 {
-				temperature = <65000>;
+				temperature = <66000>;
 				hysteresis = <2000>;
 				type = "passive";
 			};
