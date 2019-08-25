@@ -29,6 +29,8 @@
 #include <linux/sde_rsc.h>
 #include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
+#include <linux/devfreq_boost_ddr.h>
+#include <linux/devfreq_boost_gpu.h>
 
 #include "sde_kms.h"
 #include "sde_hw_lm.h"
@@ -5729,6 +5731,8 @@ static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
     		cpu_input_boost_kick_cluster1_wake(750);
 		cpu_input_boost_kick_cluster2_wake(750);
 		devfreq_boost_kick_wake(DEVFREQ_MSM_CPUBW, 750);
+		devfreq_boost_ddr_kick_wake(DEVFREQ_MSM_DDRBW, 750);
+		devfreq_boost_gpu_kick_wake(DEVFREQ_MSM_GPUBW, 750);
 	}
 
 	if(aod_index <0) {

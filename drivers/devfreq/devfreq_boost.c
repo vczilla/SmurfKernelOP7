@@ -2,6 +2,7 @@
 /*
  * Copyright (C) 2018-2019 Sultan Alsawaf <sultan@kerneltoast.com>.
  */
+// Copyright (C) 2019 all additions Erik Müller <pappschlumpf@xda>
 
 #define pr_fmt(fmt) "devfreq_boost: " fmt
 
@@ -416,7 +417,7 @@ static int __init devfreq_boost_init(void)
 		b->wq_f = alloc_workqueue("devfreq_boost_wq_f", WQ_HIGHPRI, 0);
 		b->wq_m = alloc_workqueue("devfreq_boost_wq_m", WQ_HIGHPRI, 0);
 		
-		thread[i] = kthread_run_perf_critical(devfreq_boost_thread, b,
+		thread[i] = kthread_run_low_power(devfreq_boost_thread, b,
 						      "devfreq_boostd/%d", i);
 		if (IS_ERR(thread[i])) {
 			ret = PTR_ERR(thread[i]);
