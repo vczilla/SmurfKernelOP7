@@ -928,10 +928,10 @@ static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
  */
 static void tcp_remove_empty_skb(struct sock *sk, struct sk_buff *skb)
 {
-	if (skb && !skb->len &&
-	    TCP_SKB_CB(skb)->end_seq == TCP_SKB_CB(skb)->seq) {
+	if (skb && !skb->len) {
 		tcp_unlink_write_queue(skb, sk);
-		tcp_check_send_head(sk, skb);
+		if (tcp_write_queue_empty(sk))
+			tcp_chrono_stop(sk, TCP_CHRONO_BUSY);
 		sk_wmem_free_skb(sk, skb);
 	}
 }
@@ -1056,6 +1056,7 @@ out:
 	return copied;
 
 do_error:
+	tcp_remove_empty_skb(sk, tcp_write_queue_tail(sk));
 	if (copied)
 		goto out;
 out_err:
@@ -1434,17 +1435,11 @@ out_nopush:
 	sock_zerocopy_put(uarg);
 	return copied + copied_syn;
 
-do_fault:
-	if (!skb->len) {
-		tcp_unlink_write_queue(skb, sk);
-		/* It is the one place in all of TCP, except connection
-		 * reset, where we can be unlinking the send_head.
-		 */
-		tcp_check_send_head(sk, skb);
-		sk_wmem_free_skb(sk, skb);
-	}
-
 do_error:
+	skb = tcp_write_queue_tail(sk);
+do_fault:
+	tcp_remove_empty_skb(sk, skb);
+
 	if (copied + copied_syn)
 		goto out;
 out_err:
