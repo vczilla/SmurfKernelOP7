@@ -140,7 +140,6 @@ __attribute__((weak)) int reconfig_power_control(struct touchpanel_data *ts) {re
 
 static int __init get_cmdlinelcd_id(char *str)
 {
-	TPD_INFO("%s enter %s\n", __func__, str);
 	if (str) {
 		if (strncmp(str, "normal", 6) == 0) {
 			lcd_id = 0;
@@ -182,7 +181,6 @@ int check_touchirq_triggerd(void)
 void operate_mode_switch(struct touchpanel_data *ts)
 {
     if (!ts->ts_ops->mode_switch) {
-        TPD_INFO("not support ts_ops->mode_switch callback\n");
         return;
     }
 
@@ -1143,81 +1141,6 @@ void switch_usb_state(int usb_state)
     }
 }
 EXPORT_SYMBOL(switch_usb_state);
-
-/*
- *    gesture_enable = 0 : disable gesture
- *    gesture_enable = 1 : enable gesture when ps is far away
- *    gesture_enable = 2 : disable gesture when ps is near
- */
-/*
-static ssize_t proc_gesture_control_write(struct file *file, const char __user *buffer, size_t count, loff_t *ppos)
-{
-    int value = 0;
-    char buf[4] = {0};
-    struct touchpanel_data *ts = PDE_DATA(file_inode(file));
-    int enabled = 0;
-    char page[PAGESIZE];
-	if (is_oos()) {
-	    if (count > 2)
-		return count;
-	    if (!ts)
-		return count;
-
-	    if (copy_from_user(buf, buffer, count)) {
-		TPD_INFO("%s: read proc input error.\n", __func__);
-		return count;
-	    }
-		UpVee_enable = (buf[0] & BIT0)?1:0;
-		DouSwip_enable = (buf[0] & BIT1)?1:0;
-		LeftVee_enable = (buf[0] & BIT3)?1:0;
-		RightVee_enable = (buf[0] & BIT4)?1:0;
-		Circle_enable = (buf[0] & BIT6)?1:0;
-		DouTap_enable = (buf[0] & BIT7)?1:0;
-		Sgestrue_enable = (buf[1] & BIT0)?1:0;
-		Mgestrue_enable	= (buf[1] & BIT1)?1:0;
-		Wgestrue_enable = (buf[1] & BIT2)?1:0;
-		SingleTap_enable = (buf[1] & BIT3)?1:0;
-		Enable_gesture = (buf[1] & BIT7)?1:0;
-
-		if (UpVee_enable || DouSwip_enable || LeftVee_enable || RightVee_enable
-			|| Circle_enable || DouTap_enable || Sgestrue_enable || Mgestrue_enable
-			|| Wgestrue_enable || SingleTap_enable || Enable_gesture) {
-			value = 1;
-		} else {
-			value = 0;
-		}
-
-	    mutex_lock(&ts->mutex);
-	    if (ts->gesture_enable != value) {
-		ts->gesture_enable = value;
-		if (is_oos())
-			tp_1v8_power = ts->gesture_enable;
-		TPD_INFO("%s: gesture_enable = %d, is_suspended = %d\n", __func__, ts->gesture_enable, ts->is_suspended);
-		if (ts->is_incell_panel && (ts->suspend_state == TP_RESUME_EARLY_EVENT) && (ts->tp_resume_order == LCD_TP_RESUME)) {
-		    TPD_INFO("tp will resume, no need mode_switch in incell panel\n"); /*avoid i2c error or tp rst pulled down in lcd resume*/
-	/*	} else if (ts->is_suspended)
-		    operate_mode_switch(ts);
-	    }else {
-		TPD_INFO("%s: do not do same operator :%d\n", __func__, value);
-	    }
-	    mutex_unlock(&ts->mutex);
-	}
-    return count;
-}*/
-/*
-static ssize_t proc_gesture_control_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
-{
-    int ret = 0;
-    char page[PAGESIZE] = {0};
-    struct touchpanel_data *ts = PDE_DATA(file_inode(file));
-    if (!ts)
-	return count;
-    if (is_oos()) {
-    	ret = sprintf(page, "%d\n", ts->gesture_enable);
-    	ret = simple_read_from_buffer(user_buf, count, ppos, page, strlen(page));
-    }
-    return ret;
-}*/
 
 static ssize_t proc_coordinate_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
 {
