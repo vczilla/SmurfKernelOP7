@@ -27,6 +27,7 @@
 #include <linux/extcon.h>
 #include <linux/usb/class-dual-role.h>
 #include <linux/usb/usbpd.h>
+#include <linux/set_os.h>
 #include "usbpd.h"
 
 /* To start USB stack for USB3.1 compliance testing */
@@ -1366,6 +1367,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd->ss_lane_svid = 0x0;
 		}
 
+		if (!is_oos())
+			dual_role_instance_changed(pd->dual_role);
 
 		val.intval = 1; /* Rp-1.5A; SinkTxNG for PD 3.0 */
 		power_supply_set_property(pd->usb_psy,
@@ -1465,21 +1468,34 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 			usbpd_err(&pd->dev, "Invalid request: %08x\n", pd->rdo);
 
-			if (pd->oem_bypass) {
-				usbpd_info(&pd->dev, "oem bypass invalid request!\n");
-			} else {
+			if (is_oos()) {
+				if (pd->oem_bypass) {
+					usbpd_info(&pd->dev, "oem bypass invalid request!\n");
+				} else {
+					if (pd->in_explicit_contract)
+						usbpd_set_state(pd, PE_SRC_READY);
+					else
+						/*
+					 	* bypass PE_SRC_Capability_Response and
+					 	* PE_SRC_Wait_New_Capabilities in this
+					 	* implementation for simplicity.
+					 	*/
+						usbpd_set_state(pd,
+							PE_SRC_SEND_CAPABILITIES);
+					break;
+				}
+			} else {	
 				if (pd->in_explicit_contract)
 					usbpd_set_state(pd, PE_SRC_READY);
 				else
 					/*
-					 * bypass PE_SRC_Capability_Response and
-					 * PE_SRC_Wait_New_Capabilities in this
-					 * implementation for simplicity.
-					 */
-					usbpd_set_state(pd,
-						PE_SRC_SEND_CAPABILITIES);
+				 	* bypass PE_SRC_Capability_Response and
+				 	* PE_SRC_Wait_New_Capabilities in this
+				 	* implementation for simplicity.
+				 	*/
+					usbpd_set_state(pd, PE_SRC_SEND_CAPABILITIES);
 				break;
-			}
+			}	
 		}
 
 		/* PE_SRC_TRANSITION_SUPPLY pseudo-state */
@@ -1515,9 +1531,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		if (pd->current_dr == DR_DFP && !pd->peer_usb_comm &&
 				!pd->in_explicit_contract)
 			stop_usb_host(pd);
-
-		if (!pd->in_explicit_contract)
-			dual_role_instance_changed(pd->dual_role);
 
 		pd->in_explicit_contract = true;
 
@@ -1614,6 +1627,9 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 					start_usb_peripheral(pd);
 			}
 		}
+
+		if (!is_oos())
+			dual_role_instance_changed(pd->dual_role);
 
 		pd_reset_protocol(pd);
 
