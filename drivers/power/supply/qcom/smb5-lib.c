@@ -5691,7 +5691,6 @@ static bool smblib_src_lpd(struct smb_charger *chg)
 		chg->moisture_present =  true;
 		alarm_start_relative(&chg->lpd_recheck_timer,
 						ms_to_ktime(60000));
-		power_supply_changed(chg->usb_psy);
 	} else {
 		chg->lpd_reason = LPD_NONE;
 		chg->typec_mode = smblib_get_prop_typec_mode(chg);
