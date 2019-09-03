@@ -1904,10 +1904,15 @@ static int clk_fabia_pll_latch_input(struct clk_alpha_pll *pll,
 	return ret;
 }
 
-void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+int clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 				const struct alpha_pll_config *config)
 {
 	u32 val, mask;
+
+	if (!config) {
+		pr_err("PLL configuration missing.\n");
+		return -EINVAL;
+	}
 
 	if (config->l)
 		regmap_write(regmap, pll->offset + PLL_L_VAL,
@@ -1964,6 +1969,7 @@ void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 			   PLL_RESET_N, PLL_RESET_N);
 
 	pll->inited = true;
+	return 0;
 }
 
 static int clk_fabia_pll_enable(struct clk_hw *hw)
