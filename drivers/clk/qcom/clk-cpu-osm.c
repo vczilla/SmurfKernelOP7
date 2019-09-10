@@ -105,6 +105,11 @@ static inline int clk_osm_read_reg(struct clk_osm *c, u32 offset)
 	return readl_relaxed(c->vbase + offset);
 }
 
+static inline int clk_osm_read_reg_no_log(struct clk_osm *c, u32 offset)
+{
+	return readl_relaxed_no_log(c->vbase + offset);
+}
+
 static inline int clk_osm_mb(struct clk_osm *c)
 {
 	return readl_relaxed(c->vbase + ENABLE_REG);
@@ -253,7 +258,7 @@ static unsigned long l3_clk_recalc_rate(struct clk_hw *hw,
 	if (!cpuclk)
 		return -EINVAL;
 
-	index = clk_osm_read_reg(cpuclk, DCVS_PERF_STATE_DESIRED_REG(0));
+	index = clk_osm_read_reg_no_log(cpuclk, DCVS_PERF_STATE_DESIRED_REG(0));
 
 	pr_debug("%s: Index %d, freq %ld\n", __func__, index,
 				cpuclk->osm_table[index].frequency);
@@ -622,7 +627,7 @@ static unsigned int osm_cpufreq_get(unsigned int cpu)
 		return 0;
 
 	c = policy->driver_data;
-	index = clk_osm_read_reg(c,
+	index = clk_osm_read_reg_no_log(c,
 			DCVS_PERF_STATE_DESIRED_REG(c->core_num));
 	return policy->freq_table[index].frequency;
 }
@@ -657,7 +662,7 @@ static int osm_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	for (i = 0; i < parent->osm_table_size; i++) {
 		u32 data, src, div, lval, core_count;
 
-		data = clk_osm_read_reg(c, FREQ_REG + i * OSM_REG_SIZE);
+		data = clk_osm_read_reg_no_log(c, FREQ_REG + i * OSM_REG_SIZE);
 		src = (data & GENMASK(31, 30)) >> 30;
 		div = (data & GENMASK(29, 28)) >> 28;
 		lval = data & GENMASK(7, 0);
@@ -908,7 +913,7 @@ static u64 clk_osm_get_cpu_cycle_counter(int cpu)
 	 * core DCVS is disabled.
 	 */
 	core_num = parent->per_core_dcvs ? c->core_num : 0;
-	val = clk_osm_read_reg(parent,
+	val = clk_osm_read_reg_no_log(parent,
 				OSM_CYCLE_COUNTER_STATUS_REG(core_num));
 
 	if (val < c->prev_cycle_counter) {
@@ -931,7 +936,7 @@ static int clk_osm_read_lut(struct platform_device *pdev, struct clk_osm *c)
 	u32 data, src, lval, i, j = c->osm_table_size;
 
 	for (i = 0; i < c->osm_table_size; i++) {
-		data = clk_osm_read_reg(c, FREQ_REG + i * OSM_REG_SIZE);
+		data = clk_osm_read_reg_no_log(c, FREQ_REG + i * OSM_REG_SIZE);
 		src = ((data & GENMASK(31, 30)) >> 30);
 		lval = (data & GENMASK(7, 0));
 
@@ -940,7 +945,7 @@ static int clk_osm_read_lut(struct platform_device *pdev, struct clk_osm *c)
 		else
 			c->osm_table[i].frequency = XO_RATE * lval;
 
-		data = clk_osm_read_reg(c, VOLT_REG + i * OSM_REG_SIZE);
+		data = clk_osm_read_reg_no_log(c, VOLT_REG + i * OSM_REG_SIZE);
 		c->osm_table[i].virtual_corner =
 					((data & GENMASK(21, 16)) >> 16);
 		c->osm_table[i].open_loop_volt = (data & GENMASK(11, 0));
@@ -1147,11 +1152,11 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	}
 
 	/* Check if per-core DCVS is enabled/not */
-	val = clk_osm_read_reg(&pwrcl_clk, CORE_DCVS_CTRL);
+	val = clk_osm_read_reg_no_log(&pwrcl_clk, CORE_DCVS_CTRL);
 	if (val & BIT(0))
 		pwrcl_clk.per_core_dcvs = true;
 
-	val = clk_osm_read_reg(&perfcl_clk, CORE_DCVS_CTRL);
+	val = clk_osm_read_reg_no_log(&perfcl_clk, CORE_DCVS_CTRL);
 	if (val & BIT(0))
 		perfcl_clk.per_core_dcvs = true;
 
