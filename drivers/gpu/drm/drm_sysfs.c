@@ -364,20 +364,13 @@ static ssize_t acl_show(struct device *dev,
 	int acl_mode = 0;
 
 	acl_mode = dsi_display_get_acl_mode(connector);
-#ifdef CONFIG_UNIFIED
-	if (is_oos()) 
-#endif
-		ret = scnprintf(buf, PAGE_SIZE, "acl mode = %d\n"
+
+	ret = scnprintf(buf, PAGE_SIZE, "acl mode = %d\n"
 											"0--acl mode(off)\n"
 											"1--acl mode(5)\n"
 											"2--acl mode(10)\n"
 											"3--acl mode(15)\n",
 											acl_mode);
-#ifdef CONFIG_UNIFIED
-	else 
-		ret = scnprintf(buf, PAGE_SIZE, "%d\n", acl_mode);
-#endif
-
 	return ret;
 }
 
