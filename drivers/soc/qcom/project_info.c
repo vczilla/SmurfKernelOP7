@@ -87,7 +87,7 @@ void save_dump_reason_to_smem(char *info, char *function_name)
     }
     pr_debug("\r%s: dump_reason : %s strl=%d function caused panic :%s strl1=%d \n", __func__,
                            dp_info->dump_reason, strl, function_name, strl1);
-    save_dump_reason_to_device_info(dp_info->dump_reason);
+    //save_dump_reason_to_device_info(dp_info->dump_reason);
     flag++;
 }
 
