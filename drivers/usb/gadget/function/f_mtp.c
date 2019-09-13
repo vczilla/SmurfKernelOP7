@@ -1138,8 +1138,11 @@ static int mtp_send_event(struct mtp_dev *dev, struct mtp_event *event)
 	if (!req)
 		return -ETIME;
 
+	if (mtp_lock(&dev->ioctl_excl))
+		return -EBUSY;
 	if (copy_from_user(req->buf, (void __user *)event->data, length)) {
 		mtp_req_put(dev, &dev->intr_idle, req);
+		mtp_unlock(&dev->ioctl_excl);
 		return -EFAULT;
 	}
 	req->length = length;
@@ -1147,6 +1150,7 @@ static int mtp_send_event(struct mtp_dev *dev, struct mtp_event *event)
 	if (ret)
 		mtp_req_put(dev, &dev->intr_idle, req);
 
+	mtp_unlock(&dev->ioctl_excl);
 	return ret;
 }
 
@@ -1249,8 +1253,8 @@ static long mtp_ioctl(struct file *fp, unsigned int code, unsigned long value)
 		ret = mtp_send_receive_ioctl(fp, code, &mfr);
 	break;
 	case MTP_SEND_EVENT:
-		if (mtp_lock(&dev->ioctl_excl))
-			return -EBUSY;
+//		if (mtp_lock(&dev->ioctl_excl))
+//			return -EBUSY;
 		/* return here so we don't change dev->state below,
 		 * which would interfere with bulk transfer state.
 		 */
@@ -1258,7 +1262,7 @@ static long mtp_ioctl(struct file *fp, unsigned int code, unsigned long value)
 			ret = -EFAULT;
 		else
 			ret = mtp_send_event(dev, &event);
-		mtp_unlock(&dev->ioctl_excl);
+//		mtp_unlock(&dev->ioctl_excl);
 	break;
 	default:
 		mtp_log("unknown ioctl code: %d\n", code);
@@ -1318,8 +1322,8 @@ static long compat_mtp_ioctl(struct file *fp, unsigned int code,
 		mfr.transaction_id = cmfr.transaction_id;
 		ret = mtp_send_receive_ioctl(fp, cmd, &mfr);
 	} else {
-		if (mtp_lock(&dev->ioctl_excl))
-			return -EBUSY;
+//		if (mtp_lock(&dev->ioctl_excl))
+//			return -EBUSY;
 		/* return here so we don't change dev->state below,
 		 * which would interfere with bulk transfer state.
 		 */
@@ -1331,7 +1335,7 @@ static long compat_mtp_ioctl(struct file *fp, unsigned int code,
 		event.length = cevent.length;
 		event.data = compat_ptr(cevent.data);
 		ret = mtp_send_event(dev, &event);
-		mtp_unlock(&dev->ioctl_excl);
+//		mtp_unlock(&dev->ioctl_excl);
 	}
 fail:
 	return ret;
