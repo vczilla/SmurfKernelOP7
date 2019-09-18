@@ -130,7 +130,8 @@
 			soctrip_cpu4 {
 				trip = <&soc_trip2>;
 				cooling-device =
-					<&CPU4 6 6>;
+					<&CPU4 THERMAL_MAX_LIMIT
+					THERMAL_MAX_LIMIT>;
 			};
 			soctrip_cpu7 {
 				trip = <&soc_trip2>;
