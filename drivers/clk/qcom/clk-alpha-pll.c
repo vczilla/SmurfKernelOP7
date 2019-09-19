@@ -1946,7 +1946,7 @@ static int clk_fabia_pll_enable(struct clk_hw *hw)
 {
 	int ret;
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
-	u32 val, off = pll->offset;
+	u32 val, opmode_val, off = pll->offset, l_val;
 
 	ret = regmap_read(pll->clkr.regmap, off + PLL_MODE, &val);
 	if (ret)
@@ -1960,8 +1960,31 @@ static int clk_fabia_pll_enable(struct clk_hw *hw)
 		return wait_for_pll_enable_active(pll);
 	}
 
-	if (unlikely(!pll->inited))
-		clk_fabia_pll_configure(pll, pll->clkr.regmap, pll->config);
+	ret = regmap_read(pll->clkr.regmap, off + PLL_MODE, &opmode_val);
+	if (ret)
+		return ret;
+
+	/* Skip If PLL is already running */
+	if ((opmode_val & FABIA_PLL_RUN) && (val & PLL_OUTCTRL))
+		return 0;
+
+	ret = regmap_read(pll->clkr.regmap, pll->offset + PLL_L_VAL, &l_val);
+	if (ret)
+		return ret;
+
+	/* PLL has lost it's L value, needs reconfiguration */
+	if (!l_val)
+		pll->inited = false;
+
+	if (unlikely(!pll->inited)) {
+		ret = clk_fabia_pll_configure(pll, pll->clkr.regmap,
+				pll->config);
+		if (ret) {
+			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
+			return ret;
+		}
+		pr_warn("PLL configuration lost, reconfiguration of PLL done.\n");
+	}
 
 	/* Disable PLL output */
 	ret = regmap_update_bits(pll->clkr.regmap, off + PLL_MODE,
@@ -2187,6 +2210,7 @@ const struct clk_ops clk_fabia_pll_ops = {
 	.prepare = clk_fabia_pll_prepare,
 	.enable = clk_fabia_pll_enable,
 	.disable = clk_fabia_pll_disable,
+	.is_enabled = clk_alpha_pll_is_enabled,
 	.recalc_rate = clk_fabia_pll_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = clk_fabia_pll_set_rate,
@@ -2198,6 +2222,7 @@ EXPORT_SYMBOL(clk_fabia_pll_ops);
 const struct clk_ops clk_fabia_fixed_pll_ops = {
 	.enable = clk_fabia_pll_enable,
 	.disable = clk_fabia_pll_disable,
+	.is_enabled = clk_alpha_pll_is_enabled,
 	.recalc_rate = clk_fabia_pll_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 	.list_registers = clk_fabia_pll_list_registers,
