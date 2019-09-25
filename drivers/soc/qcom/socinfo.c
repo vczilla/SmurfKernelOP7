@@ -28,6 +28,7 @@
 #include <linux/stat.h>
 #include <linux/string.h>
 #include <linux/types.h>
+#include <linux/early_userspace.h>
 
 #include <asm/system_misc.h>
 
@@ -1733,7 +1734,7 @@ static void socinfo_select_format(void)
 	}
 }
 
-int __init socinfo_init(void)
+static inline int __init _socinfo_init(void)
 {
 	static bool socinfo_init_done;
 	size_t size;
@@ -1764,5 +1765,17 @@ int __init socinfo_init(void)
 	socinfo_init_done = true;
 
 	return 0;
+}
+
+int __init early_socinfo_init(void)
+{
+	return _socinfo_init();
+}
+
+int __init socinfo_init(void)
+{
+	if (is_early_userspace)
+		return 0;
+	return _socinfo_init();
 }
 subsys_initcall(socinfo_init);
