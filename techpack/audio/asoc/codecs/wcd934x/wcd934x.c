@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4494,18 +4494,16 @@ static int tavil_codec_enable_dec(struct snd_soc_dapm_widget *w,
 
 		tavil->tx_hpf_work[decimator].hpf_cut_off_freq =
 							hpf_cut_off_freq;
-		if (hpf_cut_off_freq != CF_MIN_3DB_150HZ) {
-			snd_soc_update_bits(codec, dec_cfg_reg,
-					    TX_HPF_CUT_OFF_FREQ_MASK,
-					    CF_MIN_3DB_150HZ << 5);
-			snd_soc_update_bits(codec, hpf_gate_reg, 0x02, 0x02);
-			/*
-			 * Minimum 1 clk cycle delay is required as per
-			 * HW spec.
-			 */
-			usleep_range(1000, 1010);
-			snd_soc_update_bits(codec, hpf_gate_reg, 0x02, 0x00);
-		}
+		snd_soc_update_bits(codec, dec_cfg_reg,
+				    TX_HPF_CUT_OFF_FREQ_MASK,
+				    CF_MIN_3DB_150HZ << 5);
+		snd_soc_update_bits(codec, hpf_gate_reg, 0x02, 0x02);
+		/*
+		 * Minimum 1 clk cycle delay is required as per
+		 * HW spec.
+		 */
+		usleep_range(1000, 1010);
+		snd_soc_update_bits(codec, hpf_gate_reg, 0x02, 0x00);
 		/* schedule work queue to Remove Mute */
 		schedule_delayed_work(&tavil->tx_mute_dwork[decimator].dwork,
 				      msecs_to_jiffies(tx_unmute_delay));
@@ -10237,13 +10235,6 @@ done:
 	mutex_unlock(&tavil->codec_mutex);
 	return ret;
 }
-static const unsigned int plug_type_extcon_tab[] = {
-	EXTCON_PLUG_TYPE_NONE,             
-	EXTCON_PLUG_TYPE_HEADSET,          
-	EXTCON_PLUG_TYPE_HEADPHONE,        
-	EXTCON_PLUG_TYPE_GND_MIC_SWAP,     
-	EXTCON_NONE,                       
-};
 
 static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 {
@@ -10300,15 +10291,6 @@ static int tavil_soc_codec_probe(struct snd_soc_codec *codec)
 		goto err_hwdep;
 	}
 
-	tavil->mbhc->wcd_mbhc.wcd934x_edev = devm_extcon_dev_allocate(codec->dev,
-			plug_type_extcon_tab);
-	tavil->mbhc->wcd_mbhc.wcd934x_edev->name = "soc:h2w";
-	ret = devm_extcon_dev_register(codec->dev, tavil->mbhc->wcd_mbhc.wcd934x_edev);
-	if (ret < 0)
-		goto err_hwdep;
-
-	extcon_set_state(tavil->mbhc->wcd_mbhc.wcd934x_edev, EXTCON_PLUG_TYPE_NONE, 1);
-	pr_err("%s: wcd934x_edev probe success!\n", __func__);
 	tavil->codec = codec;
 	for (i = 0; i < COMPANDER_MAX; i++)
 		tavil->comp_enabled[i] = 0;
@@ -10440,7 +10422,6 @@ static int tavil_soc_codec_remove(struct snd_soc_codec *codec)
 	struct wcd9xxx *control;
 	struct tavil_priv *tavil = snd_soc_codec_get_drvdata(codec);
 
-	extcon_dev_unregister(tavil->mbhc->wcd_mbhc.wcd934x_edev);
 	control = dev_get_drvdata(codec->dev->parent);
 	devm_kfree(codec->dev, control->rx_chs);
 	/* slimslave deinit in wcd core looks for this value */

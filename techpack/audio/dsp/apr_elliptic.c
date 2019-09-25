@@ -397,8 +397,10 @@ int32_t elliptic_process_apr_payload(uint32_t *payload)
 			ret = process_diagnostics_msg(payload, payload_size);
 			break;
 		case ELLIPTIC_ULTRASOUND_PARAM_ID_SENSORHUB:
+			//quentin.lin@oneplus.com 2019/01/07 add for ultrasound proximty
 			ret = send_event_to_user(payload, payload_size);
 			process_sensorhub_msg(payload, payload_size);
+			//end add
 			break;
 		case ELLIPTIC_ULTRASOUND_PARAM_ID_ENGINE_DATA:
 			ret = elliptic_data_push(

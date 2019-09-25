@@ -863,7 +863,7 @@ int tfa_cont_get_idx(struct tfa_device *tfa)
 
 	for (i=0; i<tfa->cnt->ndev; i++) {
 		dev = tfaContDevice(tfa->cnt, i);
-		if (dev->dev == tfa->slave_address)
+		if ((dev != NULL) && (dev->dev == tfa->slave_address))
 			break;
 
 	}

@@ -263,6 +263,11 @@ int cam_flash_i2c_power_ops(struct cam_flash_ctrl *fctrl,
 			cam_sensor_util_power_down(power_info, soc_info);
 			goto free_pwr_settings;
 		}
+		else
+		{
+			CAM_INFO(CAM_FLASH,"camera_io_init");
+		}
+		
 		fctrl->is_regulator_enabled = true;
 	} else if ((!regulator_enable) &&
 		(fctrl->is_regulator_enabled == true)) {
@@ -273,6 +278,7 @@ int cam_flash_i2c_power_ops(struct cam_flash_ctrl *fctrl,
 			return rc;
 		}
 		camera_io_release(&(fctrl->io_master_info));
+		CAM_INFO(CAM_FLASH,"camera_io_release");
 		fctrl->is_regulator_enabled = false;
 		goto free_pwr_settings;
 	}

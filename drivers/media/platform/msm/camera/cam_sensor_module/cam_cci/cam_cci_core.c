@@ -315,7 +315,7 @@ static uint32_t cam_cci_wait(struct cci_device *cci_dev,
 				if (read_val > 0) {
 					rc = -ETIMEDOUT;
 					CAM_ERR(CAM_CCI,
-					"wait for master %d queue %d timeout again", master, queue);
+					"wait for master %d queue %d timeout again");
 				} else {
 					CAM_DBG(CAM_CCI,
 						"Ignore this timeout for master %d queue %d after re-execute again!!",
@@ -1146,7 +1146,7 @@ static int32_t cam_cci_burst_read(struct v4l2_subdev *sd,
 		    * RD_DONE exclusively.
 		    */
 			rem_jiffies = wait_for_completion_timeout(
-			&cci_dev->cci_master_info[master].reset_complete,
+			&cci_dev->cci_master_info[master].rd_done,
 			CCI_TIMEOUT);
 			if (!rem_jiffies) {
 				rc = -ETIMEDOUT;
@@ -1327,10 +1327,11 @@ static int32_t cam_cci_read(struct v4l2_subdev *sd,
 	val = 1 << ((master * 2) + queue);
 	cam_io_w_mb(val, base + CCI_QUEUE_START_ADDR);
 	CAM_DBG(CAM_CCI,
-		"waiting_for_rd_done [exp_words: %d]", exp_words);
+		"waiting_for_rd_done [exp_words: %d]",
+		((read_cfg->num_byte / 4) + 1));
 
 	rc = wait_for_completion_timeout(
-		&cci_dev->cci_master_info[master].reset_complete, CCI_TIMEOUT);
+		&cci_dev->cci_master_info[master].rd_done, CCI_TIMEOUT);
 	if (rc <= 0) {
 #ifdef DUMP_CCI_REGISTERS
 		cam_cci_dump_registers(cci_dev, master, queue);
@@ -1354,6 +1355,11 @@ static int32_t cam_cci_read(struct v4l2_subdev *sd,
 	if (read_words != exp_words) {
 		CAM_ERR(CAM_CCI, "read_words = %d, exp words = %d",
 			read_words, exp_words);
+		while (read_words > 0) {
+			val = cam_io_r_mb(base +
+				CCI_I2C_M0_READ_DATA_ADDR + master * 0x100);
+			read_words--;
+		}
 		memset(read_cfg->data, 0, read_cfg->num_byte);
 		rc = -EINVAL;
 		goto rel_mutex_q;
@@ -1825,7 +1831,7 @@ static int32_t cam_cci_write_packet(
             count);
         count = MAX_WRITE_ARRAY_SIZE;
     }
-    for(i=0;i<count;i++){
+    for(i=0; i<count; i++){
         write_regarray[i].reg_addr = addr+i;
         write_regarray[i].reg_data = data[i];
         //CAM_ERR(CAM_SENSOR, "cam_cci_write_packet addr = 0x%x,data= 0x%x,count=%d",
@@ -1870,14 +1876,14 @@ int32_t cam_cci_control_interface(void* control)
         cci_ctrl_interface.cci_info->retries = 3;
         mutex_lock(&cci_dev->init_mutex);
         rc = cam_cci_init(sd, &cci_ctrl_interface);
-        CAM_INFO(CAM_CCI, "cci init cmd,rc=%d",rc);
         mutex_unlock(&cci_dev->init_mutex);
+        CAM_INFO(CAM_CCI, "cci init cmd,rc=%d",rc);
         break;
     case CAMERA_CCI_RELEASE:
         mutex_lock(&cci_dev->init_mutex);
         rc = cam_cci_release(sd);
-        CAM_INFO(CAM_CCI, "cci release cmd,rc=%d",rc);
         mutex_unlock(&cci_dev->init_mutex);
+        CAM_INFO(CAM_CCI, "cci release cmd,rc=%d",rc);
         break;
     case CAMERA_CCI_READ:
         cci_ctrl_interface.cmd = MSM_CCI_I2C_READ;
@@ -1892,7 +1898,7 @@ int32_t cam_cci_control_interface(void* control)
             CAM_ERR(CAM_CCI, "cmd %d,rc=%d", pControl->cmd,rc);
             exp_byte = ((cci_ctrl_interface.cfg.cci_i2c_read_cfg.num_byte / 4) + 1);
             CAM_ERR(CAM_CCI, "songyt read exp byte=%d", exp_byte);
-            for(i=0;i<exp_byte;i++){
+            for(i=0; i<exp_byte; i++){
                 CAM_ERR(CAM_CCI, "songyt read byte=0x%x,index=%d",
                     cci_ctrl_interface.cfg.cci_i2c_read_cfg.data[i],i);
             }

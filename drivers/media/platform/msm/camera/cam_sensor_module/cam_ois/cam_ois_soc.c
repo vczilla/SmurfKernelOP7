@@ -126,7 +126,7 @@ int cam_ois_driver_soc_init(struct cam_ois_ctrl_t *o_ctrl)
 		CAM_DBG(CAM_OIS, "failed: ois get dt data rc %d", rc);
 
 	rc = of_property_read_u32(of_node, "ois_gyro,id", &id);
-	if (rc && (rc != -EINVAL)) {
+	if (rc < 0) {
 	    o_ctrl->ois_gyro_id = 1;
 		CAM_ERR(CAM_OIS, "get ois_gyro,id failed rc:%d, default 1", rc);
 	} else {
@@ -141,5 +141,12 @@ int cam_ois_driver_soc_init(struct cam_ois_ctrl_t *o_ctrl)
 			CAM_INFO(CAM_OIS, "857 gyro upside");
 		}
 	}
+        if (of_property_read_u32(of_node, "master_cci,id", &id) < 0) {
+            o_ctrl->cci_master_id = 1;
+            CAM_INFO(CAM_OIS, " cci_master_id,id fallback, default 1");
+        } else {
+            o_ctrl->cci_master_id = (uint8_t)id;
+            CAM_INFO(CAM_OIS,"cci_master_id,id:%d", id);
+        }
 	return rc;
 }

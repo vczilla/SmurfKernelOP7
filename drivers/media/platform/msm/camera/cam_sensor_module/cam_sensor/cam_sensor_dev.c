@@ -73,7 +73,7 @@ static long cam_sensor_subdev_ioctl(struct v4l2_subdev *sd,
             rc = camera_io_dev_write(&(s_ctrl->io_master_info), &sensor_setting);
 
             if (rc < 0) {
-			/* If the I2C reg write failed for the first section reg, send
+    			/* If the I2C reg write failed for the first section reg, send
                 the result instead of keeping writing the next section of reg. */
                 CAM_ERR(CAM_SENSOR, "FTM Failed to stream off setting,rc=%d.",rc);
             } else {
@@ -102,7 +102,7 @@ static long cam_sensor_subdev_ioctl(struct v4l2_subdev *sd,
             rc = camera_io_dev_write(&(s_ctrl->io_master_info), &sensor_setting);
 
             if (rc < 0) {
-			/* If the I2C reg write failed for the first section reg, send
+    			/* If the I2C reg write failed for the first section reg, send
                 the result instead of keeping writing the next section of reg. */
                 CAM_ERR(CAM_SENSOR, "FTM Failed to write sensor setting 1/2");
 				break;
@@ -189,7 +189,7 @@ static int cam_sensor_subdev_close(struct v4l2_subdev *sd,
 
 	mutex_lock(&(s_ctrl->cam_sensor_mutex));
     if(!is_ftm_current_test)
-	cam_sensor_shutdown(s_ctrl);
+    	cam_sensor_shutdown(s_ctrl);
 	mutex_unlock(&(s_ctrl->cam_sensor_mutex));
 
 	return 0;

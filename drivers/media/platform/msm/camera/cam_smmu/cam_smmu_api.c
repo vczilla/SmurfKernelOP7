@@ -1661,7 +1661,8 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 
 		if (rc < 0) {
 			CAM_ERR(CAM_SMMU,
-				"IOVA alloc failed for shared memory, size=%zu, idx=%d, handle=%d",
+				"IOVA alloc failed for shared memory %s, size=%zu, idx=%d, handle=%d",
+				iommu_cb_set.cb_info[idx].name,
 				*len_ptr, idx,
 				iommu_cb_set.cb_info[idx].handle);
 			goto err_unmap_sg;

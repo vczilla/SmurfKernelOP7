@@ -71,7 +71,7 @@
 #include <linux/timer.h>
 #include <linux/clk.h>
 #include "pn5xx.h"
-
+#include <linux/oneplus/boot_mode.h>
 #define NEXUS5x    0
 #define HWINFO     1
 #define DRAGON_NFC 1
@@ -1119,6 +1119,11 @@ static int pn544_probe(struct i2c_client *client,
     //struct pn544_dev *pn544_dev;
 
     struct device_node *node = client->dev.of_node;
+
+    if (get_second_board_absent() == 1) {
+        pr_err("second board absent, don't probe pn5xx\n", __func__);
+        goto err_exit;
+    }
 
     if (node) {
         platform_data = devm_kzalloc(&client->dev,

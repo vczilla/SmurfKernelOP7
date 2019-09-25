@@ -124,6 +124,7 @@ size_t elliptic_data_pop(struct elliptic_data *,
 /* Used for cancelling a blocking read */
 void elliptic_data_cancel(struct elliptic_data *);
 
+//quentin.lin@oneplus.com 2019/01/07 add for ultrasound proximty
 int send_event_to_user(uint32_t *payload, uint32_t payload_size);
 
 /* Called from IO module*/

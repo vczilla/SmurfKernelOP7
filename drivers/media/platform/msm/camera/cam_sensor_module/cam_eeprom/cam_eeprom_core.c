@@ -18,6 +18,22 @@
 #include "cam_eeprom_soc.h"
 #include "cam_debug_util.h"
 
+#include <linux/project_info.h>
+struct module_vendor_match_tbl {
+	uint32_t sensor_id;
+	uint32_t vendor_id;
+	char vendor_name[32];
+};
+static struct module_vendor_match_tbl match_tbl[] = {
+	{0x56, 0x03, "SEMCO"}, //0x56 - imx586 - rear 1st
+	{0x56, 0x06, "OFILM"}, //0x56 - imx586 - rear 2nd
+	{0x55, 0x01, "SUNNY"}, //0x55 - imx471 - front 1st
+};
+static char r_module_date[12];
+static char f_module_date[12];
+static bool r_module_dated = false;
+static bool f_module_dated = false;
+
 #define EEPROM_FRONT_SENSOR_ID 0x55 //imx471
 #define EEPROM_SEMCO_VENDOR_ID 0x03 //SEMCO
 
@@ -206,6 +222,26 @@ static int cam_eeprom_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
 		yearL = reg_data & 0xFF;
 	}
 
+	for (k = 0; k < sizeof(match_tbl)/sizeof(match_tbl[0]); k++) {
+		if (module_sensor_id == match_tbl[k].sensor_id && module_vendor_id == match_tbl[k].vendor_id) {
+			if (EEPROM_FRONT_SENSOR_ID == module_sensor_id) {
+				if (f_module_dated == false) {
+					snprintf(f_module_date, sizeof(f_module_date), "%02d%02d%02d%02d", yearH, yearL, month, day);
+					push_component_info(F_MODULE, match_tbl[k].vendor_name, f_module_date);
+					CAM_INFO(CAM_EEPROM, "F_MODULE date:%s", f_module_date);
+					f_module_dated = true;
+				}
+			} else {
+				if (r_module_dated == false) {
+					snprintf(r_module_date, sizeof(r_module_date), "%02d%02d%02d%02d", yearH, yearL, month, day);
+					push_component_info(R_MODULE, match_tbl[k].vendor_name, r_module_date);
+					CAM_INFO(CAM_EEPROM, "R_MODULE date:%s", r_module_date);
+					r_module_dated = true;
+				}
+			}
+			break;
+		}
+	}
 	return rc;
 }
 
@@ -259,6 +295,11 @@ static int cam_eeprom_power_up(struct cam_eeprom_ctrl_t *e_ctrl,
 			CAM_ERR(CAM_EEPROM, "cci_init failed");
 			return -EINVAL;
 		}
+		else
+		{
+			CAM_INFO(CAM_EEPROM,"camera_io_init");
+		}
+		
 	}
 	return rc;
 }
@@ -297,8 +338,11 @@ static int cam_eeprom_power_down(struct cam_eeprom_ctrl_t *e_ctrl)
 	}
 
 	if (e_ctrl->io_master_info.master_type == CCI_MASTER)
+	{
 		camera_io_release(&(e_ctrl->io_master_info));
-
+		CAM_INFO(CAM_EEPROM,"camera_io_release");
+	}
+	
 	return rc;
 }
 

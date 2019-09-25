@@ -42,7 +42,7 @@
 #include <linux/regulator/consumer.h>
 #include "p73.h"
 #include "../pn5xx.h"
-
+#include <linux/oneplus/boot_mode.h>
 extern long  pn544_dev_ioctl(struct file *filp, unsigned int cmd,
         unsigned long arg);
 
@@ -571,6 +571,11 @@ static int p61_probe(struct spi_device *spi)
     struct p61_spi_platform_data *platform_data = NULL;
     struct p61_spi_platform_data platform_data1;
     struct p61_dev *p61_dev = NULL;
+
+    if (get_second_board_absent() == 1) {
+	    pr_err("%s second board absent, don't probe p73",__func__);
+	    goto err_exit;
+    }
 
     P61_DBG_MSG("%s chip select : %d , bus number = %d \n",
             __FUNCTION__, spi->chip_select, spi->master->bus_num);

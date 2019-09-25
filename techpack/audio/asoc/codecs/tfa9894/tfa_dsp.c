@@ -1472,6 +1472,10 @@ enum Tfa98xx_Error dsp_msg(struct tfa_device *tfa, int length24, const char *buf
 
 		length = 4 * length24 / 3;
 		intbuf = kmem_cache_alloc(tfa->cachep, GFP_KERNEL);
+		if (intbuf == NULL) {
+			pr_err("%s: kmem_cache_alloc failed\n", __func__);
+			return Tfa98xx_Error_Fail;
+		}
 		buf = (char *)intbuf;
 
 		/* convert 24 bit DSP messages to a 32 bit integer */
@@ -1486,8 +1490,11 @@ enum Tfa98xx_Error dsp_msg(struct tfa_device *tfa, int length24, const char *buf
 	if(tfa->ext_dsp == 1) {
 		/* Creating the multi-msg */
 		error = tfa_tib_dsp_msgmulti(tfa, length, buf);
-		if(error == Tfa98xx_Error_Fail)
+		if(error == Tfa98xx_Error_Fail) {
+			if (intbuf)
+				kmem_cache_free(tfa->cachep, intbuf);
 			return Tfa98xx_Error_Fail;
+	    }
 
 		/* if the buffer is full we need to send the existing message and add the current message */
 		if(error == Tfa98xx_Error_Buffer_too_small) {
@@ -1510,6 +1517,8 @@ enum Tfa98xx_Error dsp_msg(struct tfa_device *tfa, int length24, const char *buf
 			/* (b) add the current DSP message to a new multi-message */
 			error = tfa_tib_dsp_msgmulti(tfa, length, buf);
 			if(error == Tfa98xx_Error_Fail) {
+				if (intbuf)
+					kmem_cache_free(tfa->cachep, intbuf);
 				return Tfa98xx_Error_Fail;
 			}
 		}

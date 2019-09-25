@@ -32,17 +32,9 @@
 #include "pdata.h"
 #include <asoc/wcd934x_registers.h>
 
-#if 1
-#define WCD_MBHC_ADC_HS_THRESHOLD_MV    1800
-#else
-#define WCD_MBHC_ADC_HS_THRESHOLD_MV    1700
-#endif
+#define WCD_MBHC_ADC_HS_THRESHOLD_MV    2550
 #define WCD_MBHC_ADC_HPH_THRESHOLD_MV   75
-#if 1
 #define WCD_MBHC_ADC_MICBIAS_MV         2700
-#else
-#define WCD_MBHC_ADC_MICBIAS_MV         1800
-#endif
 #define WCD_MBHC_FAKE_INS_RETRY         4
 
 static int wcd_mbhc_get_micbias(struct wcd_mbhc *mbhc)
@@ -652,6 +644,18 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	output_mv = wcd_measure_adc_continuous(mbhc);
 	plug_type = wcd_mbhc_get_plug_from_adc(mbhc, output_mv);
 
+
+	if ((plug_type == MBHC_PLUG_TYPE_HEADPHONE) &&
+		(!wcd_swch_level_remove(mbhc))) {
+		if (mbhc->mbhc_cfg->swap_gnd_mic &&
+				mbhc->mbhc_cfg->swap_gnd_mic(codec, true)) {
+			pr_info("%s: switch again, it's headset\n", __func__);
+		}
+		msleep(10);
+		output_mv = wcd_measure_adc_continuous(mbhc);
+		plug_type = wcd_mbhc_get_plug_from_adc(mbhc, output_mv);
+	}
+
 	/*
 	 * Report plug type if it is either headset or headphone
 	 * else start the 3 sec loop
@@ -875,6 +879,7 @@ enable_supply:
 exit:
     if (plug_type == MBHC_PLUG_TYPE_HEADSET)
         mbhc->micbias_enable = true;
+
 	if (mbhc->mbhc_cb->mbhc_micbias_control &&
 	    !mbhc->micbias_enable)
 		mbhc->mbhc_cb->mbhc_micbias_control(codec, MIC_BIAS_2,
@@ -1093,7 +1098,7 @@ static irqreturn_t wcd_mbhc_adc_hs_ins_irq(int irq, void *data)
 
 	WCD_MBHC_RSC_LOCK(mbhc);
 
-	if (mbhc->usbc_hp_detect && wcd_swch_level_remove(mbhc)) {
+	if (mbhc->use_usbc_detect && wcd_swch_level_remove(mbhc)) {
 		pr_warn("%s: Switch level is low ", __func__);
 		WCD_MBHC_RSC_UNLOCK(mbhc);
 		return IRQ_HANDLED;

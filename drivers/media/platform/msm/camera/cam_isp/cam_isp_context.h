@@ -144,6 +144,7 @@ struct cam_isp_context_state_monitor {
  * @base:                      Common context object pointer
  * @frame_id:                  Frame id tracking for the isp context
  * @substate_actiavted:        Current substate for the activated state.
+ * @fps:                       Current FPS for the activated state.
  * @process_bubble:            Atomic variable to check if ctx is still
  *                             processing bubble.
  * @substate_machine:          ISP substate machine for external interface
@@ -165,6 +166,8 @@ struct cam_isp_context_state_monitor {
  * @hw_acquired:               Indicate whether HW resources are acquired
  * @init_received:             Indicate whether init config packet is received
  * @split_acquire:             Indicate whether a separate acquire is expected
+ * @irq_delay_detect:          Indicate whether a irq delay has detected or not
+ * @irq_timestamps:            Timestamp from last handled IRQ
  *
  */
 struct cam_isp_context {
@@ -172,6 +175,7 @@ struct cam_isp_context {
 
 	int64_t                          frame_id;
 	uint32_t                         substate_activated;
+	uint32_t                         fps;
 	atomic_t                         process_bubble;
 	struct cam_ctx_ops              *substate_machine;
 	struct cam_isp_ctx_irq_ops      *substate_machine_irq;
@@ -194,7 +198,7 @@ struct cam_isp_context {
 	bool                             init_received;
 	bool                             split_acquire;
 	bool                             irq_delay_detect;
-	uint64_t			irq_timestamps;
+	uint64_t                         irq_timestamps;
 };
 
 /**

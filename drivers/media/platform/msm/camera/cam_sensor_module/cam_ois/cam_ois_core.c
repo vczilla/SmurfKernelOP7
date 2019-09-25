@@ -24,7 +24,7 @@
 #include <linux/time.h>
 #include "ois_fw/Ois.h"
 
-//18821 master
+//18821 master semco
 #include "ois_fw/LC898124EP3_Code_0_1_2_2_0_0.h"		// Gyro=LSM6DSM,	SPI Maste	SO2820_T1
 #include "ois_fw/LC898124EP3_Code_0_1_3_2_1_0.h"		// Gyro=LSM6DSM,	SPI Slave	SO3600_T1
 
@@ -32,7 +32,7 @@
 #include "ois_fw/LC898124EP3_Code_0_2_6_2_0_0.h"		// Gyro=LSM6DSM,	SPI Maste	SO2820_T1
 #include "ois_fw/LC898124EP3_Code_0_2_6_2_0_1.h"		// Gyro=LSM6DSM,	SPI Slave	SO3600_T1
 
-//18821 slave
+//18821 slave semco
 #include "ois_fw/LC898124EP3_Code_0_1_2_3_0_0.h"		// Gyro=BMI160,		SPI Maste	SO2820_T1
 #include "ois_fw/LC898124EP3_Code_0_1_3_3_1_0.h"		// Gyro=BMI160,		SPI Slave	SO3600_T1
 
@@ -40,27 +40,50 @@
 #include "ois_fw/LC898124EP3_Code_0_2_7_2_1_0.h"		// Gyro=BMI160,		SPI Maste	SO2820_T1
 #include "ois_fw/LC898124EP3_Code_0_2_7_2_1_1.h"		// Gyro=BMI160,		SPI Slave	SO3600_T1
 
-//18857
+//18857 semco
 #include "ois_fw/LC898124EP3_Code_0_1_0_2_2_0.h"		// Gyro=LSM6DSM,	SO2821
 #include "ois_fw/LC898124EP3_Code_0_1_0_2_2_1.h"		// Gyro=LSM6DSM,	FRA, SO2821
 
-//18821 Servo on master
+//18821 Servo on master semco
 #include "ois_fw/LC898124EP3_Servo_On_Code_0_1_2_2_0_0.h"		// Gyro=LSM6DSM,	SPI Maste	SO2820_T1
 #include "ois_fw/LC898124EP3_Servo_On_Code_0_1_3_2_1_0.h"		// Gyro=LSM6DSM,	SPI Slave	SO3600_T1
 
 //18821 Servo on master ofilm
 #include "ois_fw/LC898124EP3_Servo_On_Code_0_2_6_2_0_0.h"		// Gyro=LSM6DSM,	SPI Maste	SO2820_T1
 
-//18821 Servo on slave
+//18821 Servo on slave semco
 #include "ois_fw/LC898124EP3_Servo_On_Code_0_1_2_3_0_0.h"		// Gyro=BMI160,		SPI Maste	SO2820_T1
 #include "ois_fw/LC898124EP3_Servo_On_Code_0_1_3_3_1_0.h"		// Gyro=BMI160,		SPI Slave	SO3600_T1
 
 //18821 Servo on slave ofilm
 #include "ois_fw/LC898124EP3_Servo_On_Code_0_2_7_2_1_0.h"		// Gyro=BMI160,		SPI Maste	SO2820_T1
 
-//18857 Servo on
+//18857 Servo on semco
 #include "ois_fw/LC898124EP3_Servo_On_Code_0_1_0_2_2_0.h"		// Gyro=LSM6DSM,	SO2821
 #include "ois_fw/LC898124EP3_Servo_On_Code_0_1_0_2_2_1.h"		// Gyro=LSM6DSM,	FRA, SO2821
+
+
+//19801 Master semco
+#include "ois_fw/LC898124EP3_Code_1_1_2_2_0_0.h"        // Gyro back
+#include "ois_fw/LC898124EP3_Code_2_1_2_2_0_0.h"        // Gyro front
+
+//19801 Slave semco
+#include "ois_fw/LC898124EP3_Code_1_1_3_2_1_0.h"        // Gyro back
+#include "ois_fw/LC898124EP3_Code_2_1_3_2_1_0.h"        // Gyro front
+
+//19801 Master ofilm
+#include "ois_fw/LC898124EP3_Code_1_2_6_2_0_0.h"                 // Gyro=LSM6DSM,        SPI Maste            M12337        Gyro back
+#include "ois_fw/LC898124EP3_Code_2_2_6_2_0_0.h"                 // Gyro=LSM6DSM,        SPI Maste            M12337        Gyro front
+
+//19801 Slave ofilm
+#include "ois_fw/LC898124EP3_Code_1_2_7_2_1_0.h"                 // Gyro=LSM6DSM,        SPI Slave            M10235        Gyro back
+#include "ois_fw/LC898124EP3_Code_2_2_7_2_1_0.h"                 // Gyro=LSM6DSM,        SPI Slave            M10235        Gyro front
+
+//18865 semco
+#include "ois_fw/LC898124EP3_Code_1_1_0_2_2_0.h"		// Gyro=LSM6DSM,	SO2823
+
+//18865 ofilm
+#include "ois_fw/LC898124EP3_Code_1_2_1_2_2_0.h"		 // Gyro=LSM6DSM,	                      M12337
 
 #define MAX_DATA_NUM 64
 #define MASTER_CCI_ADDR (0x7C >> 1)
@@ -75,7 +98,9 @@ static bool s5k3m5_ois_initialized = false;
 static bool imx586_ois_ready = false;
 static bool s5k3m5_ois_ready = false;
 static struct cam_sensor_i2c_reg_array *i2c_write_setting_gl = NULL;
-extern struct cam_ois_ctrl_t *ctrl;
+extern struct cam_ois_ctrl_t *ctrl_wide;
+extern struct cam_ois_ctrl_t *ctrl_tele;
+enum cci_i2c_master_t imx586_cci_master = MASTER_MAX;
 
 typedef struct {
 	INT32				SiSampleNum ;			// Measure Sample Number
@@ -115,31 +140,42 @@ typedef struct {
 #define		CNT100MS		1352
 #define		CNT200MS		2703
 
+#define         MODEL_0                 1
+#define         MODEL_0_SERVO           2
+#define         MODEL_1                 3
+#define         MODEL_2                 4
+
 //18857
 const DOWNLOAD_TBL DTbl[] = {
- {0x0002, 1, LC898124EP3_PM_0_1_0_2_2_0, LC898124EP3_PMSize_0_1_0_2_2_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_1_0_2_2_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_1_0_2_2_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_1_0_2_2_0), LC898124EP3_DM_0_1_0_2_2_0, LC898124EP3_DMA_ByteSize_0_1_0_2_2_0 , LC898124EP3_DMB_ByteSize_0_1_0_2_2_0 },
- {0x0082, 1, LC898124EP3_PM_0_1_0_2_2_1, LC898124EP3_PMSize_0_1_0_2_2_1, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_1_0_2_2_1 + (UINT32)LC898124EP3_DMA_CheckSum_0_1_0_2_2_1 + (UINT32)LC898124EP3_DMB_CheckSum_0_1_0_2_2_1), LC898124EP3_DM_0_1_0_2_2_1, LC898124EP3_DMA_ByteSize_0_1_0_2_2_1 , LC898124EP3_DMB_ByteSize_0_1_0_2_2_1 },
- {0x0002, 2, LC898124EP3_SERVO_ON_PM_0_1_0_2_2_0, LC898124EP3_SERVO_ON_PMSize_0_1_0_2_2_0, (UINT32)((UINT32)LC898124EP3_SERVO_ON_PMCheckSum_0_1_0_2_2_0 + (UINT32)LC898124EP3_SERVO_ON_DMA_CheckSum_0_1_2_2_0_0 + (UINT32)LC898124EP3_SERVO_ON_DMB_CheckSum_0_1_0_2_2_0), LC898124EP3_SERVO_ON_DM_0_1_0_2_2_0, LC898124EP3_SERVO_ON_DMA_ByteSize_0_1_0_2_2_0 , LC898124EP3_SERVO_ON_DMB_ByteSize_0_1_0_2_2_0 },
- {0xFFFF, 1, (void*)0, 0, 0, (void*)0 ,0 ,0 }
+ {0x0002, MODEL_0       , LC898124EP3_PM_0_1_0_2_2_0, LC898124EP3_PMSize_0_1_0_2_2_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_1_0_2_2_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_1_0_2_2_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_1_0_2_2_0), LC898124EP3_DM_0_1_0_2_2_0, LC898124EP3_DMA_ByteSize_0_1_0_2_2_0 , LC898124EP3_DMB_ByteSize_0_1_0_2_2_0 },
+ {0x0082, MODEL_0       , LC898124EP3_PM_0_1_0_2_2_1, LC898124EP3_PMSize_0_1_0_2_2_1, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_1_0_2_2_1 + (UINT32)LC898124EP3_DMA_CheckSum_0_1_0_2_2_1 + (UINT32)LC898124EP3_DMB_CheckSum_0_1_0_2_2_1), LC898124EP3_DM_0_1_0_2_2_1, LC898124EP3_DMA_ByteSize_0_1_0_2_2_1 , LC898124EP3_DMB_ByteSize_0_1_0_2_2_1 },
+ {0x0002, MODEL_0_SERVO , LC898124EP3_SERVO_ON_PM_0_1_0_2_2_0, LC898124EP3_SERVO_ON_PMSize_0_1_0_2_2_0, (UINT32)((UINT32)LC898124EP3_SERVO_ON_PMCheckSum_0_1_0_2_2_0 + (UINT32)LC898124EP3_SERVO_ON_DMA_CheckSum_0_1_2_2_0_0 + (UINT32)LC898124EP3_SERVO_ON_DMB_CheckSum_0_1_0_2_2_0), LC898124EP3_SERVO_ON_DM_0_1_0_2_2_0, LC898124EP3_SERVO_ON_DMA_ByteSize_0_1_0_2_2_0 , LC898124EP3_SERVO_ON_DMB_ByteSize_0_1_0_2_2_0 },
+ {0x0002, MODEL_1       , LC898124EP3_PM_1_1_0_2_2_0, LC898124EP3_PMSize_1_1_0_2_2_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_1_1_0_2_2_0 + (UINT32)LC898124EP3_DMA_CheckSum_1_1_0_2_2_0 + (UINT32)LC898124EP3_DMB_CheckSum_1_1_0_2_2_0), LC898124EP3_DM_1_1_0_2_2_0, LC898124EP3_DMA_ByteSize_1_1_0_2_2_0 , LC898124EP3_DMB_ByteSize_1_1_0_2_2_0 },
+ {0x0102, MODEL_1       , LC898124EP3_PM_1_2_1_2_2_0, LC898124EP3_PMSize_1_2_1_2_2_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_1_2_1_2_2_0 + (UINT32)LC898124EP3_DMA_CheckSum_1_2_1_2_2_0 + (UINT32)LC898124EP3_DMB_CheckSum_1_2_1_2_2_0), LC898124EP3_DM_1_2_1_2_2_0, LC898124EP3_DMA_ByteSize_1_2_1_2_2_0 , LC898124EP3_DMB_ByteSize_1_2_1_2_2_0 },
+ {0xFFFF, MODEL_0       , (void*)0, 0, 0, (void*)0 ,0 ,0 }
 };
 
 //18821 master
 const DOWNLOAD_TBL DTbl_M[] = {
- {0x0202, 1, LC898124EP3_PM_0_1_2_2_0_0, LC898124EP3_PMSize_0_1_2_2_0_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_1_2_2_0_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_1_2_2_0_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_1_2_2_0_0), LC898124EP3_DM_0_1_2_2_0_0, LC898124EP3_DMA_ByteSize_0_1_2_2_0_0 , LC898124EP3_DMB_ByteSize_0_1_2_2_0_0 },
- {0x0203, 1, LC898124EP3_PM_0_1_2_3_0_0, LC898124EP3_PMSize_0_1_2_3_0_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_1_2_3_0_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_1_2_3_0_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_1_2_3_0_0), LC898124EP3_DM_0_1_2_3_0_0, LC898124EP3_DMA_ByteSize_0_1_2_3_0_0 , LC898124EP3_DMB_ByteSize_0_1_2_3_0_0 },
- {0x0602, 1, LC898124EP3_PM_0_2_6_2_0_0, LC898124EP3_PMSize_0_2_6_2_0_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_2_6_2_0_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_2_6_2_0_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_2_6_2_0_0), LC898124EP3_DM_0_2_6_2_0_0, LC898124EP3_DMA_ByteSize_0_2_6_2_0_0 , LC898124EP3_DMB_ByteSize_0_2_6_2_0_0 },
- {0x0202, 2, LC898124EP3_SERVO_ON_PM_0_1_2_2_0_0, LC898124EP3_SERVO_ON_PMSize_0_1_2_2_0_0, (UINT32)((UINT32)LC898124EP3_SERVO_ON_PMCheckSum_0_1_2_2_0_0 + (UINT32)LC898124EP3_SERVO_ON_DMA_CheckSum_0_1_2_2_0_0 + (UINT32)LC898124EP3_SERVO_ON_DMB_CheckSum_0_1_2_2_0_0), LC898124EP3_SERVO_ON_DM_0_1_2_2_0_0, LC898124EP3_SERVO_ON_DMA_ByteSize_0_1_2_2_0_0 , LC898124EP3_SERVO_ON_DMB_ByteSize_0_1_2_2_0_0 },
- {0x0602, 2, LC898124EP3_SERVO_ON_PM_0_2_6_2_0_0, LC898124EP3_SERVO_ON_PMSize_0_2_6_2_0_0, (UINT32)((UINT32)LC898124EP3_SERVO_ON_PMCheckSum_0_2_6_2_0_0 + (UINT32)LC898124EP3_SERVO_ON_DMA_CheckSum_0_2_6_2_0_0 + (UINT32)LC898124EP3_SERVO_ON_DMB_CheckSum_0_2_6_2_0_0), LC898124EP3_SERVO_ON_DM_0_2_6_2_0_0, LC898124EP3_SERVO_ON_DMA_ByteSize_0_2_6_2_0_0 , LC898124EP3_SERVO_ON_DMB_ByteSize_0_2_6_2_0_0 },
+ {0x0202, MODEL_0       , LC898124EP3_PM_0_1_2_2_0_0, LC898124EP3_PMSize_0_1_2_2_0_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_1_2_2_0_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_1_2_2_0_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_1_2_2_0_0), LC898124EP3_DM_0_1_2_2_0_0, LC898124EP3_DMA_ByteSize_0_1_2_2_0_0 , LC898124EP3_DMB_ByteSize_0_1_2_2_0_0 },
+ {0x0203, MODEL_0       , LC898124EP3_PM_0_1_2_3_0_0, LC898124EP3_PMSize_0_1_2_3_0_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_1_2_3_0_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_1_2_3_0_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_1_2_3_0_0), LC898124EP3_DM_0_1_2_3_0_0, LC898124EP3_DMA_ByteSize_0_1_2_3_0_0 , LC898124EP3_DMB_ByteSize_0_1_2_3_0_0 },
+ {0x0602, MODEL_0       , LC898124EP3_PM_0_2_6_2_0_0, LC898124EP3_PMSize_0_2_6_2_0_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_2_6_2_0_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_2_6_2_0_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_2_6_2_0_0), LC898124EP3_DM_0_2_6_2_0_0, LC898124EP3_DMA_ByteSize_0_2_6_2_0_0 , LC898124EP3_DMB_ByteSize_0_2_6_2_0_0 },
+ {0x0202, MODEL_0_SERVO , LC898124EP3_SERVO_ON_PM_0_1_2_2_0_0, LC898124EP3_SERVO_ON_PMSize_0_1_2_2_0_0, (UINT32)((UINT32)LC898124EP3_SERVO_ON_PMCheckSum_0_1_2_2_0_0 + (UINT32)LC898124EP3_SERVO_ON_DMA_CheckSum_0_1_2_2_0_0 + (UINT32)LC898124EP3_SERVO_ON_DMB_CheckSum_0_1_2_2_0_0), LC898124EP3_SERVO_ON_DM_0_1_2_2_0_0, LC898124EP3_SERVO_ON_DMA_ByteSize_0_1_2_2_0_0 , LC898124EP3_SERVO_ON_DMB_ByteSize_0_1_2_2_0_0 },
+ {0x0602, MODEL_0_SERVO , LC898124EP3_SERVO_ON_PM_0_2_6_2_0_0, LC898124EP3_SERVO_ON_PMSize_0_2_6_2_0_0, (UINT32)((UINT32)LC898124EP3_SERVO_ON_PMCheckSum_0_2_6_2_0_0 + (UINT32)LC898124EP3_SERVO_ON_DMA_CheckSum_0_2_6_2_0_0 + (UINT32)LC898124EP3_SERVO_ON_DMB_CheckSum_0_2_6_2_0_0), LC898124EP3_SERVO_ON_DM_0_2_6_2_0_0, LC898124EP3_SERVO_ON_DMA_ByteSize_0_2_6_2_0_0 , LC898124EP3_SERVO_ON_DMB_ByteSize_0_2_6_2_0_0 },
+ {0x0202, MODEL_1       ,LC898124EP3_PM_1_1_2_2_0_0, LC898124EP3_PMSize_1_1_2_2_0_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_1_1_2_2_0_0 + (UINT32)LC898124EP3_DMA_CheckSum_1_1_2_2_0_0 + (UINT32)LC898124EP3_DMB_CheckSum_1_1_2_2_0_0), LC898124EP3_DM_1_1_2_2_0_0, LC898124EP3_DMA_ByteSize_1_1_2_2_0_0 , LC898124EP3_DMB_ByteSize_1_1_2_2_0_0 },
+ {0x0202, MODEL_2       ,LC898124EP3_PM_2_1_2_2_0_0, LC898124EP3_PMSize_2_1_2_2_0_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_2_1_2_2_0_0 + (UINT32)LC898124EP3_DMA_CheckSum_2_1_2_2_0_0 + (UINT32)LC898124EP3_DMB_CheckSum_2_1_2_2_0_0), LC898124EP3_DM_2_1_2_2_0_0, LC898124EP3_DMA_ByteSize_2_1_2_2_0_0 , LC898124EP3_DMB_ByteSize_2_1_2_2_0_0 },
  {0xFFFF, 1, (void*)0, 0, 0, (void*)0 ,0 ,0 }
 };
 
 //18821 slave
 const DOWNLOAD_TBL DTbl_S[] = {
- {0x0302, 1, LC898124EP3_PM_0_1_3_2_1_0, LC898124EP3_PMSize_0_1_3_2_1_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_1_3_2_1_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_1_3_2_1_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_1_3_2_1_0), LC898124EP3_DM_0_1_3_2_1_0, LC898124EP3_DMA_ByteSize_0_1_3_2_1_0 , LC898124EP3_DMB_ByteSize_0_1_3_2_1_0 },
- {0x0303, 1, LC898124EP3_PM_0_1_3_3_1_0, LC898124EP3_PMSize_0_1_3_3_1_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_1_3_3_1_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_1_3_3_1_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_1_3_3_1_0), LC898124EP3_DM_0_1_3_3_1_0, LC898124EP3_DMA_ByteSize_0_1_3_3_1_0 , LC898124EP3_DMB_ByteSize_0_1_3_3_1_0 },
- {0x0702, 1, LC898124EP3_PM_0_2_7_2_1_0, LC898124EP3_PMSize_0_2_7_2_1_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_2_7_2_1_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_2_7_2_1_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_2_7_2_1_0), LC898124EP3_DM_0_2_7_2_1_0, LC898124EP3_DMA_ByteSize_0_2_7_2_1_0 , LC898124EP3_DMB_ByteSize_0_2_7_2_1_0 },
- {0x0302, 2, LC898124EP3_SERVO_ON_PM_0_1_3_2_1_0, LC898124EP3_SERVO_ON_PMSize_0_1_3_2_1_0, (UINT32)((UINT32)LC898124EP3_SERVO_ON_PMCheckSum_0_1_3_2_1_0 + (UINT32)LC898124EP3_SERVO_ON_DMA_CheckSum_0_1_3_2_1_0 + (UINT32)LC898124EP3_SERVO_ON_DMB_CheckSum_0_1_3_2_1_0), LC898124EP3_SERVO_ON_DM_0_1_3_2_1_0, LC898124EP3_SERVO_ON_DMA_ByteSize_0_1_3_2_1_0 , LC898124EP3_SERVO_ON_DMB_ByteSize_0_1_3_2_1_0 },
- {0x0702, 2, LC898124EP3_SERVO_ON_PM_0_2_7_2_1_0, LC898124EP3_SERVO_ON_PMSize_0_2_7_2_1_0, (UINT32)((UINT32)LC898124EP3_SERVO_ON_PMCheckSum_0_2_7_2_1_0 + (UINT32)LC898124EP3_SERVO_ON_DMA_CheckSum_0_2_7_2_1_0 + (UINT32)LC898124EP3_SERVO_ON_DMB_CheckSum_0_2_7_2_1_0), LC898124EP3_SERVO_ON_DM_0_2_7_2_1_0, LC898124EP3_SERVO_ON_DMA_ByteSize_0_2_7_2_1_0 , LC898124EP3_SERVO_ON_DMB_ByteSize_0_2_7_2_1_0 },
+ {0x0302, MODEL_0       , LC898124EP3_PM_0_1_3_2_1_0, LC898124EP3_PMSize_0_1_3_2_1_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_1_3_2_1_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_1_3_2_1_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_1_3_2_1_0), LC898124EP3_DM_0_1_3_2_1_0, LC898124EP3_DMA_ByteSize_0_1_3_2_1_0 , LC898124EP3_DMB_ByteSize_0_1_3_2_1_0 },
+ {0x0303, MODEL_0       , LC898124EP3_PM_0_1_3_3_1_0, LC898124EP3_PMSize_0_1_3_3_1_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_1_3_3_1_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_1_3_3_1_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_1_3_3_1_0), LC898124EP3_DM_0_1_3_3_1_0, LC898124EP3_DMA_ByteSize_0_1_3_3_1_0 , LC898124EP3_DMB_ByteSize_0_1_3_3_1_0 },
+ {0x0702, MODEL_0       , LC898124EP3_PM_0_2_7_2_1_0, LC898124EP3_PMSize_0_2_7_2_1_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_0_2_7_2_1_0 + (UINT32)LC898124EP3_DMA_CheckSum_0_2_7_2_1_0 + (UINT32)LC898124EP3_DMB_CheckSum_0_2_7_2_1_0), LC898124EP3_DM_0_2_7_2_1_0, LC898124EP3_DMA_ByteSize_0_2_7_2_1_0 , LC898124EP3_DMB_ByteSize_0_2_7_2_1_0 },
+ {0x0302, MODEL_0_SERVO , LC898124EP3_SERVO_ON_PM_0_1_3_2_1_0, LC898124EP3_SERVO_ON_PMSize_0_1_3_2_1_0, (UINT32)((UINT32)LC898124EP3_SERVO_ON_PMCheckSum_0_1_3_2_1_0 + (UINT32)LC898124EP3_SERVO_ON_DMA_CheckSum_0_1_3_2_1_0 + (UINT32)LC898124EP3_SERVO_ON_DMB_CheckSum_0_1_3_2_1_0), LC898124EP3_SERVO_ON_DM_0_1_3_2_1_0, LC898124EP3_SERVO_ON_DMA_ByteSize_0_1_3_2_1_0 , LC898124EP3_SERVO_ON_DMB_ByteSize_0_1_3_2_1_0 },
+ {0x0702, MODEL_0_SERVO , LC898124EP3_SERVO_ON_PM_0_2_7_2_1_0, LC898124EP3_SERVO_ON_PMSize_0_2_7_2_1_0, (UINT32)((UINT32)LC898124EP3_SERVO_ON_PMCheckSum_0_2_7_2_1_0 + (UINT32)LC898124EP3_SERVO_ON_DMA_CheckSum_0_2_7_2_1_0 + (UINT32)LC898124EP3_SERVO_ON_DMB_CheckSum_0_2_7_2_1_0), LC898124EP3_SERVO_ON_DM_0_2_7_2_1_0, LC898124EP3_SERVO_ON_DMA_ByteSize_0_2_7_2_1_0 , LC898124EP3_SERVO_ON_DMB_ByteSize_0_2_7_2_1_0 },
+ {0x0302, MODEL_1       , LC898124EP3_PM_1_1_3_2_1_0, LC898124EP3_PMSize_1_1_3_2_1_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_1_1_3_2_1_0 + (UINT32)LC898124EP3_DMA_CheckSum_1_1_3_2_1_0 + (UINT32)LC898124EP3_DMB_CheckSum_1_1_3_2_1_0), LC898124EP3_DM_1_1_3_2_1_0, LC898124EP3_DMA_ByteSize_1_1_3_2_1_0 , LC898124EP3_DMB_ByteSize_1_1_3_2_1_0 },
+ {0x0302, MODEL_2       , LC898124EP3_PM_2_1_3_2_1_0, LC898124EP3_PMSize_2_1_3_2_1_0, (UINT32)((UINT32)LC898124EP3_PMCheckSum_2_1_3_2_1_0 + (UINT32)LC898124EP3_DMA_CheckSum_2_1_3_2_1_0 + (UINT32)LC898124EP3_DMB_CheckSum_2_1_3_2_1_0), LC898124EP3_DM_2_1_3_2_1_0, LC898124EP3_DMA_ByteSize_2_1_3_2_1_0 , LC898124EP3_DMB_ByteSize_2_1_3_2_1_0 },
  {0xFFFF, 1, (void*)0, 0, 0, (void*)0 ,0 ,0 }
 };
 
@@ -147,7 +183,8 @@ static int RamWrite32A(struct cam_ois_ctrl_t *o_ctrl,
     UINT32 addr, UINT32 data)
 {
     int32_t rc = 0;
-    int retry = 3, i;
+    int retry = 3;
+    int i;
     struct cam_sensor_i2c_reg_array i2c_write_setting = {
         .reg_addr = addr,
         .reg_data = data,
@@ -183,7 +220,8 @@ static int RamRead32A(struct cam_ois_ctrl_t *o_ctrl,
     UINT32 addr, UINT32* data)
 {
     int32_t rc = 0;
-    int retry = 3, i;
+    int retry = 3;
+    int i;
     if (o_ctrl == NULL) {
         CAM_ERR(CAM_OIS, "Invalid Args");
         return -EINVAL;
@@ -512,8 +550,42 @@ unsigned char SelectDownload(struct cam_ois_ctrl_t *o_ctrl, UINT8 GyroSelect, UI
 // History			: First edition
 //********************************************************************************
 void SetGyroAccelCoef(struct cam_ois_ctrl_t *o_ctrl, UINT8 SelectAct ){
+	CAM_INFO(CAM_OIS, "SetGyroAccelCoef SelectAct: %d", SelectAct);
 	switch(SelectAct) {
-		case ACT_SO2820 :
+        case ACT_SO2820 :
+                    if (MODEL_1 == o_ctrl->ois_fw_flag)
+                    {
+                        CAM_INFO(CAM_OIS, "SetGyroAccelCoef ACT_SO2820 MODEL_1: %d", MODEL_1);
+                        RamWrite32A(o_ctrl, GCNV_XX, (UINT32) 0x80000001);
+                        RamWrite32A(o_ctrl, GCNV_XY, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, GCNV_YY, (UINT32) 0x7FFFFFFF);
+                        RamWrite32A(o_ctrl, GCNV_YX, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, GCNV_ZP, (UINT32) 0x7FFFFFFF);
+
+                        RamWrite32A(o_ctrl, ACNV_XX, (UINT32) 0x7FFFFFFF);
+                        RamWrite32A(o_ctrl, ACNV_XY, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, ACNV_YY, (UINT32) 0x7FFFFFFF);
+                        RamWrite32A(o_ctrl, ACNV_YX, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, ACNV_ZP, (UINT32) 0x80000001);
+
+                        break;
+                    }
+                    if (MODEL_2 == o_ctrl->ois_fw_flag)
+                    {
+                        CAM_INFO(CAM_OIS, "SetGyroAccelCoef ACT_SO2820 MODEL_2: %d", MODEL_1);
+                        RamWrite32A(o_ctrl, GCNV_XX, (UINT32) 0x80000001);
+                        RamWrite32A(o_ctrl, GCNV_XY, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, GCNV_YY, (UINT32) 0x80000001);
+                        RamWrite32A(o_ctrl, GCNV_YX, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, GCNV_ZP, (UINT32) 0x80000001);
+
+                        RamWrite32A(o_ctrl, ACNV_XX, (UINT32) 0x7FFFFFFF);
+                        RamWrite32A(o_ctrl, ACNV_XY, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, ACNV_YY, (UINT32) 0x7FFFFFFF);
+                        RamWrite32A(o_ctrl, ACNV_YX, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, ACNV_ZP, (UINT32) 0x7FFFFFFF);
+                        break;
+                    }
                     if(1 == o_ctrl->ois_gyro_id)//18821 rear
                     {
                         CAM_INFO(CAM_OIS, "SetGyroAccelCoef : gyro %d 821 rear\n", o_ctrl->ois_gyro_id);
@@ -545,7 +617,40 @@ void SetGyroAccelCoef(struct cam_ois_ctrl_t *o_ctrl, UINT8 SelectAct ){
                         RamWrite32A(o_ctrl, ACNV_ZP , (UINT32)0x80000001 );
                     }
                     break;
-        case ACT_SO3600 :
+        case ACT_SO3600:
+                    if (MODEL_1 == o_ctrl->ois_fw_flag)
+                    {
+                        CAM_INFO(CAM_OIS, "SetGyroAccelCoef ACT_SO3600 MODEL_1: %d", MODEL_1);
+                        RamWrite32A(o_ctrl, GCNV_XX, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, GCNV_XY, (UINT32) 0x80000001);
+                        RamWrite32A(o_ctrl, GCNV_YY, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, GCNV_YX, (UINT32) 0x7FFFFFFF);
+                        RamWrite32A(o_ctrl, GCNV_ZP, (UINT32) 0x7FFFFFFF);
+
+                        RamWrite32A(o_ctrl, ACNV_XX, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, ACNV_XY, (UINT32) 0x7FFFFFFF);
+                        RamWrite32A(o_ctrl, ACNV_YY, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, ACNV_YX, (UINT32) 0x7FFFFFFF);
+                        RamWrite32A(o_ctrl, ACNV_ZP, (UINT32) 0x80000001);
+                        break;
+                    }
+                    if (MODEL_2 == o_ctrl->ois_fw_flag)
+                    {
+                        CAM_INFO(CAM_OIS, "SetGyroAccelCoef ACT_SO3600 MODEL_2: %d", MODEL_2);
+                        RamWrite32A(o_ctrl, GCNV_XX, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, GCNV_XY, (UINT32) 0x7FFFFFFF);
+                        RamWrite32A(o_ctrl, GCNV_YY, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, GCNV_YX, (UINT32) 0x7FFFFFFF);
+                        RamWrite32A(o_ctrl, GCNV_ZP, (UINT32) 0x80000001);
+
+                        RamWrite32A(o_ctrl, ACNV_XX, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, ACNV_XY, (UINT32) 0x7FFFFFFF);
+                        RamWrite32A(o_ctrl, ACNV_YY, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl, ACNV_YX, (UINT32) 0x7FFFFFFF);
+                        RamWrite32A(o_ctrl, ACNV_ZP, (UINT32) 0x7FFFFFFF);
+
+                        break;
+                    }
                     if(1 == o_ctrl->ois_gyro_id)//18821 rear
                     {
                         CAM_INFO(CAM_OIS, "SetGyroAccelCoef tele: gyro %d 821 rear\n", o_ctrl->ois_gyro_id);
@@ -577,25 +682,95 @@ void SetGyroAccelCoef(struct cam_ois_ctrl_t *o_ctrl, UINT8 SelectAct ){
                         RamWrite32A(o_ctrl, ACNV_ZP , (UINT32)0x7FFFFFFF );
                     }
                     break;
-       case ACT_SO2821:
-                    if(3 == o_ctrl->ois_gyro_id)//18857 rear
+        case ACT_SO2821:
+                    if (3 == o_ctrl->ois_gyro_id) //semco 18857 rear
                     {
-                         CAM_INFO(CAM_OIS, "SetGyroAccelCoef 857main : gyro %d 857 rear\n", o_ctrl->ois_gyro_id);
-                         RamWrite32A(o_ctrl,  GCNV_XX, (UINT32)0x00000000 );
-                         RamWrite32A(o_ctrl,  GCNV_XY, (UINT32)0x7FFFFFFF );
-                         RamWrite32A(o_ctrl,  GCNV_YY, (UINT32)0x00000000 );
-                         RamWrite32A(o_ctrl,  GCNV_YX, (UINT32)0x7FFFFFFF );
-                         RamWrite32A(o_ctrl,  GCNV_ZP, (UINT32)0x7FFFFFFF );
+                        switch (o_ctrl->ois_fw_flag) {
+                            case MODEL_0: //18857
+                                CAM_INFO(CAM_OIS, "SetGyroAccelCoef 857main : gyro %d 857 rear\n", o_ctrl->ois_gyro_id);
+                                RamWrite32A(o_ctrl, GCNV_XX, (UINT32) 0x00000000);
+                                RamWrite32A(o_ctrl, GCNV_XY, (UINT32) 0x7FFFFFFF);
+                                RamWrite32A(o_ctrl, GCNV_YY, (UINT32) 0x00000000);
+                                RamWrite32A(o_ctrl, GCNV_YX, (UINT32) 0x7FFFFFFF);
+                                RamWrite32A(o_ctrl, GCNV_ZP, (UINT32) 0x7FFFFFFF);
 
-                         RamWrite32A(o_ctrl,  ACNV_XX, (UINT32)0x00000000 );
-                         RamWrite32A(o_ctrl,  ACNV_XY, (UINT32)0x7FFFFFFF );
-                         RamWrite32A(o_ctrl,  ACNV_YY, (UINT32)0x00000000 );
-                         RamWrite32A(o_ctrl,  ACNV_YX, (UINT32)0x7FFFFFFF );
-                         RamWrite32A(o_ctrl,  ACNV_ZP, (UINT32)0x7FFFFFFF );
+                                RamWrite32A(o_ctrl, ACNV_XX, (UINT32) 0x00000000);
+                                RamWrite32A(o_ctrl, ACNV_XY, (UINT32) 0x7FFFFFFF);
+                                RamWrite32A(o_ctrl, ACNV_YY, (UINT32) 0x00000000);
+                                RamWrite32A(o_ctrl, ACNV_YX, (UINT32) 0x7FFFFFFF);
+                                RamWrite32A(o_ctrl, ACNV_ZP, (UINT32) 0x7FFFFFFF);
+                                break;
+                            case MODEL_1: //18865/18863
+                                CAM_INFO(CAM_OIS, "SetGyroAccelCoef 865main : gyro %d 865 rear\n", o_ctrl->ois_gyro_id);
+                                RamWrite32A(o_ctrl, GCNV_XX, (UINT32) 0x00000000);
+                                RamWrite32A(o_ctrl, GCNV_XY, (UINT32) 0x7FFFFFFF);
+                                RamWrite32A(o_ctrl, GCNV_YY, (UINT32) 0x00000000);
+                                RamWrite32A(o_ctrl, GCNV_YX, (UINT32) 0x7FFFFFFF);
+                                RamWrite32A(o_ctrl, GCNV_ZP, (UINT32) 0x7FFFFFFF);
+
+                                RamWrite32A(o_ctrl, ACNV_XX, (UINT32) 0x00000000);
+                                RamWrite32A(o_ctrl, ACNV_XY, (UINT32) 0x7FFFFFFF);
+                                RamWrite32A(o_ctrl, ACNV_YY, (UINT32) 0x00000000);
+                                RamWrite32A(o_ctrl, ACNV_YX, (UINT32) 0x80000001);
+                                RamWrite32A(o_ctrl, ACNV_ZP, (UINT32) 0x80000001);
+                        }
                     }
                     break;
-        case ACT_M12337_A1 :
-        case ACT_M10235_A1 :
+        case ACT_M12337: //ofilm master 199865/19863
+                    if (3 == o_ctrl->ois_gyro_id)
+                    {
+                        if (MODEL_1 == o_ctrl->ois_fw_flag) //master 18865 only
+                        {
+                            CAM_INFO(CAM_OIS, "SetGyroAccelCoef ACT_M12337 MODEL_1: %d", MODEL_1);
+                            //todo: get from onsemi for ofilm model 1, currently copied from ofilm 18821
+                            RamWrite32A(o_ctrl, GCNV_XX , (UINT32)0x00000000 );
+                            RamWrite32A(o_ctrl, GCNV_XY , (UINT32)0x7FFFFFFF );
+                            RamWrite32A(o_ctrl, GCNV_YY , (UINT32)0x00000000 );
+                            RamWrite32A(o_ctrl, GCNV_YX , (UINT32)0x80000001 );
+                            RamWrite32A(o_ctrl, GCNV_ZP , (UINT32)0x7FFFFFFF );
+
+                            RamWrite32A(o_ctrl, ACNV_XX , (UINT32)0x00000000 );
+                            RamWrite32A(o_ctrl, ACNV_XY , (UINT32)0x7FFFFFFF );
+                            RamWrite32A(o_ctrl, ACNV_YY , (UINT32)0x00000000 );
+                            RamWrite32A(o_ctrl, ACNV_YX , (UINT32)0x7FFFFFFF );
+                            RamWrite32A(o_ctrl, ACNV_ZP , (UINT32)0x7FFFFFFF );
+                        }
+                    }
+                    break;
+        case ACT_M12337_A1 : //ofilm master 19801/19861
+        case ACT_M10235_A1 : //ofilm slave 19801/19861
+                    if (MODEL_1 == o_ctrl->ois_fw_flag) //master & slave 19801/19861
+                    {
+                        CAM_INFO(CAM_OIS, "SetGyroAccelCoef ACT_M12337_A1/ACT_M10235_A1 MODEL_1: %d", MODEL_1);
+                        RamWrite32A(o_ctrl,GCNV_XX, (UINT32) 0x80000001);
+                        RamWrite32A(o_ctrl,GCNV_XY, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl,GCNV_YY, (UINT32) 0x80000001);
+                        RamWrite32A(o_ctrl,GCNV_YX, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl,GCNV_ZP, (UINT32) 0x7FFFFFFF);
+
+                        RamWrite32A(o_ctrl,ACNV_XX, (UINT32) 0x80000001);
+                        RamWrite32A(o_ctrl,ACNV_XY, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl,ACNV_YY, (UINT32) 0x80000001);
+                        RamWrite32A(o_ctrl,ACNV_YX, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl,ACNV_ZP, (UINT32) 0x7FFFFFFF);
+                        break;
+                    }
+                    if (MODEL_2 == o_ctrl->ois_fw_flag) //master & slave 19801/19861
+                    {
+                        CAM_INFO(CAM_OIS, "SetGyroAccelCoef ACT_M12337_A1/ACT_M10235_A1 MODEL_2: %d", MODEL_2);
+                        RamWrite32A(o_ctrl,GCNV_XX, (UINT32) 0x80000001);
+                        RamWrite32A(o_ctrl,GCNV_XY, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl,GCNV_YY, (UINT32) 0x7FFFFFFF);
+                        RamWrite32A(o_ctrl,GCNV_YX, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl,GCNV_ZP, (UINT32) 0x7FFFFFFF);
+
+                        RamWrite32A(o_ctrl,ACNV_XX, (UINT32) 0x80000001);
+                        RamWrite32A(o_ctrl,ACNV_XY, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl,ACNV_YY, (UINT32) 0x80000001);
+                        RamWrite32A(o_ctrl,ACNV_YX, (UINT32) 0x00000000);
+                        RamWrite32A(o_ctrl,ACNV_ZP, (UINT32) 0x7FFFFFFF);
+                        break;
+                    }
                     if(1 == o_ctrl->ois_gyro_id)//18821 rear ofilm
                     {
                         CAM_INFO(CAM_OIS, "SetGyroAccelCoef : gyro %d 821 rear\n", o_ctrl->ois_gyro_id);
@@ -627,6 +802,8 @@ void SetGyroAccelCoef(struct cam_ois_ctrl_t *o_ctrl, UINT8 SelectAct ){
                         RamWrite32A(o_ctrl, ACNV_ZP , (UINT32)0x80000001 );
                     }
                     break;
+            default:
+                    CAM_INFO(CAM_OIS, "SetGyroAccelCoef : default");
         }
 
 }
@@ -1099,6 +1276,8 @@ static int cam_ois_power_up(struct cam_ois_ctrl_t *o_ctrl)
 		}
 	}
 
+    ctrl_wide = NULL;
+    ctrl_tele = NULL;
 	/* Parse and fill vreg params for power up settings */
 	rc = msm_camera_fill_vreg_params(
 		soc_info,
@@ -1132,6 +1311,8 @@ static int cam_ois_power_up(struct cam_ois_ctrl_t *o_ctrl)
 	rc = camera_io_init(&o_ctrl->io_master_info);
 	if (rc)
 		CAM_ERR(CAM_OIS, "cci_init failed: rc: %d", rc);
+	else
+		CAM_INFO(CAM_OIS,"camera_io_init");
 
 	return rc;
 }
@@ -1172,13 +1353,12 @@ static int cam_ois_power_down(struct cam_ois_ctrl_t *o_ctrl)
 	}
 
 	camera_io_release(&o_ctrl->io_master_info);
-
 	CAM_INFO(CAM_OIS, "cam_io_release");
 
-	if (MASTER_1 == o_ctrl->io_master_info.cci_client->cci_i2c_master) {
+	if (strstr(o_ctrl->ois_name, "imx586")) {
 		imx586_ois_initialized = false;
 		imx586_ois_ready = false;
-	} else if (MASTER_0 == o_ctrl->io_master_info.cci_client->cci_i2c_master) {
+	} else if (strstr(o_ctrl->ois_name, "s5k3m5")) {
 		s5k3m5_ois_initialized = false;
 		s5k3m5_ois_ready = false;
 	}
@@ -1292,20 +1472,25 @@ static int cam_ois_fw_download(struct cam_ois_ctrl_t *o_ctrl)
     getnstimeofday(&mStartTime);
 
     //Master_1:imx586 Master_0:s5k3m5
-    CAM_INFO(CAM_OIS, "sid:0x%02x, Master:%d, ois_gyro_id:%d",
+    CAM_INFO(CAM_OIS, "sid:0x%02x, Master:%d, ois_gyro_id:%d cci_master_id:%d",
         o_ctrl->io_master_info.cci_client->sid,
         o_ctrl->io_master_info.cci_client->cci_i2c_master,
-        o_ctrl->ois_gyro_id);
-
-    if (MASTER_1 == o_ctrl->io_master_info.cci_client->cci_i2c_master &&
-        false == imx586_ois_initialized)
+        o_ctrl->ois_gyro_id,o_ctrl->cci_master_id);
+    //identify else fallback
+    imx586_cci_master = (enum cci_i2c_master_t)o_ctrl->cci_master_id;
+    if (imx586_cci_master == o_ctrl->io_master_info.cci_client->cci_i2c_master &&
+        false == imx586_ois_initialized && strstr(o_ctrl->ois_name, "imx586"))
     {
-        if(o_ctrl->ois_gyro_id==3){
-            rc = SelectDownload(o_ctrl, 0x02, 0x00, 0x00, o_ctrl->ois_fw_flag);
-        }else {
-            if (strcmp(o_ctrl->ois_name, "ofilm_imx586_lc898124ep3_ois") == 0 ){
+        if (o_ctrl->ois_gyro_id == 3) {
+            if (strcmp(o_ctrl->ois_name, "ofilm_imx586_lc898124ep3_ois") == 0) {
+                rc = SelectDownload(o_ctrl, 0x02, 0x01, 0x00, o_ctrl->ois_fw_flag);
+            } else {
+                rc = SelectDownload(o_ctrl, 0x02, 0x00, 0x00, o_ctrl->ois_fw_flag);
+            }
+        } else {
+            if (strcmp(o_ctrl->ois_name, "ofilm_imx586_lc898124ep3_ois") == 0) {
                 rc = SelectDownload(o_ctrl, 0x02, 0x06, 0x00, o_ctrl->ois_fw_flag);
-            }else {
+            } else {
                 rc = SelectDownload(o_ctrl, 0x02, 0x02, 0x00, o_ctrl->ois_fw_flag);
             }
         }
@@ -1383,8 +1568,8 @@ static int cam_ois_fw_download(struct cam_ois_ctrl_t *o_ctrl)
             }
         }
     }
-	else if (MASTER_0 == o_ctrl->io_master_info.cci_client->cci_i2c_master &&
-        false == s5k3m5_ois_initialized)
+        else if (MASTER_0 == o_ctrl->io_master_info.cci_client->cci_i2c_master &&
+        false == s5k3m5_ois_initialized && strstr(o_ctrl->ois_name, "s5k3m5"))
     {
         o_ctrl->io_master_info.cci_client->cci_i2c_master = MASTER_0;
         o_ctrl->io_master_info.cci_client->sid = SLAVE_CCI_ADDR;
@@ -1442,7 +1627,7 @@ static int cam_ois_fw_download(struct cam_ois_ctrl_t *o_ctrl)
 
         }
         if (false == imx586_ois_initialized) {
-            o_ctrl->io_master_info.cci_client->cci_i2c_master= MASTER_1;
+            o_ctrl->io_master_info.cci_client->cci_i2c_master = imx586_cci_master;
             o_ctrl->io_master_info.cci_client->sid = MASTER_CCI_ADDR;
             if (strcmp(o_ctrl->ois_name, "ofilm_imx586_lc898124ep3_ois") == 0 ){
                 rc = SelectDownload(o_ctrl, 0x02, 0x06, 0x00, o_ctrl->ois_fw_flag);
@@ -1497,7 +1682,7 @@ static int cam_ois_fw_download(struct cam_ois_ctrl_t *o_ctrl)
     diff = timespec_sub(mEndTime, mStartTime);
     mSpendTime = (timespec_to_ns(&diff))/1000000;
     o_ctrl->io_master_info.cci_client->cci_i2c_master = entry_cci_master;
-    CAM_INFO(CAM_OIS, "cam_ois_fw_download rc=%d, (Spend: %lld ms)", rc, mSpendTime);
+    CAM_INFO(CAM_OIS, "cam_ois_fw_download rc=%d, (Spend: %d ms)", rc, mSpendTime);
 
     return 0;
 }
@@ -1561,7 +1746,7 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 
 	if (((size_t)(csl_packet->header.size) > remaining_len_of_buff)) {
 		CAM_ERR(CAM_OIS,
-			"Inval pkt_header_size: %u, len:of_buff: %zu",
+			"Inval pkt_header_size: %zu, len:of_buff: %zu",
 			csl_packet->header.size, remaining_len_of_buff);
 		rc = -EINVAL;
 		goto rel_pkt;
@@ -1774,8 +1959,8 @@ static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 			CAM_ERR(CAM_OIS, "OIS pkt parsing failed: %d", rc);
 			goto rel_pkt;
 		}
-
-        if (MASTER_1 == o_ctrl->io_master_info.cci_client->cci_i2c_master && !imx586_ois_ready) {
+        imx586_cci_master = (enum cci_i2c_master_t)o_ctrl->cci_master_id;
+        if (imx586_cci_master == o_ctrl->io_master_info.cci_client->cci_i2c_master && !imx586_ois_ready) {
             retry_cnt = 10;
             do {
                 RamRead32A(o_ctrl, 0xF100, &temp);
@@ -1835,7 +2020,7 @@ pwr_dwn:
 	cam_ois_power_down(o_ctrl);
 rel_pkt:
 	if (cam_mem_put_cpu_buf(dev_config.packet_handle))
-		CAM_WARN(CAM_OIS, "Fail in put buffer: 0x%llx",
+		CAM_WARN(CAM_OIS, "Fail in put buffer: 0x%x",
 			dev_config.packet_handle);
 
 	return rc;
@@ -1933,7 +2118,14 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 		return -EINVAL;
 	}
 
-	ctrl=o_ctrl; //record device info
+    if(MASTER_1 == o_ctrl->io_master_info.cci_client->cci_i2c_master && ctrl_wide == NULL)
+    {
+        ctrl_wide = o_ctrl; //record wide device info
+    }
+    else if(MASTER_0 == o_ctrl->io_master_info.cci_client->cci_i2c_master && ctrl_tele == NULL)
+    {
+        ctrl_tele = o_ctrl; //record tele device info
+    }
 #ifndef ENABLE_OIS_DELAY_POWER_DOWN
 	soc_private =
 		(struct cam_ois_soc_private *)o_ctrl->soc_info.soc_private;

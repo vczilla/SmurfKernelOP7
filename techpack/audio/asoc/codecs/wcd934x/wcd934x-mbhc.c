@@ -964,6 +964,7 @@ static const struct snd_kcontrol_new impedance_detect_controls[] = {
 		       tavil_hph_impedance_get, NULL),
 };
 
+
 extern bool headset_imp_enable;
 
 static int headset_imp_feature_put(struct snd_kcontrol *kcontrol,
@@ -992,6 +993,7 @@ static const struct snd_kcontrol_new headset_feature_controls[] = {
 	SOC_SINGLE_EXT("headset_imp_feature", 0, 0, 1, 0,
 				headset_imp_feature_get, headset_imp_feature_put),
 };
+
 /*
  * tavil_mbhc_get_impedance: get impedance of headphone left and right channels
  * @wcd934x_mbhc: handle to struct wcd934x_mbhc *

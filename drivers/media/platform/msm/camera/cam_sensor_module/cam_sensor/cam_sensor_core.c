@@ -18,6 +18,24 @@
 #include "cam_trace.h"
 #include "cam_common_util.h"
 
+#include <linux/project_info.h>
+
+#include <linux/oneplus/boot_mode.h>
+
+struct camera_vendor_match_tbl {
+	uint16_t sensor_id;
+	char sensor_name[32];
+	char vendor_name[32];
+};
+
+static struct camera_vendor_match_tbl match_tbl[] = {
+	{0x586,  "imx586", "Sony"    },
+	{0x30d5, "s5k3m5", "Samsung" },
+	{0x5035, "gc5035", "Gayxyc"  },
+	{0x471,  "imx471", "Sony"    },
+	{0x481,  "imx481", "Sony"    },
+};
+
 //imx471 DFCT info
 #define FD_DFCT_NUM_ADDR 0x7678
 #define SG_DFCT_NUM_ADDR 0x767A
@@ -916,9 +934,12 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 	    sensor_slave_addr = s_ctrl->io_master_info.cci_client->sid;
 	    s_ctrl->io_master_info.cci_client->sid = s_ctrl->sensordata->id_info.sensor_slave_addr >> 1;
 	    if (0x30d5 == slave_info->sensor_id) {//s5k3m5 eeprom located at imx586, set imx586 CCI master
-		s_ctrl->io_master_info.cci_client->cci_i2c_master = MASTER_1;
+	       if (0x00 == s_ctrl->sensor_eeprom_same_cci) {
+		  s_ctrl->io_master_info.cci_client->cci_i2c_master = MASTER_1;
+		} else {
+		  s_ctrl->io_master_info.cci_client->cci_i2c_master = MASTER_0;
+		}
 	    }
-
 	    rc = camera_io_dev_read( &(s_ctrl->io_master_info),
 	            s_ctrl->sensordata->id_info.sensor_id_reg_addr & 0xFFFF,
 	            &id_l, s_ctrl->sensordata->id_info.sensor_addr_type,
@@ -942,10 +963,11 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 
 	    s_ctrl->io_master_info.cci_client->sid = sensor_slave_addr;
 	    if (0x30d5 == slave_info->sensor_id) {//set the CCI master back to s5k3m5
-		s_ctrl->io_master_info.cci_client->cci_i2c_master = MASTER_0;
+	    	s_ctrl->io_master_info.cci_client->cci_i2c_master = MASTER_0;
 	    }
 
 	    id = (id_h << 8) | id_l;
+
 	    if (s_ctrl->sensordata->id_info.sensor_id != id) {
 	        CAM_INFO(CAM_SENSOR, "sensor_id: 0x%x, vendor_id 0x%x, does not match 0x%x",
 	            slave_info->sensor_id, id, s_ctrl->sensordata->id_info.sensor_id);
@@ -983,6 +1005,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		&s_ctrl->sensordata->power_info;
 	uint32_t count = 0, i;
 	int retry = 3;
+	enum COMPONENT_TYPE CameraID;
 	if (!s_ctrl || !arg) {
 		CAM_ERR(CAM_SENSOR, "s_ctrl is NULL");
 		return -EINVAL;
@@ -994,6 +1017,13 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 				cmd->handle_type);
 			return -EINVAL;
 		}
+	}
+
+	if (get_boot_mode() ==  MSM_BOOT_MODE__WLAN
+		|| (get_boot_mode() ==  MSM_BOOT_MODE__RF)
+		|| (get_boot_mode() ==  MSM_BOOT_MODE__FACTORY)){
+		CAM_ERR(CAM_SENSOR, "AT WLAN FT mode, set retry to 1 to reduce camera probe time");
+		retry = 1;
 	}
 
 	mutex_lock(&(s_ctrl->cam_sensor_mutex));
@@ -1097,6 +1127,31 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		 */
 		s_ctrl->is_probe_succeed = 1;
 		s_ctrl->sensor_state = CAM_SENSOR_INIT;
+
+		if (s_ctrl->id == 0)
+			CameraID = R_CAMERA;
+		else if (s_ctrl->id == 1)
+			CameraID = SECOND_R_CAMERA;
+		else if (s_ctrl->id == 2)
+			CameraID = F_CAMERA;
+		else if (s_ctrl->id == 3)
+			CameraID = THIRD_R_CAMERA;
+		else
+			CameraID = -1;
+
+		count = ARRAY_SIZE(match_tbl);
+		for (i = 0; i < count; i++) {
+			if (s_ctrl->sensordata->slave_info.sensor_id
+				== match_tbl[i].sensor_id)
+				break;
+		}
+		if (i >= count)
+			CAM_ERR(CAM_SENSOR, "current sensor name is 0x%x",
+				s_ctrl->sensordata->slave_info.sensor_id);
+		else
+			push_component_info(CameraID, match_tbl[i].sensor_name,
+				match_tbl[i].vendor_name);
+
 	}
 		break;
 	case CAM_ACQUIRE_DEV: {
@@ -1214,7 +1269,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 		break;
 	case CAM_QUERY_CAP: {
-		struct  cam_sensor_query_cap sensor_cap;
+		struct  cam_sensor_query_cap sensor_cap = {0};
 
 		cam_sensor_query_cap(s_ctrl, &sensor_cap);
 		if (copy_to_user(u64_to_user_ptr(cmd->handle),
@@ -1483,6 +1538,8 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 	rc = camera_io_init(&(s_ctrl->io_master_info));
 	if (rc < 0)
 		CAM_ERR(CAM_SENSOR, "cci_init failed: rc: %d", rc);
+	else
+		CAM_INFO(CAM_SENSOR, "camera_io_init");
 
 	return rc;
 }
@@ -1523,6 +1580,7 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 	}
 
 	camera_io_release(&(s_ctrl->io_master_info));
+	CAM_INFO(CAM_SENSOR,"camera_io_release");
 
 	return rc;
 }

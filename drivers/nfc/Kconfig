@@ -60,6 +60,12 @@ source "drivers/nfc/s3fwrn5/Kconfig"
 source "drivers/nfc/st95hf/Kconfig"
 endmenu
 
+config NXP_NFC_ESE_DEVICE
+	tristate "NXP NFC ESE Driver Controller"
+
+source "drivers/nfc/nxp/ese/Kconfig"
+source "drivers/nfc/nxp/nfc/Kconfig"
+
 config NFC_NQ
         tristate "QTI NCI based NFC Controller Driver for NQx"
         depends on I2C
@@ -90,4 +96,3 @@ config NFC_PN80T
         help
           This enables the SPI driver for the NXP PN80T-based embedded
           secure element using the NFC_PN5XX driver to control the power.
-

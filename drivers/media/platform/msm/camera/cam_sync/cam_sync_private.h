@@ -184,6 +184,7 @@ struct cam_signalable_info {
  * @work_queue      : Work queue used for dispatching kernel callbacks
  * @cam_sync_eventq : Event queue used to dispatch user payloads to user space
  * @bitmap          : Bitmap representation of all sync objects
+ * @err_cnt         : Error counter to dump fence table
  */
 struct sync_device {
 	struct video_device *vdev;
@@ -197,6 +198,7 @@ struct sync_device {
 	struct v4l2_fh *cam_sync_eventq;
 	spinlock_t cam_sync_eventq_lock;
 	DECLARE_BITMAP(bitmap, CAM_SYNC_MAX_OBJS);
+	int err_cnt;
 };
 
 

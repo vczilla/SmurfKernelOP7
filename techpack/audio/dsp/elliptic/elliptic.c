@@ -62,8 +62,10 @@ static dev_t elliptic_major;
 
 static struct wakeup_source *wake_source;
 
+// quentin.lin@oneplus.com 2019/01/07 add for ultrasound proximty
 static struct input_dev *ps_input_dev = NULL;
 static struct proc_dir_entry *prEntry_tp = NULL;
+// end add
 
 void elliptic_data_cancel(struct elliptic_data *elliptic_data)
 {
@@ -283,6 +285,8 @@ size_t elliptic_data_pop(struct elliptic_data
 	return (size_t)ELLIPTIC_MSG_BUF_SIZE;
 }
 
+//quentin.lin@oneplus.com 2019/01/07 add for ultrasound proximty
+//send near/far event to sensors-hal
 int send_event_to_user(uint32_t *payload, uint32_t payload_size)
 {	
 	uint8_t *data = (uint8_t*)payload;
@@ -313,6 +317,7 @@ int send_event_to_user(uint32_t *payload, uint32_t payload_size)
 	return 0;
 
 }
+//end add
 
 /* push data to specific device or all devices */
 int elliptic_data_push(int deviceid,
@@ -727,6 +732,7 @@ static int32_t elliptic_send_calibration_to_engine(size_t calib_data_size)
 
 #endif
 
+//quentin.lin@oneplus.com 2019/01/07 add for ultrasound proximty
 static ssize_t proximity_event_num_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
 {
     int ret = 0;
@@ -753,7 +759,7 @@ static const struct file_operations proximity_event_num_fops = {
     .open  = simple_open,
     .owner = THIS_MODULE,
 };
-
+//end add
 
 int __init elliptic_driver_init(void)
 {
@@ -787,6 +793,7 @@ int __init elliptic_driver_init(void)
 	if (err)
 		goto fail;
 
+	//quentin.lin@oneplus.com 2019/01/07 add for ultrasound proximty
 	ps_input_dev  = input_allocate_device();
     if (ps_input_dev == NULL) {
         EL_PRINT_E("Failed to allocate ps input device");
@@ -812,6 +819,7 @@ int __init elliptic_driver_init(void)
         EL_PRINT_E("Couldn't create proc entry");
 		 goto fail;
     }
+	//end add
 
 	elliptic_devices = (struct elliptic_device *)
 		kzalloc(sizeof(struct elliptic_device) * ELLIPTIC_NUM_DEVICES,
@@ -882,9 +890,10 @@ void elliptic_driver_exit(void)
 	elliptic_userspace_io_driver_exit();
 	elliptic_userspace_ctrl_driver_exit();
 	
+	//quentin.lin@oneplus.com 2019/01/07 add for ultrasound proximty
 	input_unregister_device(ps_input_dev);
 	input_free_device(ps_input_dev);
-
+	//end add
 }
 
 MODULE_AUTHOR("Elliptic Labs");

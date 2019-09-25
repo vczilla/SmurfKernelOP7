@@ -499,6 +499,7 @@
 #define		SPI_SNGL			0x02
 
 #define		ACT_SO2821			0x00	// SEMCO SO2821
+#define		ACT_M12337			0x01	// JAHWA M12337(Wide Standalone)
 
 #define		ACT_45DEG			0xff	// dummy
 

@@ -144,6 +144,7 @@ struct cam_ois_ctrl_t {
 	uint8_t is_ois_calib;
 	struct cam_ois_opcode opcode;
 	uint8_t ois_gyro_id; //18821->1, 18827->2
+	uint8_t cci_master_id;
 #ifdef ENABLE_OIS_DELAY_POWER_DOWN
 	struct mutex ois_power_down_mutex;
 	enum cam_ois_power_down_thread_state ois_power_down_thread_state;
