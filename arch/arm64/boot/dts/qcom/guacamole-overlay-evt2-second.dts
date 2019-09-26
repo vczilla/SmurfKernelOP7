@@ -38,38 +38,3 @@
 	oem,hw-id = <55>;
 };
 
-&qupv3_se8_i2c {
-	oneplus_fastchg@26{
-		status = "disable";
-	};
-
-	oneplus_fastchg@52{
-		status = "ok";
-		compatible = "microchip,oneplus_fastchg";
-		reg = <0x52>;
-		microchip,mcu-en-gpio = <&tlmm 10 0x00>;
-		microchip,usb-sw-1-gpio = <&tlmm 94 0x00>;
-		microchip,usb-sw-2-gpio = <&tlmm 59 0x00>;
-		microchip,ap-clk = <&tlmm 92 0x00>;
-		microchip,ap-data = <&tlmm 93 0x00>;
-		op,fw-erase-count = <959>;
-		op,fw-addr-low = <0>;
-		op,fw-addr-high = <0>;
-		op,n76e_support;
-		op,mcl_verion;
-
-		pinctrl-names = "mux_fastchg_active",
-		"mux_fastchg_suspend",
-		"mcu_data_active",
-		"mcu_data_suspend";
-		pinctrl-0 = <&fastchg_active
-		&usb_sw_active
-		&ap_clk_active >;
-		pinctrl-1 = <&usb_sw_suspend
-		&fastchg_suspend
-		&ap_clk_suspend>;
-		pinctrl-2 =<&ap_data_active>;
-		pinctrl-3 =<&ap_data_suspend>;
-	};
-};
-
