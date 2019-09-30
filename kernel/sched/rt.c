@@ -10,6 +10,18 @@
 #include <linux/slab.h>
 #include <linux/irq_work.h>
 #include "tune.h"
+#ifdef CONFIG_CPU_INPUT_BOOST
+#include <linux/cpu_input_boost.h>
+#endif
+#ifdef CONFIG_DEVFREQ_BOOST
+#include <linux/devfreq_boost.h>
+#endif
+#ifdef CONFIG_DEVFREQ_BOOST_DDR
+#include <linux/devfreq_boost_ddr.h>
+#endif
+#ifdef CONFIG_DEVFREQ_BOOST_GPU
+#include <linux/devfreq_boost_gpu.h>
+#endif
 
 #include "walt.h"
 #ifdef CONFIG_OPCHAIN
@@ -1766,6 +1778,12 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 #ifdef CONFIG_OPCHAIN
 	bool best_cpu_is_claimed = false;
 #endif
+	if (task->is_surfaceflinger && tutil > 90) {
+		cpu_input_boost_kick_core(1000, task->cpu);
+		devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
+		devfreq_boost_ddr_kick_max(DEVFREQ_MSM_DDRBW, 1000);
+		devfreq_boost_gpu_kick_max(DEVFREQ_MSM_GPUBW, 1000);	
+	}
 
 	rcu_read_lock();
 
