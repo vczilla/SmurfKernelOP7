@@ -990,7 +990,6 @@ static void  mhi_parse_state(char *buf, int *nbytes, uint32_t info)
 static int mhi_state_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	int rc, nbytes = 0;
-	uint32_t info = 0, i;
 	char buf[MHI_CTRL_STATE];
 	const struct chan_attr *chan_attrib;
 
@@ -1020,24 +1019,6 @@ static int mhi_state_uevent(struct device *dev, struct kobj_uevent_env *env)
 					chan_attrib->chan_id, buf);
 		}
 	}
-
-	rc = mhi_ctrl_state_info(MHI_CLIENT_DUN_OUT, &info);
-	if (rc) {
-		pr_err("Failed to obtain channel 32 state\n");
-		return -EINVAL;
-	}
-	nbytes = 0;
-	mhi_parse_state(buf, &nbytes, info);
-	add_uevent_var(env, "MHI_CHANNEL_STATE_32=%s", buf);
-
-	rc = mhi_ctrl_state_info(MHI_CLIENT_ADB_OUT, &info);
-	if (rc) {
-		pr_err("Failed to obtain channel 36 state\n");
-		return -EINVAL;
-	}
-	nbytes = 0;
-	mhi_parse_state(buf, &nbytes, info);
-	add_uevent_var(env, "MHI_CHANNEL_STATE_36=%s", buf);
 
 	return 0;
 }
