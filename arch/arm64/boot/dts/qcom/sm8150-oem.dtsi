@@ -1,12 +1,12 @@
-/*recommand add our code to this dtsi this part is oem code*/
+/* Display */
 &soc {
-	dsi_samsung_sofef00_m_cmd_display: qcom,dsi-display@23 {
-		label = "dsi_samsung_sofef00_m_cmd_display";
+	dsi_samsung_oneplus_dsc_cmd_display: qcom,dsi-display@23 {
+		label = "dsi_samsung_oneplus_dsc_cmd_display";
 		qcom,display-type = "primary";
 		qcom,dsi-ctrl-num = <0>;
 		qcom,dsi-phy-num = <0>;
 		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
-		qcom,dsi-panel = <&dsi_samsung_sofef00_m_cmd>;
+		qcom,dsi-panel = <&dsi_samsung_oneplus_dsc_cmd>;
 	};
 
 	dsi_samsung_s6e3fc2x01_cmd_display: qcom,dsi-display@24 {
@@ -18,7 +18,7 @@
 		qcom,dsi-panel = <&dsi_samsung_s6e3fc2x01_cmd>;
 	};
 
-	dsi_samsung_sofef00_m_video_display: qcom,dsi-display@26 {
+	dsi_samsung_sofef00_m_video_display: qcom,dsi-display@27 {
 		label = "dsi_samsung_sofef00_m_video_display";
 		qcom,display-type = "primary";
 		qcom,dsi-ctrl-num = <0>;
@@ -27,32 +27,6 @@
 		qcom,dsi-panel = <&dsi_samsung_sofef00_m_video>;
 	};
 
-	dsi_samsung_oneplus_dsc_cmd_display: qcom,dsi-display@28 {
-		label = "dsi_samsung_oneplus_dsc_cmd_display";
-		qcom,display-type = "primary";
-		qcom,dsi-ctrl-num = <0>;
-		qcom,dsi-phy-num = <0>;
-		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
-		qcom,dsi-panel = <&dsi_samsung_oneplus_dsc_cmd>;
-	};
-
-	dsi_samsung_s6e3fc2x01_ed173_cmd_display: qcom,dsi-display@29 {
-		label = "dsi_samsung_s6e3fc2x01_ed173_cmd_display";
-		qcom,display-type = "primary";
-		qcom,dsi-ctrl-num = <0>;
-		qcom,dsi-phy-num = <0>;
-		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
-		qcom,dsi-panel = <&dsi_samsung_s6e3fc2x01_ed173_cmd>;
-	};
-
-	dsi_samsung_oneplus_fhd_dsc_cmd_display: qcom,dsi-display@31 {
-		label = "dsi_samsung_oneplus_fhd_dsc_cmd_display";
-		qcom,display-type = "primary";
-		qcom,dsi-ctrl-num = <0>;
-		qcom,dsi-phy-num = <0>;
-		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
-		qcom,dsi-panel = <&dsi_samsung_oneplus_fhd_dsc_cmd>;
-	};
 
 	fingerprint_detect {
 		compatible = "oneplus,fpdetect";
@@ -117,12 +91,9 @@
 	/delete-property/ ibb-supply;
 	/delete-property/ vdd-supply;
 	qcom,dsi-display-list =
-		<&dsi_samsung_sofef00_m_cmd_display
-		&dsi_samsung_s6e3fc2x01_cmd_display
-		&dsi_samsung_s6e3fc2x01_ed173_cmd_display
-		&dsi_samsung_sofef00_m_video_display
-		&dsi_samsung_oneplus_dsc_cmd_display
-		&dsi_samsung_oneplus_fhd_dsc_cmd_display>;
+		<&dsi_samsung_oneplus_dsc_cmd_display
+		 &dsi_samsung_s6e3fc2x01_cmd_display
+		 &dsi_samsung_sofef00_m_video_display>;
 };
 
 &tlmm {
@@ -160,10 +131,105 @@
 			pins = "gpio125", "gpio134", "gpio27";
 			drive-strength = <2>;
 			bias-disable;
-			};
+		};
 	};
+
 };
 
+//wangdongdong@AudioDrv, add for 4M memory increase of adsp begain
+&pil_adsp_mem {
+	reg = <0x0 0x8be00000 0x0 0x1e00000>;
+};
+
+&pil_modem_mem {
+	reg = <0x0 0x8dc00000 0x0 0x9600000>;
+};
+
+&pil_video_mem {
+	reg = <0x0 0x97200000 0x0 0x500000>;
+};
+
+&pil_slpi_mem {
+	reg = <0x0 0x97700000 0x0 0x1400000>;
+};
+
+&pil_ipa_fw_mem {
+	reg = <0x0 0x98b00000 0x0 0x10000>;
+};
+
+&pil_ipa_gsi_mem {
+	reg = <0x0 0x98b10000 0x0 0x5000>;
+};
+
+&pil_gpu_mem {
+	reg = <0x0 0x98b15000 0x0 0x2000>;
+};
+
+&pil_spss_mem {
+	reg = <0x0 0x98c00000  0x0 0x100000>;
+};
+
+&pil_cdsp_mem {
+	reg = <0x0 0x98d00000 0x0 0x1400000>;
+};
+//wangdongdong@AudioDrv, add for 4M memory increase of adsp end
+
+//dujie@MM.Audio add begain
+/* #if OP_FEATURE_MM_RECORDING_SCREEN == 1*/
+/* zhanglixia@MM.Audio, 2019/07/13, add for screen record*/
+
+&snd_934x {
+	qcom,afe-rxtx-lb = <1>;
+	asoc-cpu = <&dai_hdmi>, <&dai_dp>,
+			<&dai_mi2s0>, <&dai_mi2s1>,
+			<&dai_mi2s2>, <&dai_mi2s3>,
+			<&dai_mi2s4>, <&dai_pri_auxpcm>,
+			<&dai_sec_auxpcm>, <&dai_tert_auxpcm>,
+			<&dai_quat_auxpcm>, <&dai_quin_auxpcm>,
+			<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
+			<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
+			<&sb_4_rx>, <&sb_4_tx>, <&sb_5_tx>,
+			<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>,
+			<&afe_proxy_tx>, <&incall_record_rx>,
+			<&incall_record_tx>, <&incall_music_rx>,
+			<&incall_music_2_rx>, <&sb_5_rx>, <&sb_6_rx>,
+			<&sb_7_rx>, <&sb_7_tx>, <&sb_8_tx>,
+			<&usb_audio_rx>, <&usb_audio_tx>,
+			<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
+			<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
+			<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
+			<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>,
+			<&dai_quat_tdm_rx_1>,
+			<&dai_quin_tdm_rx_0>, <&dai_quin_tdm_tx_0>,
+			<&afe_loopback_tx>;
+	asoc-cpu-names = "msm-dai-q6-hdmi.8",  "msm-dai-q6-dp.24608",
+			"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+			"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+			"msm-dai-q6-mi2s.4", "msm-dai-q6-auxpcm.1",
+			"msm-dai-q6-auxpcm.2", "msm-dai-q6-auxpcm.3",
+			"msm-dai-q6-auxpcm.4", "msm-dai-q6-auxpcm.5",
+			"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
+			"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
+			"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",
+			"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
+			"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
+			"msm-dai-q6-dev.16395", "msm-dai-q6-dev.224",
+			"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
+			"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
+			"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
+			"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16394",
+			"msm-dai-q6-dev.16396", "msm-dai-q6-dev.16398",
+			"msm-dai-q6-dev.16399", "msm-dai-q6-dev.16401",
+			"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
+			"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
+			"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",
+			"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
+			"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913",
+			"msm-dai-q6-tdm.36914",
+			"msm-dai-q6-tdm.36928", "msm-dai-q6-tdm.36929",
+			"msm-dai-q6-dev.24577";
+};
+/* #endif*/
 &snd_9360 {
 	status = "disabled";
 };
@@ -217,6 +283,10 @@
 		&quat_tdm_din_active &quat_tdm_dout_active>;
 	pinctrl-3 = <&quat_tdm_sleep
 		&quat_tdm_din_sleep &quat_tdm_dout_sleep>;
+
+	// yewenliang@MM.Audio, 2019/06/07, fix cap noise issues in handset mode
+	vreg_ldo-supply = <&pm8150l_l10>;
+	vreg_bob-supply = <&pm8150l_bob>;
 };
 
 &wcd934x_cdc {
@@ -298,27 +368,19 @@
 };
 
 &qupv3_se4_i2c {
-	//liuhaituo@MM.Audio add begain
-tfa98xx_right: tfa98xx_right@34 {
-				compatible = "nxp,tfa98xx";
-				reg = <0x34>;
-				reset-gpio = <&tlmm 37 0>;
+	tfa98xx_right: tfa98xx_right@34 {
+		compatible = "nxp,tfa98xx";
+		reg = <0x34>;
+		reset-gpio = <&tlmm 37 0>;
+		status = "ok";
+	};
 
-				tfa_ldo-supply = <&pm8150l_l10>;
-				tfa_bob-supply = <&pm8150l_bob>;
-				status = "ok";
-			   };
-
-tfa98xx_left: tfa98xx_left@35 {
-				compatible = "nxp,tfa98xx";
-				reg = <0x35>;
-				reset-gpio = <&tlmm 37 0>;
-
-				tfa_ldo-supply = <&pm8150l_l10>;
-				tfa_bob-supply = <&pm8150l_bob>;
-				status = "ok";
-			  };
-			  //liuhaituo@MM.Audio add end
+	tfa98xx_left: tfa98xx_left@35 {
+		compatible = "nxp,tfa98xx";
+		reg = <0x35>;
+		reset-gpio = <&tlmm 100 0>;
+		status = "ok";
+	};
 };
 
 //liuhaituo@MM.Audio add begain

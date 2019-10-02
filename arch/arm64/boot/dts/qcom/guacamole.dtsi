@@ -1,17 +1,5 @@
-
-&pm8150_adc_tm {
-	skin_therm {
-		reg = <ADC_AMUX_THM1_PU2>;
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-	};
-
-	pa_therm1 {
-		reg = <ADC_AMUX_THM2_PU2>;
-		qcom,ratiometric;
-		qcom,hw-settle-time = <200>;
-	};
-};
+/*this is for different project dtsi*/
+/* OnePlus add thermistor, by rio.zhao*/
 
 &thermal_zones {
 	skin-therm {
@@ -163,21 +151,10 @@
 		};
 	};
 };
-
 &pm8150b_charger {
 	/* for verify test adjust 530->500 */
 	hot-bat-decidegc = <500>;
-};
-
-&vendor {
-	haptics_boost_vreg {
-		status = "disabled";
-	};
-};
-
-&pm8150b_haptics {
-	status = "disabled";
-	vdd-supply = <&haptics_boost_vreg>;
+	op,dis_ctrl_current;
 };
 
 &mtp_batterydata {
