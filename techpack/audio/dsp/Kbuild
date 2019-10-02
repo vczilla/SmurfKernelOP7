@@ -35,9 +35,9 @@ ifeq ($(KERNEL_BUILD), 0)
 		INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
 	endif
 	ifeq ($(CONFIG_ARCH_TRINKET), y)
-		include $(AUDIO_ROOT)/config/sm6150auto.conf
+		include $(AUDIO_ROOT)/config/trinketauto.conf
 		export
-		INCS    +=  -include $(AUDIO_ROOT)/config/sm6150autoconf.h
+		INCS    +=  -include $(AUDIO_ROOT)/config/trinketautoconf.h
 	endif
 	ifeq ($(CONFIG_ARCH_SM8150), y)
 		include $(AUDIO_ROOT)/config/sm8150auto.conf
@@ -102,8 +102,8 @@ ifdef CONFIG_SND_SOC_MSM_QDSP6V2_INTF
 	Q6_OBJS += msm_audio_ion.o
 	Q6_OBJS += avtimer.o
 	Q6_OBJS += q6_init.o
-
 endif
+
 ifdef CONFIG_SND_SOC_MSM_QDSP6V2_INTF
 	Q6_OBJS += apr_elliptic.o
 	Q6_OBJS += elliptic/elliptic.o
@@ -113,6 +113,11 @@ ifdef CONFIG_SND_SOC_MSM_QDSP6V2_INTF
 	Q6_OBJS += elliptic/io_modules/userspace/elliptic_data_userspace_io.o
 	Q6_OBJS += elliptic/io_modules/userspace/elliptic_data_userspace_ctrl.o
 endif
+
+ifdef CONFIG_XT_LOGGING
+	Q6_OBJS += sp_params.o
+endif
+
 ifdef CONFIG_DTS_SRS_TM
 	Q6_OBJS += msm-dts-srs-tm-config.o
 endif
@@ -141,6 +146,10 @@ ifdef CONFIG_MSM_MDF
 	Q6_OBJS += msm_mdf.o
 endif
 
+ifdef CONFIG_VOICE_MHI
+	Q6_OBJS += voice_mhi.o
+endif
+
 LINUX_INC +=	-Iinclude/linux
 
 INCS +=		$(COMMON_INC) \
@@ -155,8 +164,6 @@ CDEFINES +=	-DANI_LITTLE_BYTE_ENDIAN \
 		-DANI_COMPILER_TYPE_GCC \
 		-DANI_OS_TYPE_ANDROID=6 \
 		-DPTT_SOCK_SVC_ENABLE \
-		-Wall\
-		-Werror\
 		-D__linux__
 
 KBUILD_CPPFLAGS += $(CDEFINES)
@@ -166,10 +173,6 @@ KBUILD_CPPFLAGS += $(CDEFINES)
 # AUDIO driver.  Note that we must use EXTRA_CFLAGS here so that it
 # will override the kernel settings.
 #EXTRA_CFLAGS += -Wmissing-prototypes
-
-ifeq ($(call cc-option-yn, -Wheader-guard),y)
-EXTRA_CFLAGS += -Wheader-guard
-endif
 
 # If the module name is not "wlan", then the define MULTI_IF_NAME to be the
 # same a the QCA CHIP name. The host driver will then append MULTI_IF_NAME to
