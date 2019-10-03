@@ -24,6 +24,9 @@ config INPUT
 	  module will be called input.
 
 if INPUT
+config HAPTIC_FEEDBACK_DISABLE
+	bool "Export haptic feedback control in sysfs"
+	default n
 
 config INPUT_LEDS
 	tristate "Export input device LEDs in sysfs"
@@ -208,6 +211,8 @@ source "drivers/input/joystick/Kconfig"
 source "drivers/input/tablet/Kconfig"
 
 source "drivers/input/touchscreen/Kconfig"
+
+source "drivers/input/oneplus_touchscreen/Kconfig"
 
 source "drivers/input/fingerprint/Kconfig"
 

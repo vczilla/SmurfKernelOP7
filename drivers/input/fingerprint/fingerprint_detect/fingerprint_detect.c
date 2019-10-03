@@ -166,6 +166,8 @@ static int fingerprint_detect_probe(struct platform_device *pdev)
 	}
 
 	fp_detect->sensor_version = 0x04;
+	if (of_property_read_bool(fp_detect->dev->of_node, "oneplus,goodix9608"))
+		fp_detect->sensor_version = 0x07;
 	fp_version = fp_detect->sensor_version;
 	dev_info(dev, "%s: ok\n", __func__);
 exit:

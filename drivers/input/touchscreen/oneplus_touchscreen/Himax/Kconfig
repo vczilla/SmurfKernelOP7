@@ -1,3 +1,0 @@
-
-source "drivers/input/touchscreen/oneplus_touchscreen/Himax/hx83112b/Kconfig"
-

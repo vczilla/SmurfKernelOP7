@@ -759,6 +759,7 @@ static int goodix_fb_state_chg_callback(
 	pr_info("[info] %s go to the msm_drm_notifier_callback value = %d\n",
 			__func__, (int)val);
 	blank = *(int *)(evdata->data);
+
 	if (val == MSM_DRM_ONSCREENFINGERPRINT_EVENT) {
 		pr_info("[%s] UI ready enter\n", __func__);
 
@@ -779,6 +780,7 @@ static int goodix_fb_state_chg_callback(
 		}
 		return 0;
 	}
+
 	gf_dev = container_of(nb, struct gf_dev, msm_drm_notif);
 	if (evdata && evdata->data && val ==
 		MSM_DRM_EARLY_EVENT_BLANK && gf_dev) {
@@ -1047,7 +1049,7 @@ static int __init gf_init(void)
 	 * the driver which manages those device numbers.
 	 */
 	pr_info("%s:fp version %x\n", __func__, fp_version);
-	if ((fp_version != 0x03) && (fp_version != 0x04))
+	if ((fp_version != 0x03) && (fp_version != 0x04) && (fp_version != 0x07))
 		return 0;
 	BUILD_BUG_ON(N_SPI_MINORS > 256);
 	status = register_chrdev(SPIDEV_MAJOR, CHRD_DRIVER_NAME, &gf_fops);
