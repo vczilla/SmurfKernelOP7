@@ -4585,6 +4585,12 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		}
 		ipa3_ctx->gsi_evt_comm_ring_rem -= (ring_size);
 		ep->gsi_evt_ring_hdl = ipa3_ctx->gsi_evt_comm_hdl;
+	} else if (in->client == IPA_CLIENT_APPS_WAN_COAL_CONS) {
+		result = ipa_gsi_setup_event_ring(ep,
+				IPA_COMMON_EVENT_RING_SIZE, mem_flag);
+		if (result)
+			goto fail_setup_event_ring;
+
 	} else if (ep->sys->policy != IPA_POLICY_NOINTR_MODE ||
 		IPA_CLIENT_IS_CONS(ep->client)) {
 		result = ipa_gsi_setup_event_ring(ep, ring_size, mem_flag);
