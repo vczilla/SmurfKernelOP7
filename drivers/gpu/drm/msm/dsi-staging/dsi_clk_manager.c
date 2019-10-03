@@ -1261,6 +1261,7 @@ int dsi_display_link_clk_force_update(void *client)
 	struct dsi_clk_client_info *c = client;
 	struct dsi_clk_mngr *mngr;
 	struct dsi_link_clks *l_clks;
+
 	mngr = c->mngr;
 	mutex_lock(&mngr->clk_mutex);
 

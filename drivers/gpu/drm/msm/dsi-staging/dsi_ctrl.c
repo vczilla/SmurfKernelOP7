@@ -42,6 +42,8 @@
 
 #define CEIL(x, y)              (((x) + ((y)-1)) / (y))
 
+#define TICKS_IN_MICRO_SECOND    1000000
+
 struct dsi_ctrl_list_item {
 	struct dsi_ctrl *ctrl;
 	struct list_head list;
@@ -817,6 +819,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	int rc = 0;
 	u32 num_of_lanes = 0;
 	u32 bpp;
+	u32 refresh_rate = TICKS_IN_MICRO_SECOND;
 	u64 h_period, v_period, bit_rate, pclk_rate, bit_rate_per_lane,
 	    byte_clk_rate;
 	struct dsi_host_common_cfg *host_cfg = &config->common_config;
@@ -839,10 +842,17 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 		num_of_lanes = split_link->lanes_per_sublink;
 
 	if (config->bit_clk_rate_hz_override == 0) {
-		h_period = DSI_H_TOTAL_DSC(timing);
-		h_period += timing->overlap_pixels;
-		v_period = DSI_V_TOTAL(timing);
-		bit_rate = h_period * v_period * timing->refresh_rate * bpp;
+		if (config->panel_mode == DSI_OP_CMD_MODE) {
+			h_period = DSI_H_ACTIVE_DSC(timing);
+			v_period = timing->v_active;
+
+			do_div(refresh_rate, timing->mdp_transfer_time_us);
+		} else {
+			h_period = DSI_H_TOTAL_DSC(timing);
+			v_period = DSI_V_TOTAL(timing);
+			refresh_rate = timing->refresh_rate;
+		}
+		bit_rate = h_period * v_period * refresh_rate * bpp;
 	} else {
 		bit_rate = config->bit_clk_rate_hz_override * num_of_lanes;
 	}
@@ -1088,6 +1098,7 @@ int dsi_message_validate_tx_mode(struct dsi_ctrl *dsi_ctrl,
 
 	return rc;
 }
+
 #if 0
 static void print_cmd_desc(const struct mipi_dsi_msg *msg)
 {
@@ -2953,12 +2964,10 @@ int dsi_ctrl_update_host_config(struct dsi_ctrl *ctrl,
 
 	pr_debug("[DSI_%d]Host config updated\n", ctrl->cell_index);
 	memcpy(&ctrl->host_config, config, sizeof(ctrl->host_config));
-	ctrl->mode_bounds.x = (ctrl->host_config.video_timing.h_active +
-			ctrl->host_config.video_timing.overlap_pixels) *
-						 ctrl->horiz_index;
+	ctrl->mode_bounds.x = ctrl->host_config.video_timing.h_active *
+			ctrl->horiz_index;
 	ctrl->mode_bounds.y = 0;
-	ctrl->mode_bounds.w = ctrl->host_config.video_timing.h_active +
-				ctrl->host_config.video_timing.overlap_pixels;
+	ctrl->mode_bounds.w = ctrl->host_config.video_timing.h_active;
 	ctrl->mode_bounds.h = ctrl->host_config.video_timing.v_active;
 	memcpy(&ctrl->roi, &ctrl->mode_bounds, sizeof(ctrl->mode_bounds));
 	ctrl->modeupdated = true;

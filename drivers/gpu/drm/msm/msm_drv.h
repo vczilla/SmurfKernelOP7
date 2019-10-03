@@ -103,7 +103,7 @@ enum msm_mdp_plane_property {
 
 	/* range properties */
 	PLANE_PROP_ZPOS = PLANE_PROP_BLOBCOUNT,
-
+	//xiaoxiaohuan@OnePlus.MultiMediaService,2018/08/04, add for fingerprint
     PLANE_PROP_CUSTOM,
 	PLANE_PROP_ALPHA,
 	PLANE_PROP_COLOR_FILL,
@@ -450,7 +450,6 @@ struct msm_display_topology {
  * @mdp_transfer_time_us   Specifies the mdp transfer time for command mode
  *                         panels in microseconds.
  * @vpadding:        panel stacking height
- * @overlap_pixels:	overlap pixels for certain panels
  */
 struct msm_mode_info {
 	uint32_t frame_rate;
@@ -465,7 +464,6 @@ struct msm_mode_info {
 	bool wide_bus_en;
 	u32 mdp_transfer_time_us;
 	u32 vpadding;
-	u32 overlap_pixels;
 };
 
 /**

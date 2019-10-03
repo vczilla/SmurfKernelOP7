@@ -39,6 +39,8 @@
 #include "sde_core_irq.h"
 #include "sde_hw_top.h"
 #include "sde_hw_qdss.h"
+#include "sde_connector.h"
+
 
 #define SDE_DEBUG_ENC(e, fmt, ...) SDE_DEBUG("enc%d " fmt,\
 		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
@@ -84,7 +86,11 @@
 		((x) == SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE) || \
 		((x) == SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC))
 
-extern bool is_s6e3hc2;
+#define DSI_PANEL_SAMSUNG_S6E3HC2 0
+#define DSI_PANEL_SAMSUNG_S6E3FC2X01 1
+#define DSI_PANEL_SAMSUNG_SOFEF03F_M 2
+
+extern char dsi_panel_name;
 
 /**
  * enum sde_enc_rc_events - events for resource control state machine
@@ -390,7 +396,7 @@ static bool _sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc)
 	}
 
 	comp_info = &mode_info.comp_info;
-
+	SDE_EVT32(comp_info->comp_type);
 	return (comp_info->comp_type == MSM_DISPLAY_COMPRESSION_DSC);
 }
 
@@ -864,16 +870,12 @@ void sde_encoder_helper_split_config(
 	struct sde_hw_mdp *hw_mdptop;
 	enum sde_rm_topology_name topology;
 	struct msm_display_info *disp_info;
-	struct msm_mode_info mode_info;
-	struct drm_encoder *drm_enc;
-	int ret;
 
 	if (!phys_enc || !phys_enc->hw_mdptop || !phys_enc->parent) {
 		SDE_ERROR("invalid arg(s), encoder %d\n", phys_enc != 0);
 		return;
 	}
 
-	drm_enc = phys_enc->parent;
 	sde_enc = to_sde_encoder_virt(phys_enc->parent);
 	hw_mdptop = phys_enc->hw_mdptop;
 	disp_info = &sde_enc->disp_info;
@@ -908,21 +910,11 @@ void sde_encoder_helper_split_config(
 			phys_enc->ops.needs_single_flush(phys_enc))
 		cfg->split_flush_en = true;
 
-	cfg->pp_split_slave = INTF_MAX;
 	topology = sde_connector_get_topology_name(phys_enc->connector);
-	if (topology == SDE_RM_TOPOLOGY_PPSPLIT) {
+	if (topology == SDE_RM_TOPOLOGY_PPSPLIT)
 		cfg->pp_split_slave = cfg->intf;
-		ret = _sde_encoder_get_mode_info(drm_enc, &mode_info);
-		if (ret) {
-			SDE_ERROR_ENC(sde_enc, "failed to get mode info\n");
-			return;
-		}
-		cfg->overlap_pixel_width = mode_info.overlap_pixels;
-	}
-
-	if (topology == SDE_RM_TOPOLOGY_PPSPLIT
-			&& phys_enc->split_role == ENC_ROLE_SLAVE)
-		cfg->pp_slave_intf = true;
+	else
+		cfg->pp_split_slave = INTF_MAX;
 
 	if (phys_enc->split_role == ENC_ROLE_MASTER) {
 		SDE_DEBUG_ENC(sde_enc, "enable %d\n", cfg->en);
@@ -964,24 +956,6 @@ bool sde_encoder_in_clone_mode(struct drm_encoder *drm_enc)
 	}
 
 	return false;
-}
-
-bool sde_encoder_is_topology_ppsplit(struct drm_encoder *drm_enc)
-{
-	struct sde_encoder_virt *sde_enc;
-	struct sde_encoder_phys *master;
-
-	if (!drm_enc)
-		return false;
-
-	sde_enc = to_sde_encoder_virt(drm_enc);
-	master = sde_enc->cur_master;
-
-	if (!master || !master->connector)
-		return false;
-
-	return  (sde_connector_get_topology_name(master->connector)
-			== SDE_RM_TOPOLOGY_PPSPLIT);
 }
 
 static int sde_encoder_virt_atomic_check(
@@ -1088,6 +1062,7 @@ static int sde_encoder_virt_atomic_check(
 	if (!ret && sde_conn && drm_atomic_crtc_needs_modeset(crtc_state)) {
 		struct msm_display_topology *topology = NULL;
 
+		SDE_EVT32(sde_conn_state, ((unsigned long long)sde_conn_state) >> 32, 0x9999);
 		ret = sde_conn->ops.get_mode_info(&sde_conn->base, adj_mode,
 				&sde_conn_state->mode_info,
 				sde_kms->catalog->max_mixer_width,
@@ -1661,6 +1636,7 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc,
 	enum sde_rm_topology_name topology;
 	struct drm_connector *drm_conn;
 	int ret = 0;
+	SDE_EVT32(sde_enc,params);
 
 	if (!sde_enc || !params || !sde_enc->phys_encs[0] ||
 			!sde_enc->phys_encs[0]->connector)
@@ -1670,6 +1646,7 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc,
 
 	topology = sde_connector_get_topology_name(drm_conn);
 	if (topology == SDE_RM_TOPOLOGY_NONE) {
+		SDE_EVT32(topology);
 		SDE_ERROR_ENC(sde_enc, "topology not set yet\n");
 		return -EINVAL;
 	}
@@ -1951,10 +1928,12 @@ static int _sde_encoder_update_rsc_client(
 	    (rsc_config->prefill_lines != prefill_lines) ||
 	    (rsc_config->jitter_numer != mode_info.jitter_numer) ||
 	    (rsc_config->jitter_denom != mode_info.jitter_denom)) {
-		if (is_s6e3hc2)
+		if (dsi_panel_name == DSI_PANEL_SAMSUNG_S6E3HC2 || dsi_panel_name == DSI_PANEL_SAMSUNG_SOFEF03F_M) {
 			rsc_config->fps = 90;
-		else
+		}
+		else {
 			rsc_config->fps = mode_info.frame_rate;
+		}
 		rsc_config->vtotal = mode_info.vtotal;
 		rsc_config->prefill_lines = prefill_lines;
 		rsc_config->jitter_numer = mode_info.jitter_numer;
@@ -2527,8 +2506,14 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 		mutex_lock(&sde_enc->rc_lock);
 
-		/* return if the resource control is already in ON state */
-		if (sde_enc->rc_state != SDE_ENC_RC_STATE_ON) {
+		/* Nothing to do in off state */
+		if (sde_enc->rc_state == SDE_ENC_RC_STATE_OFF) {
+			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, rc in OFF state\n",
+					sw_event);
+			SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state);
+			mutex_unlock(&sde_enc->rc_lock);
+			return 0;
+		} else if (sde_enc->rc_state != SDE_ENC_RC_STATE_ON) {
 			/* enable all the clks and resources */
 			ret = _sde_encoder_resource_control_helper(drm_enc,
 					true);
@@ -2574,8 +2559,14 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 	case SDE_ENC_RC_EVENT_POST_MODESET:
 		mutex_lock(&sde_enc->rc_lock);
 
-		/* return if the resource control is already in ON state */
-		if (sde_enc->rc_state != SDE_ENC_RC_STATE_MODESET) {
+		/* Nothing to do in off state */
+		if (sde_enc->rc_state == SDE_ENC_RC_STATE_OFF) {
+			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, rc in OFF state\n",
+					sw_event);
+			SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state);
+			mutex_unlock(&sde_enc->rc_lock);
+			return 0;
+		} else if (sde_enc->rc_state != SDE_ENC_RC_STATE_MODESET) {
 			SDE_ERROR_ENC(sde_enc,
 					"sw_event:%d, rc:%d !MODESET state\n",
 					sw_event, sde_enc->rc_state);
@@ -2729,6 +2720,8 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	struct sde_kms *sde_kms;
 	struct list_head *connector_list;
 	struct drm_connector *conn = NULL, *conn_iter;
+//	struct sde_connector_state *sde_conn_state = NULL;
+//	struct sde_connector *sde_conn = NULL;
 	struct sde_rm_hw_iter dsc_iter, pp_iter, qdss_iter;
 	struct sde_rm_hw_request request_hw;
 	bool is_cmd_mode = false;
@@ -2776,7 +2769,22 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 		SDE_ERROR_ENC(sde_enc, "invalid connector state\n");
 		return;
 	}
-
+/*
+	sde_conn = to_sde_connector(conn);
+	sde_conn_state = to_sde_connector_state(conn->state);
+	if (sde_conn && sde_conn_state) {
+		SDE_EVT32(sde_conn_state, ((unsigned long long)sde_conn_state) >> 32, 0x9999);
+		ret = sde_conn->ops.get_mode_info(&sde_conn->base, adj_mode,
+				&sde_conn_state->mode_info,
+				sde_kms->catalog->max_mixer_width,
+				sde_conn->display);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+				"failed to get mode info from the display\n");
+			return;
+		}
+	}
+*/
 	/* release resources before seamless mode change */
 	if (msm_is_mode_seamless_dms(adj_mode) ||
 			(msm_is_mode_seamless_dyn_clk(adj_mode) &&
@@ -4116,9 +4124,9 @@ void sde_encoder_trigger_kickoff_pending(struct drm_encoder *drm_enc)
 	sde_enc->idle_pc_restore = false;
 }
 
-extern int op_dither_enable;
+
+/*kent.xie@MM.Display.LCD.Feature,2018-08-19 force enable dither on Fingerprint scene */
 extern int op_dimlayer_bl_enable;
-extern int op_resolution;
 extern bool sde_crtc_get_dimlayer_mode(struct drm_crtc_state *crtc_state);
 static bool
 _sde_encoder_setup_dither_for_onscreenfingerprint(struct sde_encoder_phys *phys,struct sde_hw_pingpong *hw_pp,
@@ -4138,19 +4146,12 @@ _sde_encoder_setup_dither_for_onscreenfingerprint(struct sde_encoder_phys *phys,
 
  memcpy(&dither, dither_cfg, len);
 
- if ((op_dither_enable && op_resolution == 2) || op_resolution == 0) {
-	dither.c0_bitdepth = 6;
-	dither.c1_bitdepth = 6;
-	dither.c2_bitdepth = 6;
-	dither.c3_bitdepth = 6;
-	dither.temporal_en = 1;
- } else {
+
 	dither.c0_bitdepth = 8;
 	dither.c1_bitdepth = 8;
 	dither.c2_bitdepth = 8;
 	dither.c3_bitdepth = 8;
 	dither.temporal_en = 1;
- }
 
  phys->hw_pp->ops.setup_dither(hw_pp, &dither, len);
 
@@ -4203,13 +4204,14 @@ static void _sde_encoder_setup_dither(struct sde_encoder_phys *phys)
 		for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
 			hw_pp = sde_enc->hw_pp[i];
 			if (hw_pp) {
+                /*kent.xie@MM.Display.LCD.Feature,2018-08-19 force enable dither on Fingerprint scene */
             if (_sde_encoder_setup_dither_for_onscreenfingerprint(phys,hw_pp, dither_cfg, len))
 				phys->hw_pp->ops.setup_dither(hw_pp, dither_cfg,
 								len);
 			}
 		}
 	} else {
-
+        /*kent.xie@MM.Display.LCD.Feature,2018-08-19 force enable dither on Fingerprint scene */
         if (_sde_encoder_setup_dither_for_onscreenfingerprint(phys,phys->hw_pp, dither_cfg, len))
 		phys->hw_pp->ops.setup_dither(phys->hw_pp, dither_cfg, len);
 	}
@@ -4596,7 +4598,8 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		sde_connector_set_qsync_params(
 				sde_enc->cur_master->connector);
 
-	if (sde_enc->cur_master &&(!strcmp(sde_enc->cur_master->connector->name, "DSI-1")))
+	/*Kent.xie@MM.Display.LCD,2019-03-29 add for dc backlight */
+	if (sde_enc->cur_master  && (!strcmp(sde_enc->cur_master->connector->name, "DSI-1")))
 		sde_connector_update_backlight(sde_enc->cur_master->connector);
 
 	/* prepare for next kickoff, may include waiting on previous kickoff */
@@ -4622,10 +4625,8 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 			}
 		}
 	}
-	SDE_ATRACE_BEGIN("sde_encoder_resource_control");
-	rc = sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_KICKOFF);
-	SDE_ATRACE_END("sde_encoder_resource_control");
 
+	rc = sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_KICKOFF);
 	if (rc) {
 		SDE_ERROR_ENC(sde_enc, "resource kickoff failed rc %d\n", rc);
 		ret = rc;
@@ -4650,18 +4651,13 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 				phys->ops.hw_reset(phys);
 		}
 	}
-	SDE_ATRACE_BEGIN("_sde_encoder_update_master");
+	SDE_EVT32(DRMID(drm_enc), 1);
 	_sde_encoder_update_master(drm_enc, params);
-	SDE_ATRACE_END("_sde_encoder_update_master");
 
-	SDE_ATRACE_BEGIN("_sde_encoder_update_roi");
 	_sde_encoder_update_roi(drm_enc);
-	SDE_ATRACE_END("_sde_encoder_update_roi");
 
 	if (sde_enc->cur_master && sde_enc->cur_master->connector) {
-		SDE_ATRACE_BEGIN("sde_connector_pre_kickoff");
 		rc = sde_connector_pre_kickoff(sde_enc->cur_master->connector);
-		SDE_ATRACE_END("sde_connector_pre_kickoff");
 		if (rc) {
 			SDE_ERROR_ENC(sde_enc, "kickoff conn%d failed rc %d\n",
 					sde_enc->cur_master->connector->base.id,
@@ -4669,7 +4665,7 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 			ret = rc;
 		}
 	}
-
+	SDE_EVT32(_sde_encoder_is_dsc_enabled(drm_enc), sde_enc->cur_master, sde_enc->cur_master->cont_splash_enabled);
 	if (_sde_encoder_is_dsc_enabled(drm_enc) && sde_enc->cur_master &&
 			!sde_enc->cur_master->cont_splash_enabled) {
 		rc = _sde_encoder_dsc_setup(sde_enc, params);
@@ -4684,8 +4680,18 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	if (sde_enc->cur_master && !sde_enc->cur_master->cont_splash_enabled)
 		sde_configure_qdss(sde_enc, sde_enc->cur_master->hw_qdss,
 				sde_enc->cur_master, sde_kms->qdss_enabled);
-
+	if ((dsi_panel_name == DSI_PANEL_SAMSUNG_S6E3HC2) || (dsi_panel_name == DSI_PANEL_SAMSUNG_SOFEF03F_M))
+		{
+		if (disp_info->intf_type == DRM_MODE_CONNECTOR_DSI && !_sde_encoder_is_dsc_enabled(drm_enc)) {
+				pr_err("DSC is disabled\n");
+				if (sde_enc && sde_enc->phys_encs[0] && sde_enc->phys_encs[0]->connector) {
+					SDE_EVT32(sde_connector_get_topology_name(sde_enc->phys_encs[0]->connector), 0x9999);
+				}
+				SDE_DBG_DUMP("all", "dbg_bus", "panic");
+		}
+	}
 end:
+	SDE_EVT32(0XFFFF);
 	SDE_ATRACE_END("sde_encoder_prepare_for_kickoff");
 	return ret;
 }
@@ -5599,7 +5605,7 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder,
 		SDE_ERROR_ENC(sde_enc, "conn: get_mode_info ops not found\n");
 		return -EINVAL;
 	}
-
+	SDE_EVT32(sde_conn_state, ((unsigned long long)sde_conn_state) >> 32, 0x9999);
 	ret = sde_conn->ops.get_mode_info(&sde_conn->base,
 			&encoder->crtc->state->adjusted_mode,
 			&sde_conn_state->mode_info,

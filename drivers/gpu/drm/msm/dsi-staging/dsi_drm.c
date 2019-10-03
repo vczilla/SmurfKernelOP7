@@ -446,7 +446,7 @@ int dsi_conn_get_mode_info(struct drm_connector *connector,
 
 	if (!dsi_mode.priv_info)
 		return -EINVAL;
-
+	SDE_EVT32(mode_info,  ((unsigned long long)mode_info) >> 32, connector, ((unsigned long long)connector) >> 32, 0x9999);
 	memset(mode_info, 0, sizeof(*mode_info));
 
 	timing = &dsi_mode.timing;
@@ -458,7 +458,6 @@ int dsi_conn_get_mode_info(struct drm_connector *connector,
 	mode_info->clk_rate = dsi_drm_find_bit_clk_rate(display, drm_mode);
 	mode_info->mdp_transfer_time_us =
 		dsi_mode.priv_info->mdp_transfer_time_us;
-	mode_info->overlap_pixels = dsi_mode.priv_info->overlap_pixels;
 
 	memcpy(&mode_info->topology, &dsi_mode.priv_info->topology,
 			sizeof(struct msm_display_topology));
@@ -476,7 +475,7 @@ int dsi_conn_get_mode_info(struct drm_connector *connector,
 		memcpy(&mode_info->roi_caps, &dsi_mode.priv_info->roi_caps,
 			sizeof(dsi_mode.priv_info->roi_caps));
 	}
-
+	SDE_EVT32(dsi_mode.priv_info->dsc_enabled, mode_info->clk_rate, mode_info->frame_rate, 0x9999);
 	return 0;
 }
 

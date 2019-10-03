@@ -19,13 +19,19 @@
 #include <linux/of_gpio.h>
 #include <linux/pwm.h>
 #include <video/mipi_display.h>
+#include <linux/project_info.h>
+#include <linux/oneplus/boot_mode.h>
+
 #include "dsi_panel.h"
 #include "dsi_ctrl_hw.h"
 #include "dsi_parser.h"
 #include <linux/pm_wakeup.h>
+#include <linux/project_info.h>
 #include <linux/msm_drm_notify.h>
 #include <linux/notifier.h>
 #include <linux/string.h>
+#include <linux/input.h>
+#include <linux/proc_fs.h>
 #include <linux/display_state.h>
 #include "dsi_drm.h"
 #include "dsi_display.h"
@@ -47,6 +53,12 @@
 #define TOPOLOGY_SET_LEN 3
 #define MAX_TOPOLOGY 5
 
+#define DSI_PANEL_SAMSUNG_S6E3HC2 0
+#define DSI_PANEL_SAMSUNG_S6E3FC2X01 1
+#define DSI_PANEL_SAMSUNG_SOFEF03F_M 2
+
+#define DSI_PANEL_DEFAULT_LABEL  "Default dsi panel"
+
 #define DEFAULT_MDP_TRANSFER_TIME 14000
 
 #define DEFAULT_PANEL_JITTER_NUMERATOR		2
@@ -55,7 +67,7 @@
 #define MAX_PANEL_JITTER		10
 #define DEFAULT_PANEL_PREFILL_LINES	25
 #define TICKS_IN_MICRO_SECOND		1000000
-extern int tp_1v8_power;
+
 
 enum dsi_dsc_ratio_type {
 	DSC_8BPC_8BPP,
@@ -79,7 +91,7 @@ static u32 dsi_dsc_rc_buf_thresh[] = {0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54,
  * Rate control - Min QP values for each ratio type in dsi_dsc_ratio_type
  */
 static char dsi_dsc_rc_range_min_qp_1_1[][15] = {
-	{0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5, 5, 5, 7, 12},
+	{0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5, 5, 5, 7, 13},
 	{0, 4, 5, 5, 7, 7, 7, 7, 7, 7, 9, 9, 9, 11, 17},
 	{0, 4, 9, 9, 11, 11, 11, 11, 11, 11, 13, 13, 13, 15, 21},
 	};
@@ -127,6 +139,10 @@ static int    cur_backlight = -1;
 static int    cur_fps = 60;
 static int    cur_h = 1440;
 static struct dsi_panel_cmd_set gamma_cmd_set[2];
+static struct input_dev* brightness_input_dev = NULL;
+static struct proc_dir_entry *prEntry_tp = NULL;
+static int    brightness_enable = 0;
+
 char gamma_para[2][413] = {
 {
 /* Level2 key Enable */
@@ -259,7 +275,9 @@ const char *gamma_cmd_set_map[DSI_GAMMA_CMD_SET_MAX] = {
 };
 
 int gamma_read_flag = GAMMA_READ_SUCCESS;
-bool is_s6e3hc2 = false;
+
+char dsi_panel_name = DSI_PANEL_SAMSUNG_S6E3FC2X01;
+EXPORT_SYMBOL(dsi_panel_name);
 
 int dsi_dsc_create_pps_buf_cmd(struct msm_display_dsc_info *dsc, char *buf,
 				int pps_id)
@@ -393,6 +411,7 @@ static int dsi_panel_vreg_get(struct dsi_panel *panel)
 		panel->power_info.vregs[i].vreg = vreg;
 	}
 
+
 	return rc;
 error_put:
 	for (i = i - 1; i >= 0; i--) {
@@ -450,7 +469,40 @@ static int dsi_panel_gpio_request(struct dsi_panel *panel)
 		}
 	}
 
+	if (gpio_is_valid(panel->poc)) {
+		rc = gpio_request(panel->poc, "platform_poc_gpio");
+		if (rc) {
+			pr_err("request for platform_poc_gpio failed, rc=%d\n", rc);
+			goto error_release_lcd_mode_sel;
+		}
+	}
+
+	if (gpio_is_valid(panel->vddd_gpio)) {
+		rc = gpio_request(panel->vddd_gpio, "vddd_gpio");
+		if (rc) {
+			pr_err("request for vddd_gpio failed, rc=%d\n", rc);
+			goto error_release_poc;
+		}
+	}
+
+	if (gpio_is_valid(panel->tp1v8_gpio)) {
+		rc = gpio_request(panel->tp1v8_gpio, "tp1v8_gpio");
+		if (rc) {
+			pr_err("request for tp1v8_gpio failed, rc=%d\n", rc);
+			goto error_release_vddd;
+		}
+	}
+
 	goto error;
+error_release_vddd:
+	if (gpio_is_valid(panel->vddd_gpio))
+		gpio_free(panel->vddd_gpio);
+error_release_poc:
+	if (gpio_is_valid(panel->poc))
+		gpio_free(panel->poc);
+error_release_lcd_mode_sel:
+	if (gpio_is_valid(r_config->lcd_mode_sel_gpio))
+		gpio_free(r_config->lcd_mode_sel_gpio);
 error_release_mode_sel:
 	if (gpio_is_valid(panel->bl_config.en_gpio))
 		gpio_free(panel->bl_config.en_gpio);
@@ -480,6 +532,15 @@ static int dsi_panel_gpio_release(struct dsi_panel *panel)
 
 	if (gpio_is_valid(panel->reset_config.lcd_mode_sel_gpio))
 		gpio_free(panel->reset_config.lcd_mode_sel_gpio);
+
+	if (gpio_is_valid(panel->poc))
+		gpio_free(panel->poc);
+
+	if (gpio_is_valid(panel->vddd_gpio))
+		gpio_free(panel->vddd_gpio);
+
+	if (gpio_is_valid(panel->tp1v8_gpio))
+		gpio_free(panel->tp1v8_gpio);
 
 	return rc;
 }
@@ -600,21 +661,39 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 		pr_err("[%s] failed to enable vregs, rc=%d\n", panel->name, rc);
 		goto exit;
 	}
+
+	if (gpio_is_valid(panel->poc)) {
+		rc = gpio_direction_output(panel->poc, 1);
+		pr_err("enable poc gpio\n");
+		if (rc) {
+			pr_err("unable to set dir for poc gpio rc=%d\n", rc);
+			goto error_disable_vregs;
+		}
+	}
+
+	if (gpio_is_valid(panel->vddd_gpio)) {
+		rc = gpio_direction_output(panel->vddd_gpio, 1);
+		pr_err("enable vddd gpio\n");
+		if (rc) {
+			pr_err("unable to set dir for vddd gpio rc=%d\n", rc);
+			goto error_disable_poc;
+		}
+	}
 	display_on = true;
 
 	rc = dsi_panel_set_pinctrl_state(panel, true);
 	if (rc) {
 		pr_err("[%s] failed to set pinctrl, rc=%d\n", panel->name, rc);
-		goto error_disable_vregs;
+		goto error_disable_vddd;
 	}
 
-    if (!panel->lp11_init){
+	if (!panel->lp11_init) {
 		rc = dsi_panel_reset(panel);
 		if (rc) {
 			pr_err("[%s] failed to reset panel, rc=%d\n", panel->name, rc);
 			goto error_disable_gpio;
 		}
-    }
+	}
 
 	goto exit;
 
@@ -624,8 +703,16 @@ error_disable_gpio:
 
 	if (gpio_is_valid(panel->bl_config.en_gpio))
 		gpio_set_value(panel->bl_config.en_gpio, 0);
+//error_disable_pinctrl:
+		(void)dsi_panel_set_pinctrl_state(panel, false);
 
-	(void)dsi_panel_set_pinctrl_state(panel, false);
+error_disable_vddd:
+	if (gpio_is_valid(panel->vddd_gpio))
+		gpio_set_value(panel->vddd_gpio, 0);
+
+error_disable_poc:
+	if (gpio_is_valid(panel->poc))
+		gpio_set_value(panel->poc, 0);
 
 error_disable_vregs:
 	(void)dsi_pwr_enable_regulator(&panel->power_info, false);
@@ -646,7 +733,19 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 
 	if (gpio_is_valid(panel->reset_config.lcd_mode_sel_gpio))
 		gpio_set_value(panel->reset_config.lcd_mode_sel_gpio, 0);
-	msleep(30);
+
+	if (strcmp(panel->name, "samsung sofef03f_m fhd cmd mode dsc dsi panel") == 0) {
+		msleep(10);
+		if (gpio_is_valid(panel->vddd_gpio)) {
+			gpio_set_value(panel->vddd_gpio, 0);
+			pr_err("disable vddd gpio\n");
+		}
+	}
+
+	if (gpio_is_valid(panel->poc)) {
+		gpio_set_value(panel->poc, 0);
+		pr_err("disable poc gpio\n");
+	}
 
 	rc = dsi_panel_set_pinctrl_state(panel, false);
 	if (rc) {
@@ -657,10 +756,14 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 	rc = dsi_pwr_enable_regulator(&panel->power_info, false);
 	if (rc)
 		pr_err("[%s] failed to enable vregs, rc=%d\n", panel->name, rc);
-
 	display_on = false;
+/*
+error_disable_pinctrl:
+	(void)dsi_panel_set_pinctrl_state(panel, false);
+*/
 	return rc;
 }
+
 int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 				enum dsi_cmd_set_type type)
 {
@@ -771,8 +874,7 @@ static int dsi_panel_wled_register(struct dsi_panel *panel,
 	bl->raw_bd = bd;
 	return 0;
 }
-
-bool HBM_flag = false;
+bool HBM_flag =false;
 
 int dsi_panel_gamma_read_address_setting(struct dsi_panel *panel, u16 read_number)
 {
@@ -794,6 +896,14 @@ int dsi_panel_gamma_read_address_setting(struct dsi_panel *panel, u16 read_numbe
 extern int op_dimlayer_bl_alpha;
 extern int op_dimlayer_bl_enabled;
 extern int op_dimlayer_bl_enable_real;
+
+static int saved_backlight = -1;
+
+int dsi_panel_backlight_get(void)
+{
+		return saved_backlight;
+}
+
 static int dsi_panel_update_backlight(struct dsi_panel *panel,
 	u32 bl_lvl)
 {
@@ -810,23 +920,24 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 	dsi = &panel->mipi_device;
 	mode = panel->cur_mode;
 
+	saved_backlight = bl_lvl;
+
+	/*xiaoxiaohuan@OnePlus.MultiMediaService,2018/08/04, add for fingerprint*/
 	if (panel->is_hbm_enabled) {
 		hbm_finger_print = true;
 		pr_err("HBM is enabled\n");
 		return 0;
 	}
+
+	/*** DC backlight config ****/
 	if (op_dimlayer_bl_enabled != op_dimlayer_bl_enable_real) {
 		op_dimlayer_bl_enable_real = op_dimlayer_bl_enabled;
-		if (op_dimlayer_bl_enable_real) {
-		bl_lvl = op_dimlayer_bl_alpha;
-			pr_err("dc light enable\n");
-		} else {
-			pr_err("dc light disenable\n");
-		}
+		if (op_dimlayer_bl_enable_real && bl_lvl != 0)
+			bl_lvl = op_dimlayer_bl_alpha;
+		pr_err("dc light %d %d\n", op_dimlayer_bl_enable_real, bl_lvl);
 	}
-	if (op_dimlayer_bl_enable_real) {
+	if (op_dimlayer_bl_enable_real && bl_lvl != 0)
 		bl_lvl = op_dimlayer_bl_alpha;
-    }
 
 	if (panel->bl_config.bl_high2bit) {
 		if (HBM_flag == true)
@@ -864,57 +975,6 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 			bl_lvl);
 	if (rc < 0)
 		pr_err("failed to update dcs backlight:%d\n", bl_lvl);
-
-error:
-	return rc;
-}
-
-static int dsi_panel_update_pwm_backlight(struct dsi_panel *panel,
-	u32 bl_lvl)
-{
-	int rc = 0;
-	u32 duty = 0;
-	u32 period_ns = 0;
-	struct dsi_backlight_config *bl;
-
-	if (!panel) {
-		pr_err("Invalid Params\n");
-		return -EINVAL;
-	}
-
-	bl = &panel->bl_config;
-	if (!bl->pwm_bl) {
-		pr_err("pwm device not found\n");
-		return -EINVAL;
-	}
-
-	period_ns = bl->pwm_period_usecs * NSEC_PER_USEC;
-	duty = bl_lvl * period_ns;
-	duty /= bl->bl_max_level;
-
-	rc = pwm_config(bl->pwm_bl, duty, period_ns);
-	if (rc) {
-		pr_err("[%s] failed to change pwm config, rc=\n", panel->name,
-			rc);
-		goto error;
-	}
-
-	if (bl_lvl == 0 && bl->pwm_enabled) {
-		pwm_disable(bl->pwm_bl);
-		bl->pwm_enabled = false;
-		return 0;
-	}
-
-	if (!bl->pwm_enabled) {
-		rc = pwm_enable(bl->pwm_bl);
-		if (rc) {
-			pr_err("[%s] failed to enable pwm, rc=\n", panel->name,
-				rc);
-			goto error;
-		}
-
-		bl->pwm_enabled = true;
-	}
 
 error:
 	return rc;
@@ -972,13 +1032,66 @@ error:
 	return rc;
 }
 
+static int dsi_panel_update_pwm_backlight(struct dsi_panel *panel,
+	u32 bl_lvl)
+{
+	int rc = 0;
+	u32 duty = 0;
+	u32 period_ns = 0;
+	struct dsi_backlight_config *bl;
+
+	if (!panel) {
+		pr_err("Invalid Params\n");
+		return -EINVAL;
+	}
+
+	bl = &panel->bl_config;
+	if (!bl->pwm_bl) {
+		pr_err("pwm device not found\n");
+		return -EINVAL;
+	}
+
+	period_ns = bl->pwm_period_usecs * NSEC_PER_USEC;
+	duty = bl_lvl * period_ns;
+	duty /= bl->bl_max_level;
+
+	rc = pwm_config(bl->pwm_bl, duty, period_ns);
+	if (rc) {
+		pr_err("[%s] failed to change pwm config, rc=\n", panel->name,
+			rc);
+		goto error;
+	}
+
+	if (bl_lvl == 0 && bl->pwm_enabled) {
+		pwm_disable(bl->pwm_bl);
+		bl->pwm_enabled = false;
+		return 0;
+	}
+
+	if (!bl->pwm_enabled) {
+		rc = pwm_enable(bl->pwm_bl);
+		if (rc) {
+			pr_err("[%s] failed to enable pwm, rc=\n", panel->name,
+				rc);
+			goto error;
+		}
+
+		bl->pwm_enabled = true;
+	}
+
+error:
+	return rc;
+}
+
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
 	int rc = 0;
 	struct dsi_backlight_config *bl = &panel->bl_config;
 
-	pr_debug("backlight type:%d lvl:%d\n", bl->type, bl_lvl);
+	if (panel->host_config.ext_bridge_num)
+		return 0;
 
+	pr_debug("backlight type:%d lvl:%d\n", bl->type, bl_lvl);
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
 		rc = backlight_device_set_brightness(bl->raw_bd, bl_lvl);
@@ -996,7 +1109,14 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 		pr_err("Backlight type(%d) not supported\n", bl->type);
 		rc = -ENOTSUPP;
 	}
-	
+
+	///report event
+	if (brightness_enable) {
+		input_event(brightness_input_dev, EV_MSC, MSC_RAW, bl_lvl);
+		input_sync(brightness_input_dev);
+	}
+
+
 #ifdef CONFIG_KLAPSE
 	set_rgb_slider(bl_lvl);
 #endif
@@ -1125,7 +1245,6 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 {
 	int rc = 0;
 	u64 tmp64 = 0;
-	u32 val = 0;
 	struct dsi_display_mode *display_mode;
 	struct dsi_display_mode_priv_info *priv_info;
 
@@ -1152,10 +1271,6 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 	}
 	display_mode->priv_info->mdp_transfer_time_us =
 					mode->mdp_transfer_time_us;
-
-	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-overlap-pixels",
-				  &val);
-	priv_info->overlap_pixels = rc ? 0 : val;
 
 	rc = utils->read_u32(utils->data,
 				"qcom,mdss-dsi-panel-framerate",
@@ -2033,6 +2148,7 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-acl-command",
 	"qcom,mdss-dsi-panel-serial-num-pre-command",
 	"qcom,mdss-dsi-panel-serial-num-post-command",
+	"qcom,mdss-dsi-panel-code-info-command",
 	"qcom,mdss-dsi-panel-stage-info-command",
 	"qcom,mdss-dsi-panel-production-info-command",
 	"qcom,mdss-dsi-panel-read-esd-registed-longread-command",
@@ -2055,12 +2171,14 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-panel-display-srgb-color-mode-off-command",
 	"qcom,mdss-113mhz-osc-dsi-on-command",
 	"qcom,mdss-dsi-post-on-backlight",
-	"qcom,mdss-dsi-laoding-effect-enable-command",
-	"qcom,mdss-dsi-laoding-effect-disable-command",
+	"qcom,mdss-dsi-loading-effect-enable-command",
+	"qcom,mdss-dsi-loading-effect-disable-command",
 	"qcom,mdss-dsi-customer-srgb-enable-command",
 	"qcom,mdss-dsi-customer-srgb-disable-command",
 	"qcom,mdss-dsi-customer-p3-enable-command",
 	"qcom,mdss-dsi-customer-p3-disable-command",
+	"qcom,mdss-dsi-panel-command",
+	"qcom,mdss-dsi-seed-command",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -2120,6 +2238,7 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-acl-command-state",
 	"qcom,mdss-dsi-panel-serial-num-pre-command-state",
 	"qcom,mdss-dsi-panel-serial-num-post-command-state",
+	"qcom,mdss-dsi-panel-code-info-command-state",
 	"qcom,mdss-dsi-panel-stage-info-command-state",
 	"qcom,mdss-dsi-panel-production-info-command-state",
 	"qcom,mdss-dsi-panel-read-esd-registed-longread-command-state",
@@ -2142,12 +2261,14 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-panel-display-srgb-color-mode-off-command-state",
 	"qcom,mdss-113mhz-osc-dsi-on-command-state",
 	"qcom,mdss-dsi-post-on-backlight-state",
-	"qcom,mdss-dsi-laoding-effect-enable-command-state",
-	"qcom,mdss-dsi-laoding-effect-disable-command-state",
+	"qcom,mdss-dsi-loading-effect-enable-command-state",
+	"qcom,mdss-dsi-loading-effect-disable-command-state",
 	"qcom,mdss-dsi-customer-srgb-enable-command-state",
 	"qcom,mdss-dsi-customer-srgb-disable-command-state",
 	"qcom,mdss-dsi-customer-p3-enable-command-state",
 	"qcom,mdss-dsi-customer-p3-disable-command-state",
+	"qcom,mdss-dsi-panel-command-state",
+	"qcom,mdss-dsi-seed-command-state",
 
 };
 
@@ -2425,7 +2546,8 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel)
 {
 	struct dsi_parser_utils *utils = &panel->utils;
 
-	panel->ulps_feature_enabled = true;
+	panel->ulps_feature_enabled =
+		utils->read_bool(utils->data, "qcom,ulps-enabled");
 
 	pr_info("%s: ulps feature %s\n", __func__,
 		(panel->ulps_feature_enabled ? "enabled" : "disabled"));
@@ -2516,6 +2638,19 @@ error:
 	return rc;
 }
 
+static int oem_project;
+static int __init get_oem_project_init(char *str)
+{
+	if(!strcmp(str, "19861"))
+		oem_project = 19861;
+	else
+		oem_project = 0;
+	pr_err("kernel oem_project %d\n",oem_project);
+	return 0;
+}
+
+__setup("androidboot.project_name=", get_oem_project_init);
+
 static int dsi_panel_parse_gpios(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -2523,7 +2658,10 @@ static int dsi_panel_parse_gpios(struct dsi_panel *panel)
 	struct dsi_parser_utils *utils = &panel->utils;
 	char *reset_gpio_name, *mode_set_gpio_name;
 
-	if (!strcmp(panel->type, "primary")) {
+	if ((!strcmp(panel->type, "primary")) && (oem_project == 19861)) {
+		reset_gpio_name = "qcom,platform-reset-gpio-tmo";
+		mode_set_gpio_name = "qcom,panel-mode-gpio-tmo";
+	} else if (!strcmp(panel->type, "primary")) {
 		reset_gpio_name = "qcom,platform-reset-gpio";
 		mode_set_gpio_name = "qcom,panel-mode-gpio";
 	} else {
@@ -2533,6 +2671,8 @@ static int dsi_panel_parse_gpios(struct dsi_panel *panel)
 
 	panel->reset_config.reset_gpio = utils->get_named_gpio(utils->data,
 					      reset_gpio_name, 0);
+	pr_err("reset_gpio = %d",panel->reset_config.reset_gpio);
+
 	if (!gpio_is_valid(panel->reset_config.reset_gpio) &&
 		!panel->host_config.ext_bridge_num) {
 		rc = panel->reset_config.reset_gpio;
@@ -2553,6 +2693,30 @@ static int dsi_panel_parse_gpios(struct dsi_panel *panel)
 			pr_debug("[%s] platform-en-gpio is not set, rc=%d\n",
 				 panel->name, rc);
 		}
+	}
+
+	panel->poc = utils->get_named_gpio(utils->data, "qcom,platform-poc-gpio", 0);
+	if (!gpio_is_valid(panel->poc)) {
+		pr_err("[%s] platform-poc-gpio is not set, rc=%d\n",
+			 panel->name, rc);
+	}
+
+	panel->vddd_gpio = utils->get_named_gpio(utils->data, "qcom,vddd-gpio", 0);
+	if (!gpio_is_valid(panel->vddd_gpio)) {
+		pr_err("[%s] vddd-gpio is not set, rc=%d\n",
+			 panel->name, rc);
+	}
+
+	panel->tp1v8_gpio = utils->get_named_gpio(utils->data, "qcom,tp1v8-gpio", 0);
+	if (!gpio_is_valid(panel->tp1v8_gpio)) {
+		pr_err("[%s] tp1v8_gpio is not set, rc=%d\n",
+			 panel->name, rc);
+	}
+
+	panel->err_flag_gpio = utils->get_named_gpio(utils->data, "qcom,err-flag-gpio", 0);
+	if (!gpio_is_valid(panel->err_flag_gpio)) {
+		pr_err("[%s] err_flag_gpio is not set, rc=%d\n",
+			 panel->name, rc);
 	}
 
 	panel->reset_config.lcd_mode_sel_gpio = utils->get_named_gpio(
@@ -2685,7 +2849,6 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 		panel->bl_config.bl_def_val = val;
 	}
 	pr_err("default backlight bl_def_val= %d\n",panel->bl_config.bl_def_val);
-
 	rc = utils->read_u32(utils->data, "qcom,mdss-brightness-max-level",
 		&val);
 	if (rc) {
@@ -3272,8 +3435,7 @@ static int dsi_panel_parse_roi_alignment(struct dsi_parser_utils *utils,
 }
 
 static int dsi_panel_parse_partial_update_caps(struct dsi_display_mode *mode,
-				struct dsi_parser_utils *utils,
-				struct dsi_panel *panel)
+				struct dsi_parser_utils *utils)
 {
 	struct msm_roi_caps *roi_caps = NULL;
 	const char *data;
@@ -3282,11 +3444,6 @@ static int dsi_panel_parse_partial_update_caps(struct dsi_display_mode *mode,
 	if (!mode || !mode->priv_info) {
 		pr_err("invalid arguments\n");
 		return -EINVAL;
-	}
-
-	if (panel->hw_type != DSI_PANEL_SAMSUNG_S6E3HC2) {
-		pr_info("Partial update disabled\n");
-		return 0;
 	}
 
 	roi_caps = &mode->priv_info->roi_caps;
@@ -3355,12 +3512,41 @@ static int dsi_panel_parse_dms_info(struct dsi_panel *panel)
 };
 
 static int dsi_panel_parse_oem_config(struct dsi_panel *panel,
-				     struct device_node *of_node)
+					struct device_node *of_node)
 {
-    u32 tmp;
-    int rc;
+	u32 tmp = 0;
+	int rc;
+	static const char *panel_manufacture;
+	static const char *panel_version;
+	static const char *backlight_manufacture;
+	static const char *backlight_version;
 
-		pr_err("%s start\n", __func__);
+	pr_err("%s start\n", __func__);
+
+	panel_manufacture = of_get_property(of_node,
+		"qcom,mdss-dsi-panel-manufacture", NULL);
+	if (!panel_manufacture)
+		pr_err("%s:%d, panel manufacture not specified\n",
+			__func__, __LINE__);
+	panel_version = of_get_property(of_node,
+		"qcom,mdss-dsi-panel-version", NULL);
+	if (!panel_version)
+		pr_err("%s:%d, panel version not specified\n",
+			__func__, __LINE__);
+	push_component_info(LCD, (char *)panel_version,(char *)panel_manufacture);
+
+	backlight_manufacture = of_get_property(of_node,
+		"qcom,mdss-dsi-backlight-manufacture", NULL);
+	if (!backlight_manufacture)
+		pr_err("%s:%d, backlight manufacture not specified\n",
+			__func__, __LINE__);
+	backlight_version = of_get_property(of_node,
+		"qcom,mdss-dsi-backlight-version", NULL);
+	if (!backlight_version)
+		pr_err("%s:%d, backlight version not specified\n",
+			__func__, __LINE__);
+
+	push_component_info(BACKLIGHT, (char *)backlight_version, (char *)backlight_manufacture);
 
 	panel->lp11_init =
 		of_property_read_bool(of_node, "qcom,mdss-dsi-lp11-init");
@@ -3368,29 +3554,32 @@ static int dsi_panel_parse_oem_config(struct dsi_panel *panel,
 		pr_info("lp11_init:%d\n", panel->lp11_init);
 
 	panel->bl_config.bl_high2bit =
-	    of_property_read_bool(of_node, "qcom,mdss-bl-high2bit");
+		of_property_read_bool(of_node, "qcom,mdss-bl-high2bit");
 	if (panel->bl_config.bl_high2bit) {
 		pr_info("bl_high2bit:%d\n", panel->bl_config.bl_high2bit);
 	}
 
-    tmp = 0;
+	panel->naive_display_loading_effect_mode =
+		of_property_read_bool(of_node, "qcom,mdss-loading-effect");
+	if (panel->naive_display_loading_effect_mode)
+		pr_info("naive_display_loading_effect_mode:%d\n", panel->naive_display_loading_effect_mode);
+
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-acl-cmd-index", &tmp);
 	panel->acl_cmd_index = (!rc ? tmp : 0);
 
-	tmp = 0;
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-acl-mode-index", &tmp);
 	panel->acl_mode_index = (!rc ? tmp : 0);
 
-    rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-seria-num-year-index", &tmp);
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-seria-num-year-index", &tmp);
 	panel->panel_year_index = (!rc ? tmp : 0);
 
-    rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-seria-num-mon-index", &tmp);
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-seria-num-mon-index", &tmp);
 	panel->panel_mon_index = (!rc ? tmp : 0);
 
-    rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-seria-num-day-index", &tmp);
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-seria-num-day-index", &tmp);
 	panel->panel_day_index = (!rc ? tmp : 0);
 
-    rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-seria-num-hour-index", &tmp);
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-seria-num-hour-index", &tmp);
 	panel->panel_hour_index = (!rc ? tmp : 0);
 
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-seria-num-min-index", &tmp);
@@ -3399,15 +3588,13 @@ static int dsi_panel_parse_oem_config(struct dsi_panel *panel,
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-seria-num-sec-index", &tmp);
 	panel->panel_sec_index = (!rc ? tmp : 0);
 
-    tmp = 0;
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-status-value-2", &tmp);
 	panel->status_value = (!rc ? tmp : 0);
 
 	panel->panel_mismatch_check =
 		of_property_read_bool(of_node, "qcom,mdss-panel-mismatch-check");
 
-			pr_err("%s end\n", __func__);
-
+	pr_err("%s end\n", __func__);
 	return 0;
 }
 
@@ -3702,18 +3889,20 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 
 	panel->name = utils->get_property(utils->data,
 				"qcom,mdss-dsi-panel-name", NULL);
-
 	if (strcmp(panel->name, "samsung dsc cmd mode oneplus dsi panel") == 0) {
-		panel->hw_type = DSI_PANEL_SAMSUNG_S6E3HC2;
-		is_s6e3hc2 = true;
+		dsi_panel_name = DSI_PANEL_SAMSUNG_S6E3HC2;
 		pr_err("Dsi panel name is DSI_PANEL_SAMSUNG_S6E3HC2");
-	} else if (strcmp(panel->name, "samsung s6e3fc2x01 cmd mode dsi panel") == 0) {
-		panel->hw_type = DSI_PANEL_SAMSUNG_S6E3FC2X01;
-		pr_err("Dsi panel name is DSI_PANEL_SAMSUNG_S6E3FC2X01");
-	} else if (!panel->name) {
-		panel->hw_type = DSI_PANEL_DEFAULT;
-		panel->name = DSI_PANEL_DEFAULT_LABEL;
 	}
+	else if (strcmp(panel->name, "samsung sofef03f_m fhd cmd mode dsc dsi panel") == 0) {
+		dsi_panel_name = DSI_PANEL_SAMSUNG_SOFEF03F_M;
+		pr_err("Dsi panel name is DSI_PANEL_SAMSUNG_SOFEF03F_M");
+	}
+	else if (strcmp(panel->name, "samsung s6e3fc2x01 cmd mode dsi panel") == 0) {
+		dsi_panel_name = DSI_PANEL_SAMSUNG_S6E3FC2X01;
+		pr_err("Dsi panel name is DSI_PANEL_SAMSUNG_S6E3FC2X01");
+	}
+	else if (!panel->name)
+		panel->name = DSI_PANEL_DEFAULT_LABEL;
 
 	/*
 	 * Set panel type to LCD as default.
@@ -3782,9 +3971,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	rc = dsi_panel_parse_hdr_config(panel);
 	if (rc)
 		pr_err("failed to parse hdr config, rc=%d\n", rc);
-		rc = dsi_panel_parse_oem_config(panel, of_node);
-		if (rc)
-			pr_debug("failed to get oem config, rc=%d\n", rc);
+
+	rc = dsi_panel_parse_oem_config(panel, of_node);
+	if (rc)
+		pr_debug("failed to get oem config, rc=%d\n", rc);
 
 	rc = dsi_panel_get_mode_count(panel);
 	if (rc) {
@@ -3818,11 +4008,78 @@ void dsi_panel_put(struct dsi_panel *panel)
 	kfree(panel);
 }
 
+static ssize_t bitghtness_event_num_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
+{
+	int ret = 0;
+	const char *devname = NULL;
+	struct input_handle *handle;
+	if (!brightness_input_dev)
+	    return count;
+	list_for_each_entry(handle, &(brightness_input_dev->h_list), d_node) {
+	    if (strncmp(handle->name, "event", 5) == 0) {
+	        devname = handle->name;
+	        break;
+	    }
+	}
+	ret = simple_read_from_buffer(user_buf, count, ppos, devname, strlen(devname));
+	return ret;
+}
+
+static const struct file_operations bitghtness_event_num_fops = {
+	.read  = bitghtness_event_num_read,
+	.open  = simple_open,
+	.owner = THIS_MODULE,
+};
+
+static ssize_t brightness_enable_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
+{
+	ssize_t ret =0;
+	char page[4];
+
+	pr_info("the brightness_enable is: %d\n", brightness_enable);
+	ret = sprintf(page, "%d\n", brightness_enable);
+	ret = simple_read_from_buffer(user_buf, count, ppos, page, strlen(page));
+	return ret;
+
+}
+
+static ssize_t brightness_enable_write(struct file *file, const char __user *buffer, size_t count, loff_t *ppos)
+{
+	char buf[8]={0};
+
+	if( count > 2)
+		count = 2;
+	if(copy_from_user(buf, buffer, count)){
+		pr_err("%s: read proc input error.\n", __func__);
+		return count;
+	}
+	if('0' == buf[0]) {
+		brightness_enable = 0;
+	} else if('1' == buf[0]){
+		brightness_enable = 1;
+	}
+
+	return count;
+}
+
+static const struct file_operations brightness_enable_fops = {
+	.read  = brightness_enable_read,
+	.write = brightness_enable_write,
+	.open  = simple_open,
+	.owner = THIS_MODULE,
+};
+
 int dsi_panel_drv_init(struct dsi_panel *panel,
 		       struct mipi_dsi_host *host)
 {
 	int rc = 0;
 	struct mipi_dsi_device *dev;
+	struct proc_dir_entry* prEntry_tmp  = NULL;
+
+	prEntry_tp = proc_mkdir("brightness_for_sensor", NULL);
+	if( prEntry_tp == NULL ){
+		pr_err("Couldn't create brightness_for_sensor directory\n");
+	}
 
 	if (!panel || !host) {
 		pr_err("invalid params\n");
@@ -3871,6 +4128,39 @@ int dsi_panel_drv_init(struct dsi_panel *panel,
 		goto error_gpio_release;
 	}
 
+	//create brightness_event_num
+	prEntry_tmp = proc_create("brightness_event_num", 0664,
+		prEntry_tp, &bitghtness_event_num_fops);
+	if (prEntry_tmp == NULL) {
+		pr_err("Couldn't create tp_event_num_fops\n");
+		goto exit;
+	}
+
+	//create brightness_enable
+	prEntry_tmp = proc_create("brightness_enable", 0666,
+		prEntry_tp, &brightness_enable_fops);
+	if (prEntry_tmp == NULL) {
+		pr_err("Couldn't create brightness_enable_fops\n");
+		goto exit;
+	}
+
+	//create input event
+	brightness_input_dev  = input_allocate_device();
+	if (brightness_input_dev == NULL) {
+		pr_err("Failed to allocate ps input device\n");
+		goto exit;
+    }
+    brightness_input_dev->name = "oneplus,brightness";
+
+	set_bit(EV_MSC,  brightness_input_dev->evbit);
+	set_bit(MSC_RAW, brightness_input_dev->mscbit);
+
+	if (input_register_device(brightness_input_dev)) {
+		pr_err("%s: Failed to register brightness input device\n", __func__);
+		input_free_device(brightness_input_dev);
+		goto exit;
+	}
+
 	goto exit;
 
 error_gpio_release:
@@ -3916,6 +4206,11 @@ int dsi_panel_drv_deinit(struct dsi_panel *panel)
 
 	panel->host = NULL;
 	memset(&panel->mipi_device, 0x0, sizeof(panel->mipi_device));
+
+	//unregister_device
+	printk(KERN_ERR"unregister_device brightness_input_dev...\n");
+	input_unregister_device(brightness_input_dev);
+	input_free_device(brightness_input_dev);
 
 	mutex_unlock(&panel->panel_lock);
 	return rc;
@@ -4104,20 +4399,13 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 			goto parse_fail;
 		}
 
-		rc = dsi_panel_parse_partial_update_caps(mode, utils, panel);
+		rc = dsi_panel_parse_partial_update_caps(mode, utils);
 		if (rc)
 			pr_err("failed to partial update caps, rc=%d\n", rc);
-
-		/*
-		 * TODO: support pixel overlap for DSC enabled and Partial
-		 * update enabled case also.
-		 */
-		if (prv_info->dsc_enabled || prv_info->roi_caps.enabled)
-			prv_info->overlap_pixels = 0;
 	}
 	goto done;
 
-	pr_err("%s end\n", __func__);
+		pr_err("%s end\n", __func__);
 
 parse_fail:
 	kfree(mode->priv_info);
@@ -4160,7 +4448,6 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 			mode->priv_info->mdp_transfer_time_us;
 	config->video_timing.dsc_enabled = mode->priv_info->dsc_enabled;
 	config->video_timing.dsc = &mode->priv_info->dsc;
-	config->video_timing.overlap_pixels = mode->priv_info->overlap_pixels;
 
 	if (dyn_clk_caps->dyn_clk_support)
 		config->bit_clk_rate_hz_override = mode->timing.clk_rate_hz;
@@ -4175,13 +4462,16 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 int dsi_panel_pre_prepare(struct dsi_panel *panel)
 {
 	int rc = 0;
-	int ret = 0;
-	struct device_node *np;
-	np = panel->parent->of_node;
 
 	if (!panel) {
 		pr_err("invalid params\n");
 		return -EINVAL;
+	}
+
+	if (panel->err_flag_status == true) {
+		pr_err("no need to power on when err flag irq comes\n");
+		panel->err_flag_status = false;
+		return rc;
 	}
 
 	mutex_lock(&panel->panel_lock);
@@ -4190,35 +4480,20 @@ int dsi_panel_pre_prepare(struct dsi_panel *panel)
 	//	if (panel->lp11_init)
 	//		goto error;
 
-	panel->tp_enable1v8_gpio = of_get_named_gpio(np, "enable1v8_gpio", 0);
-	if (panel->tp_enable1v8_gpio < 0) {
-		pr_err("panel->tp_enable1v8_gpio not specified\n");
-	}
-	else {
-		if (gpio_is_valid(panel->tp_enable1v8_gpio)) {
-			rc = gpio_request(panel->tp_enable1v8_gpio, "tpvcc1v8-gpio");
-			if (rc) {
-				pr_err("unable to request gpio [%d], %d\n", panel->tp_enable1v8_gpio, rc);
-			}
-		}
-	}
-
-	if (panel->tp_enable1v8_gpio > 0) {
-		pr_err("enable tp 1v8 gpio\n");
-		ret = gpio_direction_output(panel->tp_enable1v8_gpio, 1);
-		if (ret) {
-			pr_err("enable the enable1v8_gpio failed.\n");
-			return ret;
-		}
+	if (gpio_is_valid(panel->tp1v8_gpio)) {
+		rc = gpio_direction_output(panel->tp1v8_gpio, 1);
+		pr_err("enable tp1v8 gpio\n");
+		if (rc)
+			pr_err("unable to set dir for tp1v8 gpio rc=%d\n", rc);
 	}
 
 	rc = dsi_panel_power_on(panel);
 	if (rc) {
 		pr_err("[%s] panel power on failed, rc=%d\n", panel->name, rc);
-		goto error;
+		if (gpio_is_valid(panel->tp1v8_gpio))
+			gpio_set_value(panel->tp1v8_gpio, 0);
 	}
 
-error:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
@@ -4273,11 +4548,23 @@ int dsi_panel_set_lp1(struct dsi_panel *panel)
 	if (!panel->panel_initialized)
 		goto exit;
 
+	/**
+	 * Consider LP1->LP2->LP1.
+	 * If the panel is already in LP mode, do not need to
+	 * set the regulator.
+	 * IBB and AB power mode woulc be set at the same time
+	 * in PMIC driver, so we only call ibb setting, that
+	 * is enough.
+	 */
+	if (dsi_panel_is_type_oled(panel) &&
+	    panel->power_mode != SDE_MODE_DPMS_LP2)
+		dsi_pwr_panel_regulator_mode_set(&panel->power_info,
+			"ibb", REGULATOR_MODE_IDLE);
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_LP1);
 	if (rc)
 		pr_err("[%s] failed to send DSI_CMD_SET_LP1 cmd, rc=%d\n",
 		       panel->name, rc);
-	
+
 	panel->need_power_on_backlight = true;
 
 exit:
@@ -4320,6 +4607,14 @@ int dsi_panel_set_nolp(struct dsi_panel *panel)
 	if (!panel->panel_initialized)
 		goto exit;
 
+	/**
+	 * Consider about LP1->LP2->NOLP.
+	 */
+	if (dsi_panel_is_type_oled(panel) &&
+	    (panel->power_mode == SDE_MODE_DPMS_LP1 ||
+		panel->power_mode == SDE_MODE_DPMS_LP2))
+		dsi_pwr_panel_regulator_mode_set(&panel->power_info,
+			"ibb", REGULATOR_MODE_NORMAL);
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_NOLP);
 	if (rc)
 		pr_err("[%s] failed to send DSI_CMD_SET_NOLP cmd, rc=%d\n",
@@ -4339,6 +4634,17 @@ int dsi_panel_prepare(struct dsi_panel *panel)
 	}
 
 	mutex_lock(&panel->panel_lock);
+/*
+	if (panel->lp11_init) {
+		rc = dsi_panel_power_on(panel);
+		if (rc) {
+			pr_err("[%s] panel power on failed, rc=%d\n",
+			       panel->name, rc);
+			goto error;
+		}
+	}
+*/
+		//#else
 
     if (panel->lp11_init){
         rc = dsi_panel_set_pinctrl_state(panel, true);
@@ -4521,7 +4827,7 @@ int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
 
 	return rc;
 }
-extern int op_resolution;
+
 int dsi_panel_switch(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -4531,23 +4837,18 @@ int dsi_panel_switch(struct dsi_panel *panel)
 		return -EINVAL;
 	}
 
-	if (panel->hw_type != DSI_PANEL_SAMSUNG_S6E3HC2)
+	if ((strcmp(panel->name, "samsung dsc cmd mode oneplus dsi panel") != 0) && (strcmp(panel->name, "samsung sofef03f_m fhd cmd mode dsc dsi panel") != 0))
 		return rc;
 
 	mutex_lock(&panel->panel_lock);
 
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_TIMING_SWITCH);
 	if (rc)
-		pr_err("[%s] Failed to send DSI_CMD_SET_TIMING_SWITCH cmds, rc=%d\n",
+		pr_err("[%s] failed to send DSI_CMD_SET_TIMING_SWITCH cmds, rc=%d\n",
 		       panel->name, rc);
 	pr_err("Send DSI_CMD_SET_TIMING_SWITCH cmds\n");
-	if(panel->cur_mode->timing.h_active == 1440){
-		op_resolution = 2;
-	}else if(panel->cur_mode->timing.h_active == 1080){
-		op_resolution = 1;
-	}
-	pr_err("panel->cur_mode->timing->h_active = %d op_resolution = %d\n", panel->cur_mode->timing.h_active,op_resolution);
-	if(gamma_read_flag == GAMMA_READ_SUCCESS) {
+	pr_err("panel->cur_mode->timing->h_active = %d\n", panel->cur_mode->timing.h_active);
+	if((strcmp(panel->name, "samsung dsc cmd mode oneplus dsi panel") == 0) && (gamma_read_flag == GAMMA_READ_SUCCESS)) {
 		if (mode_fps == 90) {
 			rc = dsi_panel_tx_gamma_cmd_set(panel, DSI_GAMMA_CMD_SET_SWITCH_90HZ);
 			pr_err("Send DSI_GAMMA_CMD_SET_SWITCH_90HZ cmds\n");
@@ -4590,6 +4891,8 @@ int dsi_panel_post_switch(struct dsi_panel *panel)
 int dsi_panel_enable(struct dsi_panel *panel)
 {
 	int rc = 0;
+	int blank;
+	struct msm_drm_notifier notifier_data;
 
 	if (!panel) {
 		pr_err("Invalid params\n");
@@ -4613,16 +4916,14 @@ int dsi_panel_enable(struct dsi_panel *panel)
 	}
 	SDE_ATRACE_END("dsi_panel_tx_cmd_set");
 	if (rc) {
-		pr_err("[%s] Failed to send DSI_CMD_SET_ON cmds, rc=%d\n",
-			panel->name, rc);
-	} else {
-		panel->panel_initialized = true;
+		pr_err("[%s] failed to send DSI_CMD_SET_ON cmds, rc=%d\n",
+		       panel->name, rc);
 	}
 	
 	panel->need_power_on_backlight = true;
 
 	SDE_ATRACE_BEGIN("gamma");
-	if (panel->hw_type == DSI_PANEL_SAMSUNG_S6E3HC2 && (gamma_read_flag == GAMMA_READ_SUCCESS)) {
+	if ((strcmp(panel->name, "samsung dsc cmd mode oneplus dsi panel") == 0) && (gamma_read_flag == GAMMA_READ_SUCCESS)) {
 		if (mode_fps == 60) {
 			rc = dsi_panel_tx_gamma_cmd_set(panel, DSI_GAMMA_CMD_SET_SWITCH_60HZ);
 			pr_err("Send DSI_GAMMA_CMD_SET_SWITCH_60HZ cmds\n");
@@ -4633,6 +4934,7 @@ int dsi_panel_enable(struct dsi_panel *panel)
 	}
 	SDE_ATRACE_END("gamma");
 
+	panel->panel_initialized = true;
 	pr_err("dsi_panel_enable aod_mode =%d\n",panel->aod_mode);
 
 	SDE_ATRACE_BEGIN("mutex_unlock");
@@ -4651,8 +4953,12 @@ int dsi_panel_enable(struct dsi_panel *panel)
 			panel->aod_status=0;
 			}
 	SDE_ATRACE_END("dsi_panel_set_aod_mode");
-	pr_err("end\n");
+	blank = MSM_DRM_BLANK_UNBLANK_CHARGE;
+	notifier_data.data = &blank;
+	notifier_data.id = connector_state_crtc_index;
+	msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK, &notifier_data);
 
+	pr_err("end\n");
 	/* remove print actvie ws */
 	pm_print_active_wakeup_sources_queue(false);
 	SDE_ATRACE_END("dsi_panel_enable");
@@ -4721,6 +5027,15 @@ int dsi_panel_disable(struct dsi_panel *panel)
 
 	/* Avoid sending panel off commands when ESD recovery is underway */
 	if (!atomic_read(&panel->esd_recovery_pending)) {
+
+		HBM_flag = false;
+	if(panel->aod_mode==2){
+			panel->aod_status=1;
+			}
+	if(panel->aod_mode==0){
+		panel->aod_status=0;
+		}
+
 		/*
 		 * Need to set IBB/AB regulator mode to STANDBY,
 		 * if panel is going off from AOD mode.
@@ -4730,14 +5045,6 @@ int dsi_panel_disable(struct dsi_panel *panel)
 		       panel->power_mode == SDE_MODE_DPMS_LP2))
 			dsi_pwr_panel_regulator_mode_set(&panel->power_info,
 				"ibb", REGULATOR_MODE_STANDBY);
-
-		HBM_flag = false;
-	if(panel->aod_mode==2){
-			panel->aod_status=1;
-			}
-	if(panel->aod_mode==0){
-		panel->aod_status=0;
-		}
 
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_OFF);
 		if (rc) {
@@ -4756,7 +5063,6 @@ int dsi_panel_disable(struct dsi_panel *panel)
 	panel->power_mode = SDE_MODE_DPMS_OFF;
 
 	mutex_unlock(&panel->panel_lock);
-
 	/* add print actvie ws */
 	pm_print_active_wakeup_sources_queue(true);
 	printk(KERN_ERR"dsi_panel_disable --\n");
@@ -4789,34 +5095,40 @@ error:
 int dsi_panel_post_unprepare(struct dsi_panel *panel)
 {
 	int rc = 0;
-	int ret = 0;
+	int blank;
+	struct msm_drm_notifier notifier_data;
 
 	if (!panel) {
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
+	if (panel->err_flag_status == true) {
+		pr_err("no need to power off when err flag irq comes\n");
+		return rc;
+	}
+
 	mutex_lock(&panel->panel_lock);
+
 
 	rc = dsi_panel_power_off(panel);
 	if (rc) {
 		pr_err("[%s] panel power_Off failed, rc=%d\n",
 		       panel->name, rc);
-		goto error;
 	}
-	//if (is_oos)
-		if (!tp_1v8_power) {
-			if (panel->tp_enable1v8_gpio > 0) {
-				pr_err("disable tp 1v8 gpio\n");
-				ret = gpio_direction_output(panel->tp_enable1v8_gpio, 0);
-				if (ret) {
-					pr_err("disable the enable1v8_gpio failed.\n");
-					return ret;
-				}
-			}
-		}
 
-error:
+	if (!tp_1v8_power) {
+		if (gpio_is_valid(panel->tp1v8_gpio)) {
+			gpio_set_value(panel->tp1v8_gpio, 0);
+			pr_err("disable tp1v8 gpio\n");
+		}
+	}
+
+	blank = MSM_DRM_BLANK_POWERDOWN_CHARGE;
+	notifier_data.data = &blank;
+	notifier_data.id = connector_state_crtc_index;
+	msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK, &notifier_data);
+
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
@@ -4940,6 +5252,13 @@ int dsi_panel_set_hbm_brightness(struct dsi_panel *panel, int level)
 	dsi = &panel->mipi_device;
 	mode = panel->cur_mode;
 
+	if (panel->is_hbm_enabled) {
+		hbm_finger_print = true;
+		pr_err("HBM is enabled\n");
+		return 0;
+	}
+
+	mutex_lock(&panel->panel_lock);
 	if (hbm_brightness_flag == 0) {
 		count = mode->priv_info->cmd_sets[DSI_CMD_SET_HBM_BRIGHTNESS_ON].count;
 		if (!count) {
@@ -4953,10 +5272,13 @@ int dsi_panel_set_hbm_brightness(struct dsi_panel *panel, int level)
 		}
 	}
 
+	if (strcmp(panel->name, "samsung sofef03f_m fhd cmd mode dsc dsi panel") == 0)
+		level = level + 1023;
 	rc= mipi_dsi_dcs_set_display_brightness_samsung(dsi, level);
 	pr_err("hbm backlight = %d\n", level);
 
 error:
+	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
@@ -5290,6 +5612,60 @@ int dsi_panel_set_aod_mode(struct dsi_panel *panel, int level)
 return rc;
 }
 
+int dsi_panel_send_dsi_panel_command(struct dsi_panel *panel)
+{
+	int rc = 0;
+	int count;
+	struct dsi_display_mode *mode;
+
+	if (!panel || !panel->cur_mode) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+	mode = panel->cur_mode;
+	mutex_lock(&panel->panel_lock);
+
+	count = mode->priv_info->cmd_sets[DSI_CMD_SET_PANEL_COMMAND].count;
+	if (!count) {
+		pr_err("This panel does not support DSI_CMD_SET_PANEL_COMMAND\n");
+		goto error;
+	}
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_PANEL_COMMAND);
+	if (rc)
+		pr_err("Failed to send dsi panel command\n");
+	pr_err("Send DSI_CMD_SET_PANEL_COMMAND cmds.\n");
+
+error:
+	mutex_unlock(&panel->panel_lock);
+	return rc;
+}
+
+int dsi_panel_send_dsi_seed_command(struct dsi_panel *panel)
+{
+	int rc = 0;
+	int count;
+	struct dsi_display_mode *mode;
+
+	if (!panel || !panel->cur_mode) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+	mode = panel->cur_mode;
+
+	count = mode->priv_info->cmd_sets[DSI_CMD_SET_SEED_COMMAND].count;
+	if (!count) {
+		pr_err("This panel does not support DSI_CMD_SET_SEED_COMMAND\n");
+		goto error;
+	}
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_SEED_COMMAND);
+	if (rc)
+		pr_err("Failed to send dsi seed command\n");
+//	pr_err("Send DSI_CMD_SET_SEED_COMMAND cmds.\n");
+
+error:
+	return rc;
+}
+
 static int dsi_panel_parse_gamma_cmd_sets_sub(struct dsi_panel_cmd_set *cmd, const char *data, unsigned int length, enum dsi_cmd_set_state state, enum dsi_gamma_cmd_set_type type)
 {
 	int rc = 0;
@@ -5416,21 +5792,21 @@ int dsi_panel_update_cmd_sets_sub(struct dsi_panel_cmd_set *cmd,
 		goto error;
 	}
 
-	pr_err("type=%d, name=%s, length=%d\n", type,
+	pr_debug("type=%d, name=%s, length=%d\n", type,
 		cmd_set_prop_map[type], length);
 
 	print_hex_dump_debug("", DUMP_PREFIX_NONE,
 		       8, 1, data, length, false);
 
 	for (i = 0; i < length; i++) {
-		pr_err("data[%d]=%02X", i, data[i]);
+		pr_debug("data[%d]=%02X", i, data[i]);
 	}
 	rc = dsi_panel_get_cmd_pkt_count(data, length, &packet_count);
 	if (rc) {
 		pr_err("commands failed, rc=%d\n", rc);
 		goto error;
 	}
-	pr_err("[%s] packet-count=%d, %d\n", cmd_set_prop_map[type],
+	pr_debug("[%s] packet-count=%d, %d\n", cmd_set_prop_map[type],
 		packet_count, length);
 
 	for (i = 0; i < cmd->count; i++) {
@@ -5438,7 +5814,7 @@ int dsi_panel_update_cmd_sets_sub(struct dsi_panel_cmd_set *cmd,
 	}
 	kfree(cmd->cmds);
 	cmd->cmds = NULL;
-	pr_err("Free tx_buf and dsi_cmd_desc struct pointers done.");
+	pr_debug("Free tx_buf and dsi_cmd_desc struct pointers done.");
 
 	rc = dsi_panel_alloc_cmd_packets(cmd, packet_count);
 	if (rc) {
@@ -5462,4 +5838,25 @@ error_free_mem:
 error:
 	return rc;
 
+}
+
+int dsi_panel_update_dsi_seed_command(struct dsi_cmd_desc *cmds,
+					enum dsi_cmd_set_type type, const char *data)
+{
+	int i = 0;
+	int rc = 0;
+	u8 *payload;
+
+	if (!data) {
+		pr_err("%s commands not defined\n", cmd_set_prop_map[type]);
+		rc = -ENOTSUPP;
+		goto error;
+	}
+
+	payload = (u8 *)cmds[3].msg.tx_buf;
+	for (i = 0; i < 0x16; i++)
+		payload[i] = data[i];
+
+error:
+	return rc;
 }

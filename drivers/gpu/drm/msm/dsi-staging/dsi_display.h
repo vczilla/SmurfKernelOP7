@@ -22,7 +22,6 @@
 #include <linux/firmware.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
-#include <linux/oneplus/boot_mode.h>
 
 #include "msm_drv.h"
 #include "dsi_defs.h"
@@ -586,6 +585,7 @@ uint64_t dsi_display_get_serial_number_id(uint64_t serial_number);
 
 int dsi_display_get_serial_number_AT(struct drm_connector *connector);
 
+
 /**
  * dsi_display_enable_event() - enable interrupt based connector event
  * @connector:          Pointer to drm connector structure
@@ -705,5 +705,6 @@ extern int msm_drm_notifier_call_chain(unsigned long val, void *v);
 struct dsi_display *get_main_display(void);
 extern char gamma_para[2][413];
 int dsi_display_gamma_read(struct dsi_display *dsi_display);
-
+void dsi_display_gamma_read_work(struct work_struct *work);
+extern struct delayed_work *sde_esk_check_delayed_work;
 #endif /* _DSI_DISPLAY_H_ */

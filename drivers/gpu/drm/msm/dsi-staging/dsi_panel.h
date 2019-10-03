@@ -44,22 +44,15 @@
 #define GAMMA_READ_SUCCESS 1
 #define GAMMA_READ_ERROR 0
 
-enum dsi_panel_hw_type {
-	DSI_PANEL_DEFAULT = 0,
-	DSI_PANEL_SAMSUNG_S6E3HC2,
-	DSI_PANEL_SAMSUNG_S6E3FC2X01
-};
-#define DSI_PANEL_DEFAULT_LABEL  "Default dsi panel"
-
 extern u32 mode_fps;
 extern int gamma_read_flag;
+extern int tp_1v8_power;
 
 enum dsi_gamma_cmd_set_type {
 	DSI_GAMMA_CMD_SET_SWITCH_60HZ = 0,
 	DSI_GAMMA_CMD_SET_SWITCH_90HZ,
 	DSI_GAMMA_CMD_SET_MAX
 };
-
 enum dsi_panel_rotation {
 	DSI_PANEL_ROTATE_NONE = 0,
 	DSI_PANEL_ROTATE_HV_FLIP,
@@ -144,6 +137,7 @@ struct dsi_backlight_config {
 	struct pwm_device *pwm_bl;
 	bool pwm_enabled;
 	u32 pwm_period_usecs;
+
 	bool bl_high2bit;
 	u32 bl_def_val;
 
@@ -233,6 +227,7 @@ struct dsi_panel {
 	int panel_hour_index;
 	int panel_min_index;
 	int panel_sec_index;
+	int panel_code_info;
 	int panel_stage_info;
 	int panel_production_info;
 	int acl_mode;
@@ -260,10 +255,17 @@ struct dsi_panel {
 	int naive_display_customer_srgb_mode;
 	int naive_display_customer_p3_mode;
 	bool need_power_on_backlight;
-	int tp_enable1v8_gpio;
+	struct delayed_work gamma_read_work;
+	int tp1v8_gpio;
+	int vddd_gpio;
+	int err_flag_gpio;
+	bool is_err_flag_irq_enabled;
+	bool err_flag_status;
 	bool is_hbm_enabled;
 	int  op_force_screenfp;
 	bool dim_status;
+
+	int poc;
 	bool lp11_init;
 	bool ulps_feature_enabled;
 	bool ulps_suspend_enabled;
@@ -280,7 +282,6 @@ struct dsi_panel {
 	bool sync_broadcast_en;
 	int power_mode;
 	enum dsi_panel_physical_type panel_type;
-	enum dsi_panel_hw_type hw_type;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
@@ -411,6 +412,10 @@ int dsi_panel_tx_gamma_cmd_set(struct dsi_panel *panel, enum dsi_gamma_cmd_set_t
 extern int mipi_dsi_dcs_write_c1(struct mipi_dsi_device *dsi, u16 read_number);
 int dsi_panel_update_cmd_sets_sub(struct dsi_panel_cmd_set *cmd,
 					enum dsi_cmd_set_type type, const char *data, unsigned int length);
+int dsi_panel_send_dsi_panel_command(struct dsi_panel *panel);
+int dsi_panel_update_dsi_seed_command(struct dsi_cmd_desc *cmds,
+					enum dsi_cmd_set_type type, const char *data);
+int dsi_panel_send_dsi_seed_command(struct dsi_panel *panel);
 int dsi_panel_set_customer_srgb_mode(struct dsi_panel *panel, int level);
 int dsi_panel_set_customer_p3_mode(struct dsi_panel *panel, int level);
 

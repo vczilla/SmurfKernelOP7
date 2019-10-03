@@ -29,13 +29,17 @@
 #include <linux/init.h>
 #include <drm/drm_mipi_dsi.h>
 #include <linux/set_os.h>
+#include <linux/input.h>
+#include <linux/proc_fs.h>
 
 #define to_drm_minor(d) dev_get_drvdata(d)
 #define to_drm_connector(d) dev_get_drvdata(d)
 
+#define DSI_PANEL_SAMSUNG_S6E3HC2 0
+#define DSI_PANEL_SAMSUNG_S6E3FC2X01 1
+#define DSI_PANEL_SAMSUNG_SOFEF03F_M 2
 extern char gamma_para[2][413];
-extern bool is_s6e3hc2;
-
+extern char dsi_panel_name;
 /**
  * DOC: overview
  *
@@ -54,6 +58,10 @@ static struct device_type drm_sysfs_device_minor = {
 	.name = "drm_minor"
 };
 
+static struct input_dev *dc_mode_input_dev;
+static struct proc_dir_entry *prEntry_dc;
+static int    dc_mode_report_enable;
+
 struct class *drm_class;
 
 static char *drm_devnode(struct device *dev, umode_t *mode)
@@ -62,6 +70,71 @@ static char *drm_devnode(struct device *dev, umode_t *mode)
 }
 
 static CLASS_ATTR_STRING(version, S_IRUGO, "drm 1.1.0 20060810");
+
+static ssize_t dc_mode_event_num_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
+{
+	int ret = 0;
+	const char *devname = NULL;
+	struct input_handle *handle;
+
+	if (!dc_mode_input_dev)
+		return count;
+
+	list_for_each_entry(handle, &(dc_mode_input_dev->h_list), d_node) {
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
+	}
+	ret = simple_read_from_buffer(user_buf, count, ppos, devname, strlen(devname));
+	return ret;
+}
+
+static const struct file_operations dc_mode_event_num_fops = {
+	.read  = dc_mode_event_num_read,
+	.open  = simple_open,
+	.owner = THIS_MODULE,
+};
+
+static ssize_t dc_mode_report_enable_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
+{
+	ssize_t ret = 0;
+	char page[4];
+
+	pr_info("the dc_mode_report_enable is: %d\n", dc_mode_report_enable);
+	ret = snprintf(page, 4, "%d\n", dc_mode_report_enable);
+	ret = simple_read_from_buffer(user_buf, count, ppos, page, strlen(page));
+	return ret;
+
+}
+
+static ssize_t dc_mode_report_enable_write(struct file *file, const char __user *buffer, size_t count, loff_t *ppos)
+{
+	char buf[8] = {0};
+
+	if (count > 2)
+		count = 2;
+
+	if (copy_from_user(buf, buffer, count)) {
+		pr_err("%s: read proc input error.\n", __func__);
+		return count;
+	}
+
+	if ('0' == buf[0])
+		dc_mode_report_enable = 0;
+	else if ('1' == buf[0])
+		dc_mode_report_enable = 1;
+
+
+	return count;
+}
+
+static const struct file_operations dc_mode_report_enable_fops = {
+	.read  = dc_mode_report_enable_read,
+	.write = dc_mode_report_enable_write,
+	.open  = simple_open,
+	.owner = THIS_MODULE,
+};
 
 /**
  * drm_sysfs_init - initialize sysfs helpers
@@ -76,6 +149,7 @@ static CLASS_ATTR_STRING(version, S_IRUGO, "drm 1.1.0 20060810");
 int drm_sysfs_init(void)
 {
 	int err;
+	struct proc_dir_entry *prEntry_tmp  = NULL;
 
 	drm_class = class_create(THIS_MODULE, "drm");
 	if (IS_ERR(drm_class))
@@ -87,8 +161,48 @@ int drm_sysfs_init(void)
 		drm_class = NULL;
 		return err;
 	}
-
 	drm_class->devnode = drm_devnode;
+
+	prEntry_dc = proc_mkdir("dc_for_sensor", NULL);
+	if (prEntry_dc == NULL) {
+		pr_err("Couldn't create dc_for_sensor directory\n");
+		return 0;
+	}
+
+	//create dc_mode_event_num
+	prEntry_tmp = proc_create("dc_mode_event_num", 0664,
+							prEntry_dc, &dc_mode_event_num_fops);
+	if (prEntry_tmp == NULL) {
+		pr_err("Couldn't create dc_mode_event_num_fops\n");
+		return 0;
+	}
+
+	//create dc_mode_report_enable
+	prEntry_tmp = proc_create("dc_mode_report_enable", 0666,
+							prEntry_dc, &dc_mode_report_enable_fops);
+	if (prEntry_tmp == NULL) {
+		pr_err("Couldn't create dc_mode_report_enable_fops\n");
+		return 0;
+	}
+
+	//create input event
+	dc_mode_input_dev  = input_allocate_device();
+	if (dc_mode_input_dev == NULL) {
+		pr_err("Failed to allocate dc mode input device\n");
+		return 0;
+	}
+
+	dc_mode_input_dev->name = "oneplus,dc_mode";
+
+	set_bit(EV_MSC,  dc_mode_input_dev->evbit);
+	set_bit(MSC_RAW, dc_mode_input_dev->mscbit);
+
+	if (input_register_device(dc_mode_input_dev)) {
+		pr_err("%s: Failed to register dc mode input device\n", __func__);
+		input_free_device(dc_mode_input_dev);
+		return 0;
+	}
+
 	return 0;
 }
 
@@ -99,6 +213,9 @@ int drm_sysfs_init(void)
  */
 void drm_sysfs_destroy(void)
 {
+	input_unregister_device(dc_mode_input_dev);
+	input_free_device(dc_mode_input_dev);
+
 	if (IS_ERR_OR_NULL(drm_class))
 		return;
 	class_remove_file(drm_class, &class_attr_version.attr);
@@ -815,12 +932,7 @@ static ssize_t gamma_test_show(struct device *dev,
 	int panel_stage_info = 0;
 	int pvt_mp_panel_flag = 0;
 
-	ret = dsi_display_update_panel_id_and_gamma_para(connector);
-	if (ret) {
-		pr_err("Failed to update panel id and gamma para!\n");
-	}
-
-	if (is_s6e3hc2) {
+	if (dsi_panel_name == DSI_PANEL_SAMSUNG_S6E3HC2) {
 		if ((gamma_para[0][18] == 0xFF) && (gamma_para[0][19] == 0xFF) && (gamma_para[0][20] == 0xFF)) {
 			gamma_test_flag = 0;
 		}
@@ -856,12 +968,12 @@ static ssize_t panel_serial_number_show(struct device *dev,
 	int panel_hour = 0;
 	int panel_min = 0;
 	int panel_sec = 0;
+	int panel_code_info = 0;
 	int panel_stage_info = 0;
 	int panel_production_info = 0;
 	char * production_string_info = NULL;
 	char * stage_string_info = NULL;
 	int ret = 0;
-
 
 	dsi_display_get_serial_number(connector);
 
@@ -871,86 +983,109 @@ static ssize_t panel_serial_number_show(struct device *dev,
 	panel_hour = dsi_display_get_serial_number_hour(connector);
 	panel_min = dsi_display_get_serial_number_min(connector);
 	panel_sec = dsi_display_get_serial_number_sec(connector);
+	panel_code_info = dsi_display_get_code_info(connector);
 	panel_stage_info = dsi_display_get_stage_info(connector);
 	panel_production_info = dsi_display_get_production_info(connector);
 
-	if (0x02 == panel_stage_info) {
-		stage_string_info = "STAGE: EVT2";
-	}
-	else if (0x03 == panel_stage_info) {
-		stage_string_info = "STAGE: EVT2(NEW_DIMMING_SET)";
-	}
-	else if (0x99 == panel_stage_info) {
-		stage_string_info = "STAGE: EVT2(113MHZ_OSC)";
-	}
-	else if (0x04 == panel_stage_info) {
-		stage_string_info = "STAGE: DVT1";
-	}
-	else if (0x05 == panel_stage_info) {
-		stage_string_info = "STAGE: DVT2";
-	}
-	else if (0x06 == panel_stage_info) {
-		stage_string_info = "STAGE: DVT3";
-	}
-	else if (0x07 == panel_stage_info) {
-		stage_string_info = "STAGE: PVT(112MHZ_OSC)";
-	}
-	else if (0x10 == panel_stage_info) {
-		stage_string_info = "STAGE: PVT(113MHZ_OSC)";
-	}
-	else if (0x11 == panel_stage_info) {
-		stage_string_info = "STAGE: PVT(113MHZ_OSC+X_TALK_IMPROVEMENT)";
+	if (dsi_panel_name == DSI_PANEL_SAMSUNG_S6E3HC2) {
+		if (panel_code_info == 0xED) {
+			if (panel_stage_info == 0x02)
+				stage_string_info = "STAGE: EVT2";
+			else if (panel_stage_info == 0x03)
+				stage_string_info = "STAGE: EVT2(NEW_DIMMING_SET)";
+			else if (panel_stage_info == 0x99)
+				stage_string_info = "STAGE: EVT2(113MHZ_OSC)";
+			else if (panel_stage_info == 0x04)
+				stage_string_info = "STAGE: DVT1";
+			else if (panel_stage_info == 0x05)
+				stage_string_info = "STAGE: DVT2";
+			else if (panel_stage_info == 0x06)
+				stage_string_info = "STAGE: DVT3";
+			else if (panel_stage_info == 0x07)
+				stage_string_info = "STAGE: PVT(112MHZ_OSC)";
+			else if (panel_stage_info == 0x10)
+				stage_string_info = "STAGE: PVT(113MHZ_OSC)";
+			else if (panel_stage_info == 0x11)
+				stage_string_info = "STAGE: PVT(113MHZ_OSC+X_TALK_IMPROVEMENT)";
+			else
+				stage_string_info = "STAGE: UNKNOWN";
+
+			if (panel_production_info == 0x0C)
+				production_string_info = "TPIC: LSI\nCOVER: JNTC\nOTP_GAMMA: 90HZ";
+			else if (panel_production_info == 0x0E)
+				production_string_info = "TPIC: LSI\nCOVER: LENS\nOTP_GAMMA: 90HZ";
+			else if (panel_production_info == 0x1C)
+				production_string_info = "TPIC: STM\nCOVER: JNTC\nOTP_GAMMA: 90HZ";
+			else if (panel_production_info == 0x6C)
+				production_string_info = "TPIC: LSI\nCOVER: JNTC\nOTP_GAMMA: 60HZ";
+			else if (panel_production_info == 0x6E)
+				production_string_info = "TPIC: LSI\nCOVER: LENS\nOTP_GAMMA: 60HZ";
+			else if (panel_production_info == 0x1E)
+				production_string_info = "TPIC: STM\nCOVER: LENS\nOTP_GAMMA: 90HZ";
+			else if (panel_production_info == 0x0D)
+				production_string_info = "TPIC: LSI\nID3: 0x0D\nOTP_GAMMA: 90HZ";
+			else
+				production_string_info = "TPIC: UNKNOWN\nCOVER: UNKNOWN\nOTP_GAMMA: UNKNOWN";
+
+			ret = scnprintf(buf, PAGE_SIZE, "%04d/%02d/%02d %02d:%02d:%02d\n%s\n%s\nID: %02X %02X %02X\n",
+					panel_year, panel_mon, panel_day, panel_hour, panel_min, panel_sec,
+					stage_string_info, production_string_info, panel_code_info,
+						panel_stage_info, panel_production_info);
+		}
+
+		if (panel_code_info == 0xEE) {
+			if (panel_stage_info == 0x12)
+				stage_string_info = "STAGE: T0/EVT1";
+			else if (panel_stage_info == 0x13)
+				stage_string_info = "STAGE: EVT2";
+			else if (panel_stage_info == 0x14)
+				stage_string_info = "STAGE: EVT2";
+			else if (panel_stage_info == 0x15)
+				stage_string_info = "STAGE: EVT3";
+			else if (panel_stage_info == 0x16)
+				stage_string_info = "STAGE: DVT";
+			else if (panel_stage_info == 0x17)
+				stage_string_info = "STAGE: DVT";
+			else if (panel_stage_info == 0x19)
+				stage_string_info = "STAGE: PVT";
+			else
+				stage_string_info = "STAGE: UNKNOWN";
+
+			ret = scnprintf(buf, PAGE_SIZE, "%04d/%02d/%02d %02d:%02d:%02d\n%s\nID: %02X %02X %02X\n",
+					panel_year, panel_mon, panel_day, panel_hour, panel_min, panel_sec,
+					stage_string_info, production_string_info, panel_code_info,
+						panel_stage_info, panel_production_info);
+		}
+
+	} else if (dsi_panel_name == DSI_PANEL_SAMSUNG_SOFEF03F_M) {
+		if (panel_stage_info == 0x01)
+			stage_string_info = "STAGE: T0";
+		else if (panel_stage_info == 0x21)
+			stage_string_info = "STAGE: EVT1";
+		else if (panel_stage_info == 0x22)
+			stage_string_info = "STAGE: EVT2";
+		else if (panel_stage_info == 0x24)
+			stage_string_info = "STAGE: DVT1-1";
+		else if (panel_stage_info == 0x26)
+			stage_string_info = "STAGE: DVT1-2";
+		else if (panel_stage_info == 0x25)
+			stage_string_info = "STAGE: DVT2";
+		else if (panel_stage_info == 0x28)
+			stage_string_info = "STAGE: DVT3";
+		else if (panel_stage_info == 0x27)
+			stage_string_info = "STAGE: PVT/MP";
+
+		ret = scnprintf(buf, PAGE_SIZE, "%04d/%02d/%02d %02d:%02d:%02d\n%s\nID: %02X %02X %02X\n",
+				panel_year, panel_mon, panel_day, panel_hour, panel_min, panel_sec, stage_string_info,
+					panel_code_info, panel_stage_info, panel_production_info);
 	}
 	else {
-		stage_string_info = "STAGE: UNKNOWN";
+		ret = scnprintf(buf, PAGE_SIZE, "%04d/%02d/%02d %02d:%02d:%02d\n",
+				panel_year, panel_mon, panel_day, panel_hour, panel_min, panel_sec);
 	}
-
-	if (0x0C == panel_production_info) {
-		production_string_info = "TPIC: LSI\nCOVER: JNTC\nOTP_GAMMA: 90HZ";
-	}
-	else if (0x0E == panel_production_info) {
-		production_string_info = "TPIC: LSI\nCOVER: LENS\nOTP_GAMMA: 90HZ";
-	}
-	else if (0x1C == panel_production_info) {
-		production_string_info = "TPIC: STM\nCOVER: JNTC\nOTP_GAMMA: 90HZ";
-	}
-	else if (0x6C == panel_production_info) {
-		production_string_info = "TPIC: LSI\nCOVER: JNTC\nOTP_GAMMA: 60HZ";
-	}
-	else if (0x6E == panel_production_info) {
-		production_string_info = "TPIC: LSI\nCOVER: LENS\nOTP_GAMMA: 60HZ";
-	}
-	else if (0x1E == panel_production_info) {
-		production_string_info = "TPIC: STM\nCOVER: LENS\nOTP_GAMMA: 90HZ";
-	}
-	else if (0x0D == panel_production_info) {
-		production_string_info = "TPIC: LSI\nID3: 0x0D\nOTP_GAMMA: 90HZ";
-	}
-	else {
-		production_string_info = "TPIC: UNKNOWN\nCOVER: UNKNOWN\nOTP_GAMMA: UNKNOWN";
-	}
-
-	if((0xff ==panel_stage_info) && (0xff == panel_production_info))
-	ret = scnprintf(buf, PAGE_SIZE, "%04d/%02d/%02d %02d:%02d:%02d\n",
-														panel_year,
-														panel_mon,
-														panel_day,
-														panel_hour,
-														panel_min,
-														panel_sec);
-	else
-	ret = scnprintf(buf, PAGE_SIZE, "%04d/%02d/%02d %02d:%02d:%02d\n%s\n%s\n",
-														panel_year,
-														panel_mon,
-														panel_day,
-														panel_hour,
-														panel_min,
-														panel_sec,
-														stage_string_info,
-														production_string_info);
 
 	pr_err("panel year = %d, mon = %d, day = %d, hour = %d, min = %d\n",
-           panel_year, panel_mon, panel_day, panel_hour, panel_min);
+		panel_year, panel_mon, panel_day, panel_hour, panel_min);
 
 	return ret;
 }
@@ -991,6 +1126,54 @@ static ssize_t dsi_on_command_store(struct device *dev,
 	return count;
 }
 
+static ssize_t dsi_panel_command_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(dev);
+	int ret = 0;
+
+	ret = dsi_display_get_dsi_panel_command(connector, buf);
+
+	return ret;
+}
+
+static ssize_t dsi_panel_command_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct drm_connector *connector = to_drm_connector(dev);
+	int ret = 0;
+
+	ret = dsi_display_update_dsi_panel_command(connector, buf, count);
+	if (ret)
+		pr_err("Failed to update dsi panel command, ret=%d\n", ret);
+
+	return count;
+}
+
+static ssize_t dsi_seed_command_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(dev);
+	int ret = 0;
+
+	ret = dsi_display_get_dsi_seed_command(connector, buf);
+
+	return ret;
+}
+
+static ssize_t dsi_seed_command_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct drm_connector *connector = to_drm_connector(dev);
+	int ret = 0;
+
+	ret = dsi_display_update_dsi_seed_command(connector, buf, count);
+	if (ret)
+		pr_err("Failed to update dsi seed command, ret=%d\n", ret);
+
+	return count;
+}
+
 int current_freq = 0;
 static ssize_t dynamic_dsitiming_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -1022,6 +1205,17 @@ static ssize_t dynamic_dsitiming_store(struct device *dev,
 		pr_err("set dsi freq (%d) fail\n", current_freq);
 	}
 	return count;
+}
+
+extern u32 mode_fps;
+static ssize_t dynamic_fps_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret = 0;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", mode_fps);
+
+	return ret;
 }
 
 static ssize_t panel_mismatch_show(struct device *dev,
@@ -1110,6 +1304,13 @@ static ssize_t op_display_set_dimlayer_enable(struct device *dev,
 {
 	sscanf(buf, "%d", &op_dimlayer_bl_enable);
 
+	pr_err("op_dimlayer_bl_enable : %d\n", op_dimlayer_bl_enable);
+
+	if (dc_mode_report_enable) {
+		input_event(dc_mode_input_dev, EV_MSC, MSC_RAW, op_dimlayer_bl_enable);
+		input_sync(dc_mode_input_dev);
+	}
+
 	return count;
 }
 
@@ -1177,8 +1378,11 @@ static DEVICE_ATTR_RO(gamma_test);
 static DEVICE_ATTR_RO(panel_serial_number);
 static DEVICE_ATTR_RO(panel_serial_number_AT);
 static DEVICE_ATTR_RW(dsi_on_command);
+static DEVICE_ATTR_RW(dsi_panel_command);
+static DEVICE_ATTR_RW(dsi_seed_command);
 static DEVICE_ATTR_RW(dynamic_dsitiming);
 static DEVICE_ATTR_RO(panel_mismatch);
+static DEVICE_ATTR_RO(dynamic_fps);
 static DEVICE_ATTR(dim_alpha, S_IRUGO|S_IWUSR, oneplus_display_get_dim_alpha, oneplus_display_set_dim_alpha);
 static DEVICE_ATTR(force_screenfp, S_IRUGO|S_IWUSR, oneplus_display_get_forcescreenfp, oneplus_display_set_forcescreenfp);
 static DEVICE_ATTR(notify_fppress, S_IRUGO|S_IWUSR, NULL, oneplus_display_notify_fp_press);
@@ -1211,10 +1415,13 @@ static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_panel_serial_number.attr,
 	&dev_attr_panel_serial_number_AT.attr,
 	&dev_attr_dsi_on_command.attr,
+	&dev_attr_dsi_panel_command.attr,
+	&dev_attr_dsi_seed_command.attr,
 	&dev_attr_dynamic_dsitiming.attr,
 	&dev_attr_panel_mismatch.attr,
 	&dev_attr_force_screenfp.attr,
 	&dev_attr_dim_alpha.attr,
+	&dev_attr_dynamic_fps.attr,
 	&dev_attr_notify_fppress.attr,
 	&dev_attr_notify_dim.attr,
 	&dev_attr_notify_aod.attr,

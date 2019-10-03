@@ -134,8 +134,6 @@ static void sde_hw_setup_pp_split(struct sde_hw_mdp *mdp,
 	} else if (cfg->en && cfg->pp_split_slave != INTF_MAX) {
 		ppb_config |= (cfg->pp_split_slave - INTF_0 + 1) << 20;
 		ppb_config |= BIT(16); /* split enable */
-		/* overlap pixel width */
-		ppb_config |= ((cfg->overlap_pixel_width & 0x1F) << 24);
 		ppb_control = BIT(5); /* horz split*/
 	}
 
@@ -155,7 +153,6 @@ static void sde_hw_setup_pp_split(struct sde_hw_mdp *mdp,
 static bool sde_hw_setup_clk_force_ctrl(struct sde_hw_mdp *mdp,
 		enum sde_clk_ctrl_type clk_ctrl, bool enable)
 {
-	struct sde_clk_ctrl_reg *ctrl_reg;
 	struct sde_hw_blk_reg_map *c;
 	u32 reg_off, bit_off;
 	u32 reg_val, new_val;
@@ -169,12 +166,8 @@ static bool sde_hw_setup_clk_force_ctrl(struct sde_hw_mdp *mdp,
 	if (clk_ctrl <= SDE_CLK_CTRL_NONE || clk_ctrl >= SDE_CLK_CTRL_MAX)
 		return false;
 
-	ctrl_reg = (struct sde_clk_ctrl_reg *)&mdp->caps->clk_ctrls[clk_ctrl];
-	if (cmpxchg(&ctrl_reg->val, !enable, enable) == enable)
-		return enable;
-
-	reg_off = ctrl_reg->reg_off;
-	bit_off = ctrl_reg->bit_off;
+	reg_off = mdp->caps->clk_ctrls[clk_ctrl].reg_off;
+	bit_off = mdp->caps->clk_ctrls[clk_ctrl].bit_off;
 
 	reg_val = SDE_REG_READ(c, reg_off);
 
@@ -386,6 +379,8 @@ void sde_hw_reset_ubwc(struct sde_hw_mdp *mdp, struct sde_mdss_cfg *m)
 
 		if (IS_UBWC_30_SUPPORTED(m->ubwc_version))
 			reg |= BIT(10);
+		if (IS_UBWC_10_SUPPORTED(m->ubwc_version))
+			reg |= BIT(8);
 
 		SDE_REG_WRITE(&c, UBWC_STATIC, reg);
 	} else {

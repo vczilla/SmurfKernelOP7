@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,14 +36,36 @@
 #define SDE_HW_STEP(rev)		((rev) & 0xFFFF)
 #define SDE_HW_MAJOR_MINOR(rev)		((rev) >> 16)
 
-#define IS_MSM8996_TARGET(rev) false
-#define IS_MSM8998_TARGET(rev) false
-#define IS_SDM845_TARGET(rev) false
-#define IS_SDM670_TARGET(rev) false
-#define IS_SM8150_TARGET(rev) true
-#define IS_SDMSHRIKE_TARGET(rev) false
-#define IS_SDMMAGPIE_TARGET(rev) false
-#define IS_SM6150_TARGET(rev) false
+#define IS_SDE_MAJOR_SAME(rev1, rev2)   \
+	(SDE_HW_MAJOR((rev1)) == SDE_HW_MAJOR((rev2)))
+
+#define IS_SDE_MAJOR_MINOR_SAME(rev1, rev2)   \
+	(SDE_HW_MAJOR_MINOR((rev1)) == SDE_HW_MAJOR_MINOR((rev2)))
+
+#define SDE_HW_VER_170	SDE_HW_VER(1, 7, 0) /* 8996 v1.0 */
+#define SDE_HW_VER_171	SDE_HW_VER(1, 7, 1) /* 8996 v2.0 */
+#define SDE_HW_VER_172	SDE_HW_VER(1, 7, 2) /* 8996 v3.0 */
+#define SDE_HW_VER_300	SDE_HW_VER(3, 0, 0) /* 8998 v1.0 */
+#define SDE_HW_VER_301	SDE_HW_VER(3, 0, 1) /* 8998 v1.1 */
+#define SDE_HW_VER_400	SDE_HW_VER(4, 0, 0) /* sdm845 v1.0 */
+#define SDE_HW_VER_401	SDE_HW_VER(4, 0, 1) /* sdm845 v2.0 */
+#define SDE_HW_VER_410	SDE_HW_VER(4, 1, 0) /* sdm670 v1.0 */
+#define SDE_HW_VER_500	SDE_HW_VER(5, 0, 0) /* sm8150 v1.0 */
+#define SDE_HW_VER_501	SDE_HW_VER(5, 0, 1) /* sm8150 v2.0 */
+#define SDE_HW_VER_510	SDE_HW_VER(5, 1, 0) /* sdmshrike v1.0 */
+#define SDE_HW_VER_520	SDE_HW_VER(5, 2, 0) /* sdmmagpie v1.0 */
+#define SDE_HW_VER_530	SDE_HW_VER(5, 3, 0) /* sm6150 v1.0 */
+#define SDE_HW_VER_540	SDE_HW_VER(5, 4, 0) /* sdmtrinket v1.0 */
+
+#define IS_MSM8996_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_170)
+#define IS_MSM8998_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_300)
+#define IS_SDM845_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_400)
+#define IS_SDM670_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_410)
+#define IS_SM8150_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_500)
+#define IS_SDMSHRIKE_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_510)
+#define IS_SDMMAGPIE_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_520)
+#define IS_SM6150_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_530)
+#define IS_SDMTRINKET_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_540)
 
 #define SDE_HW_BLK_NAME_LEN	16
 
@@ -81,30 +103,12 @@ enum {
 	SDE_HW_UBWC_VER_20 = SDE_HW_UBWC_VER(0x200),
 	SDE_HW_UBWC_VER_30 = SDE_HW_UBWC_VER(0x300),
 };
-
-#define IS_UBWC_20_SUPPORTED(rev) false
-#define IS_UBWC_30_SUPPORTED(rev) true
-
-/**
- * SDE INTERRUPTS - maintains the possible hw irq's allowed by HW
- * The order in this enum must match the order of the irqs defined
- * by 'sde_irq_map'
- */
-enum sde_intr_enum {
-	MDSS_INTR_SSPP_TOP0_INTR,
-	MDSS_INTR_SSPP_TOP0_INTR2,
-	MDSS_INTR_SSPP_TOP0_HIST_INTR,
-	MDSS_INTR_INTF_0_INTR,
-	MDSS_INTR_INTF_1_INTR,
-	MDSS_INTR_INTF_2_INTR,
-	MDSS_INTR_INTF_3_INTR,
-	MDSS_INTR_INTF_4_INTR,
-	MDSS_INTR_AD4_0_INTR,
-	MDSS_INTR_AD4_1_INTR,
-	MDSS_INTF_TEAR_1_INTR,
-	MDSS_INTF_TEAR_2_INTR,
-	MDSS_INTR_MAX
-};
+#define IS_UBWC_10_SUPPORTED(rev) \
+		IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_UBWC_VER_10)
+#define IS_UBWC_20_SUPPORTED(rev) \
+		IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_UBWC_VER_20)
+#define IS_UBWC_30_SUPPORTED(rev) \
+		IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_UBWC_VER_30)
 
 /**
  * MDP TOP BLOCK features
@@ -426,14 +430,10 @@ struct sde_src_blk {
  * struct sde_scaler_blk: Scaler information
  * @info:   HW register and features supported by this sub-blk
  * @version: qseed block revision
- * @h_preload: horizontal preload
- * @v_preload: vertical preload
  */
 struct sde_scaler_blk {
 	SDE_HW_SUBBLK_INFO;
 	u32 version;
-	u32 h_preload;
-	u32 v_preload;
 };
 
 struct sde_csc_blk {
@@ -503,8 +503,6 @@ struct sde_qos_lut_tbl {
  * @pixel_ram_size: size of latency hiding and de-tiling buffer in bytes
  * @smart_dma_priority: hw priority of rect1 of multirect pipe
  * @max_per_pipe_bw: maximum allowable bandwidth of this pipe in kBps
- * @max_per_pipe_bw_high: maximum allowable bandwidth of this pipe in kBps
- *                           in case of no VFE
  * @src_blk:
  * @scaler_blk:
  * @csc_blk:
@@ -532,7 +530,6 @@ struct sde_sspp_sub_blks {
 	u32 maxvdeciexp; /* max decimation is 2^value */
 	u32 smart_dma_priority;
 	u32 max_per_pipe_bw;
-	u32 max_per_pipe_bw_high;
 	struct sde_src_blk src_blk;
 	struct sde_scaler_blk scaler_blk;
 	struct sde_pp_blk csc_blk;
@@ -617,19 +614,16 @@ enum sde_clk_ctrl_type {
 	SDE_CLK_CTRL_WB2,
 	SDE_CLK_CTRL_INLINE_ROT0_SSPP,
 	SDE_CLK_CTRL_INLINE_ROT0_WB,
-	SDE_CLK_CTRL_LUTDMA,
 	SDE_CLK_CTRL_MAX,
 };
 
 /* struct sde_clk_ctrl_reg : Clock control register
  * @reg_off:           register offset
  * @bit_off:           bit offset
- * @val:               current bit value
  */
 struct sde_clk_ctrl_reg {
 	u32 reg_off;
 	u32 bit_off;
-	int val;
 };
 
 /* struct sde_mdp_cfg : MDP TOP-BLK instance info
@@ -923,22 +917,6 @@ struct sde_vbif_qos_tbl {
 };
 
 /**
- * enum sde_vbif_client_type
- * @VBIF_RT_CLIENT: real time client
- * @VBIF_NRT_CLIENT: non-realtime clients like writeback
- * @VBIF_CWB_CLIENT: concurrent writeback client
- * @VBIF_LUTDMA_CLIENT: LUTDMA client
- * @VBIF_MAX_CLIENT: max number of clients
- */
-enum sde_vbif_client_type {
-	VBIF_RT_CLIENT,
-	VBIF_NRT_CLIENT,
-	VBIF_CWB_CLIENT,
-	VBIF_LUTDMA_CLIENT,
-	VBIF_MAX_CLIENT
-};
-
-/**
  * struct sde_vbif_cfg - information of VBIF blocks
  * @id                 enum identifying this block
  * @base               register offset of this block
@@ -948,7 +926,8 @@ enum sde_vbif_client_type {
  * @xin_halt_timeout   maximum time (in usec) for xin to halt
  * @dynamic_ot_rd_tbl  dynamic OT read configuration table
  * @dynamic_ot_wr_tbl  dynamic OT write configuration table
- * @qos_tbl            Array of QoS priority table
+ * @qos_rt_tbl         real-time QoS priority table
+ * @qos_nrt_tbl        non-real-time QoS priority table
  * @memtype_count      number of defined memtypes
  * @memtype            array of xin memtype definitions
  */
@@ -959,7 +938,8 @@ struct sde_vbif_cfg {
 	u32 xin_halt_timeout;
 	struct sde_vbif_dynamic_ot_tbl dynamic_ot_rd_tbl;
 	struct sde_vbif_dynamic_ot_tbl dynamic_ot_wr_tbl;
-	struct sde_vbif_qos_tbl qos_tbl[VBIF_MAX_CLIENT];
+	struct sde_vbif_qos_tbl qos_rt_tbl;
+	struct sde_vbif_qos_tbl qos_nrt_tbl;
 	u32 memtype_count;
 	u32 memtype[MAX_XIN_COUNT];
 };
@@ -970,17 +950,11 @@ struct sde_vbif_cfg {
  * @features           bit mask identifying sub-blocks/features
  * @version            version of lutdma hw block
  * @trigger_sel_off    offset to trigger select registers of lutdma
- * @xin_id             VBIF xin client-id for LUTDMA
- * @vbif_idx           VBIF id (RT/NRT)
- * @clk_ctrl           VBIF xin client clk-ctrl
  */
 struct sde_reg_dma_cfg {
 	SDE_HW_BLK_INFO;
 	u32 version;
 	u32 trigger_sel_off;
-	u32 xin_id;
-	u32 vbif_idx;
-	enum sde_clk_ctrl_type clk_ctrl;
 };
 
 /**
@@ -1115,8 +1089,6 @@ struct sde_perf_cfg {
  * @sui_ns_allowed      flag to indicate non-secure context banks are allowed
  *                         during secure-ui session
  * @sui_supported_blendstage  secure-ui supported blendstage
- * @has_sui_blendstage  flag to indicate secure-ui has a blendstage restriction
- * @mdss_irqs	  bitmap with the irqs supported by the target
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -1228,8 +1200,6 @@ struct sde_mdss_cfg {
 	struct sde_format_extended *vig_formats;
 	struct sde_format_extended *wb_formats;
 	struct sde_format_extended *virt_vig_formats;
-
-	DECLARE_BITMAP(mdss_irqs, MDSS_INTR_MAX);
 };
 
 struct sde_mdss_hw_cfg_handler {

@@ -420,15 +420,19 @@ int sde_connector_get_info(struct drm_connector *connector,
 	return c_conn->ops.get_info(&c_conn->base, info, c_conn->display);
 }
 
+extern void dsi_display_change_err_flag_irq_status(struct dsi_display *display,
+					bool enable);
 void sde_connector_schedule_status_work(struct drm_connector *connector,
 		bool en)
 {
 	struct sde_connector *c_conn;
 	struct msm_display_info info;
-
+	struct dsi_display *dsi_display;
 	c_conn = to_sde_connector(connector);
 	if (!c_conn)
 		return;
+
+	dsi_display = (struct dsi_display *)c_conn->display;
 
 	/* Return if there is no change in ESD status check condition */
 	if (en == c_conn->esd_status_check)
@@ -451,10 +455,12 @@ void sde_connector_schedule_status_work(struct drm_connector *connector,
 			schedule_delayed_work(&c_conn->status_work,
 				msecs_to_jiffies(interval));
 			c_conn->esd_status_check = true;
+			dsi_display_change_err_flag_irq_status(dsi_display, true);
 		} else {
 			/* Cancel any pending ESD status check */
 			cancel_delayed_work_sync(&c_conn->status_work);
 			c_conn->esd_status_check = false;
+			dsi_display_change_err_flag_irq_status(dsi_display, false);
 		}
 	}
 }
@@ -567,7 +573,7 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 
 	return rc;
 }
-
+//xiaoxiaohuan@OnePlus.MultiMediaService,2018/08/04, add for fingerprint
 extern bool sde_crtc_get_fingerprint_mode(struct drm_crtc_state *crtc_state);
 extern bool sde_crtc_get_fingerprint_pressed(struct drm_crtc_state *crtc_state);
 extern int dsi_display_set_hbm_mode(struct drm_connector *connector, int level);
@@ -644,6 +650,7 @@ int sde_connector_update_backlight(struct drm_connector *connector)
 
 	return 0;
 }
+
 static int _sde_connector_update_hbm(struct sde_connector *c_conn)
 {
 	struct drm_connector *connector = &c_conn->base;
@@ -762,7 +769,7 @@ static int _sde_connector_update_hbm(struct sde_connector *c_conn)
 			}
 			SDE_ATRACE_END("set_hbm_off");
 			mutex_unlock(&dsi_display->panel->panel_lock);
-			_sde_connector_update_bl_scale(c_conn);
+			_sde_connector_update_bl_scale(c_conn);	
 			if (rc) {
 				pr_err("failed to send DSI_CMD_HBM_OFF cmds, rc=%d\n", rc);
 				return rc;
@@ -857,13 +864,9 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 		SDE_ERROR("invalid connector display\n");
 		return -EINVAL;
 	}
-	SDE_ATRACE_BEGIN("_sde_connector_update_dirty_properties");
+
 	rc = _sde_connector_update_dirty_properties(connector);
-	SDE_ATRACE_END("_sde_connector_update_dirty_properties");
-	if (rc) {
-		SDE_EVT32(connector->base.id, SDE_EVTLOG_ERROR);
-		goto end;
-	}
+	/*xiaoxiaohuan@OnePlus.MultiMediaService,2018/08/04, add for fingerprint*/
 	rc = _sde_connector_update_hbm(c_conn);
 	if (rc) {
 		SDE_EVT32(connector->base.id, SDE_EVTLOG_ERROR);
@@ -884,9 +887,9 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 	}
 
 	SDE_EVT32_VERBOSE(connector->base.id);
-	SDE_ATRACE_BEGIN("ops.pre_kickoff");
+
 	rc = c_conn->ops.pre_kickoff(connector, c_conn->display, &params);
-	SDE_ATRACE_END("ops.pre_kickoff");
+
 end:
 	return rc;
 }
@@ -1422,8 +1425,8 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		c_conn->bl_scale_dirty = true;
 		break;
 	case CONNECTOR_PROP_AD_BL_SCALE:
-		//c_conn->bl_scale_ad = val;
-		//c_conn->bl_scale_dirty = true;
+		// c_conn->bl_scale_ad = val;
+		// c_conn->bl_scale_dirty = true;
 		break;
 	default:
 		break;
@@ -2104,6 +2107,8 @@ int sde_connector_esd_status(struct drm_connector *conn)
 	return ret;
 }
 
+struct delayed_work *sde_esk_check_delayed_work;
+EXPORT_SYMBOL(sde_esk_check_delayed_work);
 static void sde_connector_check_status_work(struct work_struct *work)
 {
 	struct sde_connector *conn;
@@ -2115,6 +2120,8 @@ static void sde_connector_check_status_work(struct work_struct *work)
 		SDE_ERROR("not able to get connector object\n");
 		return;
 	}
+
+	sde_esk_check_delayed_work = &conn->status_work;
 
 	mutex_lock(&conn->lock);
 	if (!conn->ops.check_status ||
@@ -2186,7 +2193,7 @@ static int sde_connector_populate_mode_info(struct drm_connector *conn,
 		int topology_idx = 0;
 
 		memset(&mode_info, 0, sizeof(mode_info));
-
+		SDE_EVT32(conn, ((unsigned long long)conn) >> 32, 0x9999);
 		rc = c_conn->ops.get_mode_info(&c_conn->base, mode, &mode_info,
 			sde_kms->catalog->max_mixer_width,
 			c_conn->display);
@@ -2531,7 +2538,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	msm_property_install_range(&c_conn->property_info, "ad_bl_scale",
 		0x0, 0, MAX_AD_BL_SCALE_LEVEL, MAX_AD_BL_SCALE_LEVEL,
 		CONNECTOR_PROP_AD_BL_SCALE);
-
+	//xiaoxiaohuan@OnePlus.MultiMediaService,2018/08/04, add for fingerprint
 	msm_property_install_range(&c_conn->property_info,"CONNECTOR_CUST",
 			0x0, 0, INT_MAX, 0, CONNECTOR_PROP_CUSTOM);
 

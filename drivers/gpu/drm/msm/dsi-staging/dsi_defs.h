@@ -323,6 +323,7 @@ enum dsi_cmd_set_type {
 	DSI_CMD_SET_ACL_MODE,
 	DSI_CMD_SET_LCDINFO_PRE,
 	DSI_CMD_SET_LCDINFO_POST,
+	DSI_CMD_SET_CODE_INFO,
 	DSI_CMD_SET_STAGE_INFO,
 	DSI_CMD_SET_PRODUCTION_INFO,
 	DSI_CMD_SET_ESD_LOGREAD_PREREAD,
@@ -351,8 +352,9 @@ enum dsi_cmd_set_type {
 	DSI_CMD_LOADING_CUSTOMER_RGB_OFF,
 	DSI_CMD_LOADING_CUSTOMER_P3_ON,
 	DSI_CMD_LOADING_CUSTOMER_P3_OFF,
+	DSI_CMD_SET_PANEL_COMMAND,
+	DSI_CMD_SET_SEED_COMMAND,
 	DSI_CMD_SET_MAX
-
 };
 
 /**
@@ -456,7 +458,6 @@ struct dsi_panel_cmd_set {
  * @clk_rate_hz:      DSI bit clock rate per lane in Hz.
  * @mdp_transfer_time_us:   Specifies the mdp transfer time for command mode
  *                    panels in microseconds.
- * @overlap_pixels:   overlap pixels for certain panels.
  * @dsc_enabled:      DSC compression enabled.
  * @dsc:              DSC compression configuration.
  * @roi_caps:         Panel ROI capabilities.
@@ -478,7 +479,6 @@ struct dsi_mode_info {
 	u32 refresh_rate;
 	u64 clk_rate_hz;
 	u32 mdp_transfer_time_us;
-	u32 overlap_pixels;
 	bool dsc_enabled;
 	struct msm_display_dsc_info *dsc;
 	struct msm_roi_caps roi_caps;
@@ -632,7 +632,6 @@ struct dsi_host_config {
  * @mdp_transfer_time_us:   Specifies the mdp transfer time for command mode
  *                          panels in microseconds.
  * @clk_rate_hz:          DSI bit clock per lane in hz.
- * @overlap_pixels:       overlap pixels for certain panels.
  * @topology:             Topology selected for the panel
  * @dsc:                  DSC compression info
  * @dsc_enabled:          DSC compression enabled
@@ -649,7 +648,6 @@ struct dsi_display_mode_priv_info {
 	u32 panel_prefill_lines;
 	u32 mdp_transfer_time_us;
 	u64 clk_rate_hz;
-	u32 overlap_pixels;
 
 	struct msm_display_topology topology;
 	struct msm_display_dsc_info dsc;
