@@ -155,6 +155,16 @@
 		switch-source = <&pm8150l_switch2>;
 		status = "ok";
 	};
+
+	led_flash_rear_2: qcom,camera-flash@9 {
+		cell-index = <9>;
+		reg = <0x09 0x00>;
+		compatible = "qcom,camera-flash";
+		flash-source = <&pm8150l_flash0 &pm8150l_flash1>;
+		torch-source = <&pm8150l_torch0 &pm8150l_torch1>;
+		switch-source = <&pm8150l_switch2>;
+		status = "ok";
+	};
 };
 
 &cam_cci0 {
@@ -601,6 +611,7 @@
         sensor-position-roll = <270>;
         sensor-position-pitch = <0>;
         sensor-position-yaw = <0>;
+        led-flash-src = <&led_flash_rear_2>;
         eeprom-src = <&eeprom_rear_2>;
         actuator-src = <&actuator_rear_2>;
         cam_vio-supply = <&pm8150l_l1>;

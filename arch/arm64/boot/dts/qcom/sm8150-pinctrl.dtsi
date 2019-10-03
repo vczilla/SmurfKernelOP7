@@ -1050,18 +1050,6 @@
 					bias-pull-up;
 				};
 			};
-			qupv3_se8_i2c_reset: qupv3_se8_i2c_reset {
-				mux {
-					pins = "gpio88", "gpio89";
-					function = "gpio";
-				};
-
-				config {
-					pins = "gpio88", "gpio89";
-					drive-strength = <2>;
-					bias-pull-down;
-				};
-			};
 		};
 
 		qupv3_se8_spi_pins: qupv3_se8_spi_pins {
@@ -4289,14 +4277,14 @@
 			};
 		};
 
-		/*usb2_id_det_default: usb2_id_det_default {
+		usb2_id_det_default: usb2_id_det_default {
 			config {
 				pins = "gpio101";
 				function = "gpio";
 				input-enable;
 				bias-pull-up;
 			};
-		 };GPIO 101 for fingerprint VDD enable */
+		};
 
 		emac {
 			emac_mdc: emac_mdc {

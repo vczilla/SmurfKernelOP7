@@ -175,61 +175,20 @@
 	};
 };
 &qupv3_se17_i2c {
-        synaptics-s3706@20 {
-        //        enable1v8_gpio = <&tlmm 119 0x00>;
+	synaptics-s3706@20 {
+		//enable1v8_gpio = <&tlmm 119 0x00>;
+		project-name = "18857";
+		reset-gpio = <&tlmm 54 0x00>;
+		touchpanel,display-coords = <1079 2339>;
+		touchpanel,panel-coords = <1079 2339>;
+		touchpanel,tx-rx-num = <16 33>;
 		pinctrl-0 = <&tp_irq_active &tp_1v8_t0_active &tp_rst_active>;
-                pinctrl-1 = <&tp_rst_suspend &tp_1v8_t0_suspend>;
-        };
+		pinctrl-1 = <&tp_rst_suspend &tp_1v8_t0_suspend>;
+	};
 	/delete-node/ sec-s6sy761@48;
 	/delete-node/ st_fts@49;
 };
 
-/*fingerprint reset gpio change to gpio131 on T0*/
-&soc {
-	fingerprint_detect {
-		compatible = "oneplus,fpdetect";
-		fp-gpio-id0 = <&tlmm 90 0>;
-		fp-gpio-id1 = <&pm8150_gpios 3 0>;
-		pinctrl-names = "fp_id_init";
-		pinctrl-0 = <&fp_id0_init &fp_id1_init>;
-	};
-
-	silead_fp {
-		compatible = "sil,fingerprint";
-		interrupt-parent = <&tlmm>;
-		//avdd-supply = <&pm8150_l17>;
-		avdd-gpios = <&tlmm 101 0x00>;
-		irq-gpios = <&tlmm 118 0x00>;
-		rst-gpios = <&tlmm 131 0x00>;
-		pinctrl-names = "fp_en_init";
-		pinctrl-0 = <&fp_reset_init &fp_irq_init &fp_vdd_init>;
-		status = "okay";
-	};
-
-	goodix_fp {
-		compatible = "goodix,fingerprint";
-		interrupt-parent = <&tlmm>;
-		//vdd-3v2-supply = <&pm8998_l22>;
-		//vdd-voltage = <3200000 3200000>;
-		//vdd-current = <50000>;
-		fp-gpio-irq = <&tlmm 118 0x00>;
-		fp-gpio-reset = <&tlmm 131 0x00>;
-		fp-gpio-enable = <&tlmm 101 0x00>;
-		pinctrl-names = "fp_en_init", "fp_dis_init";
-		pinctrl-0 = <&fp_vdd_init &fp_irq_init>;
-		pinctrl-1 = <&fp_vdd_dis_init>;
-		status = "okay";
-	};
-};
-&pm8150_gpios {
-	fp_id1_init: fp_id1_init {
-		pins = "gpio3";
-		function = "normal";
-		power-source = <0>;
-		bias-disable;
-		input-enable;
-	};
-};
 &tp_rst_active{
                 mux {
                         pins = "gpio54";
@@ -243,20 +202,6 @@
 
 };
 &tlmm {
-		fp_id0_init: fp_id0_init {
-			mux {
-				pins = "gpio90";
-				function = "gpio";
-			};
-
-			config {
-				pins = "gpio90";
-				drive-strength = <2>;
-				bias-disable; /* No Pull */
-				input-enable;
-			};
-		};
-
 		tp_1v8_t0_active: tp_1v8_t0_active {
                         mux {
                                 pins = "gpio119";
@@ -284,64 +229,64 @@
 /* add for hall tri_state_key */
 
 &tri_state_key {
-			compatible = "oneplus,hall_tri_state_key";
-			status = "ok";
-			interrupt-parent = <&tlmm>;
+	compatible = "oneplus,hall_tri_state_key";
+	status = "ok";
+	interrupt-parent = <&tlmm>;
 };
 
 &qupv3_se9_i2c {
 	//qcom,clk-freq-out = <300000>;
-   status = "ok";
-   magnachip@0D {
-               compatible = "tri_key_magnachip,tk_mxm1120,up";
-               reg = <0x0D>;
-               vdd-supply = <&pm8150l_l7>;
-               magnachip,init-interval = <200>;
-			   interrupt-parent = <&tlmm>;
-			   interrupts = <26 0x02>;
-			   dhall,irq-gpio = <&tlmm 26 0x2008>;
-               mxm,id = <1>;
-			   pinctrl-names = "uphall_tri_state_key_active";
-				pinctrl-0 = <&uphall_tri_state_key_active>;
-             };
-   magnachip@0C {
-               compatible = "tri_key_magnachip,tk_mxm1120,down";
-               reg = <0x0C>;
-               vdd-supply = <&pm8150l_l7>;
-               magnachip,init-interval = <200>;
-               interrupt-parent = <&tlmm>;
-               interrupts = <27 0x02>;
-               dhall,irq-gpio = <&tlmm 27 0x2008>;
-               mxm,id = <2>;
-			  pinctrl-names = "downhall_tri_state_key_active";
-			  pinctrl-0 = <&downhall_tri_state_key_active>;
-             };
+	status = "ok";
+	magnachip@0D {
+		compatible = "tri_key_magnachip,tk_mxm1120,up";
+		reg = <0x0D>;
+		vdd-supply = <&pm8150l_l7>;
+		magnachip,init-interval = <200>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <26 0x02>;
+		dhall,irq-gpio = <&tlmm 26 0x2008>;
+		mxm,id = <1>;
+		pinctrl-names = "uphall_tri_state_key_active";
+		pinctrl-0 = <&uphall_tri_state_key_active>;
+	};
+	magnachip@0C {
+		compatible = "tri_key_magnachip,tk_mxm1120,down";
+		reg = <0x0C>;
+		vdd-supply = <&pm8150l_l7>;
+		magnachip,init-interval = <200>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <27 0x02>;
+		dhall,irq-gpio = <&tlmm 27 0x2008>;
+		mxm,id = <2>;
+		pinctrl-names = "downhall_tri_state_key_active";
+		pinctrl-0 = <&downhall_tri_state_key_active>;
+	};
 };
 
 &tlmm {
-	 uphall_tri_state_key_active: uphall_tri_state_key_active {
-		mux {
-			pins = "gpio26";
-			function = "gpio";
-		};
-		config {
-			pins = "gpio26";
-			drive-strength = <2>;
-			bias-pull-up;
-			};
-		};
+	uphall_tri_state_key_active: uphall_tri_state_key_active {
+				     mux {
+					     pins = "gpio26";
+					     function = "gpio";
+				     };
+				     config {
+					     pins = "gpio26";
+					     drive-strength = <2>;
+					     bias-pull-up;
+				     };
+			     };
 
 	downhall_tri_state_key_active: downhall_tri_state_key_active {
-		mux {
-			pins = "gpio27";
-			function = "gpio";
-		};
-		config {
-			pins = "gpio27";
-			drive-strength = <2>;
-			bias-pull-up;
-			};
-		};
+				       mux {
+					       pins = "gpio27";
+					       function = "gpio";
+				       };
+				       config {
+					       pins = "gpio27";
+					       drive-strength = <2>;
+					       bias-pull-up;
+				       };
+			       };
 };
 
 /* for Battery & Charging  STRAT */
@@ -357,6 +302,7 @@
 	op,stm-ctrl-gpio = <&tlmm 21 0x00>;
 	op,vbus-ctrl-gpio = <&pm8150_gpios 9 GPIO_ACTIVE_LOW>;
 	/* ibatmax setting for different temp regions */
+	op,dis_ctrl_current;
 	ibatmax-little-cold-ma = <320>;
 	ibatmax-little-cool-thr-ma = <1750>;
 	ibatmax-cool-thr-ma = <1000>;
@@ -388,9 +334,53 @@
 };
 /* @bsp, USB oem config END*/
 
-/*&motor_pl {
+&qupv3_se1_i2c {
+	magnachip@0C {
+		status = "disabled";
+	};
+
+	magnachip@0D {
+		status = "disabled";
+	};
+};
+
+&vendor {
+	step_motor {
+		status = "disabled";
+	};
+};
+
+&motor_pl {
 	status = "disabled";
-};*/
+};
+
+&infrared_pl {
+	interrupt-parent = <&tlmm>;
+	interrupts = <163 0x2>;
+	infrared,irq-gpio = <&tlmm 163 0x2008>;
+	pinctrl-names = "infrared_input";
+	pinctrl-0 = <&free_fall_input>;
+};
+
+&tlmm {
+	infrared_input: infrared_input {
+		mux {
+			pins = "gpio163";
+			function = "gpio";
+		};
+	config {
+			pins = "gpio163";
+			drive-strength = <2>;
+			input-enable;
+			bias-disable; //No Pull
+		};
+	};
+
+};
+
+
+
+
 &oem_rf_cable {
     rf,cable-gpio-1 = <&pm8150_gpios 4 0>;
     pinctrl-0 = <&rf_cable_ant0_active &rf_pm8150_cable_ant1>;
@@ -410,12 +400,56 @@
 		input-enable;
 	};
 };
-
+&pm8150b_gpios {
+		haptics_boost {
+			haptics_boost_default: haptics_boost_default {
+				pins = "gpio5";
+				function = "normal";
+				output-enable;
+				input-disable;
+				bias-disable;
+				qcom,drive-strength = <3>; /* high */
+				power-source = <0>; /* VPH_PWR */
+			};
+		};
+};
 /* OnePlus add haptic, by yangfb*/
-&haptics_boost_vreg {
-	status = "ok";
+&aw8697_haptic {
+       status = "disabled";
 };
 
+&vendor  {
+	step_motor {
+		status = "disabled";
+	};
+};
+
+&pm8150b_gpios {
+	haptics_boost {
+		haptics_boost_default: haptics_boost_default {
+			pins = "gpio5";
+			function = "normal";
+			output-enable;
+			input-disable;
+			bias-disable;
+			qcom,drive-strength = <3>; /* high */
+			power-source = <0>; /* VPH_PWR */
+		};
+	};
+};
+
+&vendor {
+	haptics_boost_vreg: haptics_boost_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "haptics_boost";
+		gpio = <&pm8150b_gpios 5 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-enable-ramp-delay = <300>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&haptics_boost_default>;
+		status = "ok";
+	};
+};
 &pm8150b_haptics {
 	status = "ok";
 	vdd-supply = <&haptics_boost_vreg>;

@@ -550,7 +550,6 @@
 				qcom,wf-brake-pattern = [03 00 00 00];
 				qcom,lra-auto-resonance-disable;
 			};
-
 		};
 	};
 };

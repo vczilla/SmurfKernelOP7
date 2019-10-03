@@ -55,13 +55,13 @@
 		compatible = "linux,extcon-usb-gpio";
 		/*pm8150_gpios 10 is for step motor, use the dummy gpio 165 for driver probe */
 		vbus-gpio = <&tlmm 165 GPIO_ACTIVE_HIGH>;
-		/*id-gpio = <&tlmm 101 GPIO_ACTIVE_HIGH>; GPIO 101 for fingerprint VDD enable */
+		id-gpio = <&tlmm 101 GPIO_ACTIVE_HIGH>;
 		vbus-out-gpio = <&pm8150_gpios 9 GPIO_ACTIVE_HIGH>;
 
-		/*pinctrl-names = "default";
+		pinctrl-names = "default";
 		pinctrl-0 = <&usb2_vbus_det_default
 			     &usb2_id_det_default
-			     &usb2_vbus_boost_default>; GPIO 101 for fingerprint VDD enable*/
+			     &usb2_vbus_boost_default>;
 	};
 };
 
@@ -644,7 +644,7 @@
 			   "usb_in_voltage";
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,step-charging-enable;
-	qcom,sw-jeita-enable;
+	//qcom,sw-jeita-enable;
 	qcom,wd-bark-time-secs = <16>;
 	qcom,suspend-input-on-debug-batt;
 };

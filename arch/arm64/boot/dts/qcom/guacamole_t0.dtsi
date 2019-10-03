@@ -17,82 +17,8 @@
         };
 };
 
-/*fingerprint reset gpio change to gpio131 on T0*/
-&soc {
-	fingerprint_detect {
-		compatible = "oneplus,fpdetect";
-		fp-gpio-id0 = <&tlmm 90 0>;
-		fp-gpio-id1 = <&pm8150_gpios 3 0>;
-		pinctrl-names = "fp_id_init";
-		pinctrl-0 = <&fp_id0_init &fp_id1_init>;
-	};
-
-	silead_fp {
-		compatible = "sil,fingerprint";
-		interrupt-parent = <&tlmm>;
-		//avdd-supply = <&pm8150_l17>;
-		avdd-gpios = <&tlmm 101 0x00>;
-		irq-gpios = <&tlmm 118 0x00>;
-		rst-gpios = <&tlmm 131 0x00>;
-		pinctrl-names = "fp_en_init";
-		pinctrl-0 = <&fp_reset_init &fp_irq_init &fp_vdd_init>;
-		status = "okay";
-	};
-
-	goodix_fp {
-		compatible = "goodix,fingerprint";
-		interrupt-parent = <&tlmm>;
-		//vdd-3v2-supply = <&pm8998_l22>;
-		//vdd-voltage = <3200000 3200000>;
-		//vdd-current = <50000>;
-		fp-gpio-irq = <&tlmm 118 0x00>;
-		fp-gpio-reset = <&tlmm 131 0x00>;
-		fp-gpio-enable = <&tlmm 101 0x00>;
-		pinctrl-names = "fp_en_init", "fp_dis_init";
-		pinctrl-0 = <&fp_vdd_init &fp_irq_init>;
-		pinctrl-1 = <&fp_vdd_dis_init>;
-		status = "okay";
-	};
-};
 &tlmm {
-		aw_irq: aw_irq {
-			mux {
-				pins = "gpio116";
-				function = "gpio";
-			};
 
-			config {
-				pins = "gpio116";
-				drive-strength = <2>;
-			};
-		};
-
-		aw_reset: aw_reset {
-			mux {
-				pins = "gpio24";
-				function = "gpio";
-			};
-
-			config {
-				pins = "gpio24";
-				drive-strength = <2>;
-				bias-disable;
-			};
-		};
-
-		fp_id0_init: fp_id0_init {
-			mux {
-				pins = "gpio90";
-				function = "gpio";
-			};
-
-			config {
-				pins = "gpio90";
-				drive-strength = <2>;
-				bias-disable; /* No Pull */
-				input-enable;
-			};
-		};
 	
 		tp_1v8_t0_active: tp_1v8_t0_active {
                 	mux {
@@ -119,22 +45,6 @@
         	};
 };
 
-/*for aw haptic start*/
-&qupv3_se7_i2c {
-		status = "ok";
-		aw8697_haptic@5A {
-		compatible = "awinic,aw8697_haptic";
-		reg = <0x5A>;
-		reset-gpio = <&tlmm 116 0x00>;
-		irq-gpio = <&tlmm 24 0x00>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&aw_irq &aw_reset>;
-		status = "okay";
-	};
-};
-/*for aw haptic end*/
-
-
 /* for Battery & Charging  STRAT */
 &qupv3_se8_i2c {
 	oneplus_fastchg@26{
@@ -152,103 +62,6 @@
 };
 
 /* for Battery & Charging  END */
-
-/* @bsp,step motor START*/
-&pm8150b_gpios {
-	motor_mode0_gpio: motor_mode0_gpio {
-		pins = "gpio5"; /* GPIO 5 */
-		function = "normal"; /* normal */
-		output-high;
-		bias-disable; /* No Pull */
-	};
-	motor_mode0_hi_impedance: motor_mode0_hi_impedance {
-		pins = "gpio5"; /* GPIO 5 */
-		function = "normal"; /* normal */
-		bias-high-impedance;
-	};
-	motor_boost_en: motor_boost_en {
-		pins = "gpio12"; /* GPIO 12 */
-		function = "normal"; /* normal */
-		output-low;
-		bias-disable; /* No Pull */
-	};
-};
-
-&pm8150l_gpios {
-	motor_pwm_config: motor_pwm_config {
-		pins = "gpio10";
-		function = "func1";
-		bias-disable;
-		power-source = <0>;
-		output-low;
-		qcom,drive-strength = <3>;
-		drive-push-pull;
-	};
-	motor_mode1_gpio: motor_mode1_gpio {
-		pins = "gpio8";
-		function = "normal";
-		power-source = <0>; /* 3.6V */
-		bias-disable; /* No Pull */
-		output-low; /* digital output, no invert */
-		qcom,drive-strength = <3>; /* LOW strength */
-	};
-	motor_dir_gpio: motor_dir_gpio {
-		pins = "gpio11";
-		function = "normal";
-		bias-disable; /* No Pull */
-		power-source = <0>; /* VIN0 3.6V*/
-		output-low; /* digital output, no invert */
-		qcom,drive-strength = <3>; /* LOW strength */
-	};
-};
-
-&pm8150_gpios {
-	motor_sleep_gpio: motor_sleep_gpio {
-		pins = "gpio10";
-		function = "normal";
-		power-source = <0>;
-		bias-disable;
-		output-low;
-	};
-
-	fp_id1_init: fp_id1_init {
-		pins = "gpio3";
-		function = "normal";
-		power-source = <0>;
-		bias-disable;
-		input-enable;
-	};
-};
-
-&vendor  {
-	step_motor {
-		compatible = "oneplus,step-motor";
-		status = "okay";
-
-		pwms = <&pm8150l_pwm 1 20000000>;
-		op,boost-en-pin = <&pm8150b_gpios 12 GPIO_ACTIVE_LOW>;
-		op,mode0-pin = <&pm8150b_gpios 5 GPIO_ACTIVE_LOW>;
-		op,mode1-pin = <&pm8150l_gpios 8 GPIO_ACTIVE_LOW>;
-		op,nsleep-pin = <&pm8150_gpios 10 GPIO_ACTIVE_LOW>;
-		op,dir-pin = <&pm8150l_gpios 11 GPIO_ACTIVE_LOW>;
-		op,step-pin = <&pm8150l_gpios 10 GPIO_ACTIVE_LOW>;
-		pinctrl-names = "boost",
-				"m0_gpio",
-				"m0_high_impedance",
-				"m1_gpio",
-				"sleep_gpio",
-				"dir_gpio",
-				"pwm_config";
-		pinctrl-0 = <&motor_boost_en>;
-		pinctrl-1 = <&motor_mode0_gpio>;
-		pinctrl-2 = <&motor_mode0_hi_impedance>;
-		pinctrl-3 = <&motor_mode1_gpio>;
-		pinctrl-4 = <&motor_sleep_gpio>;
-		pinctrl-5 = <&motor_dir_gpio>;
-		pinctrl-6 = <&motor_pwm_config>;
-	};
-};
-/* @bsp, step motor END*/
 
 /* @bsp, usb config START*/
 &usb2_phy0 {
@@ -284,10 +97,3 @@
 	};
 };
 /* @bsp, usb config END*/
-
-&motor_pl {
-	structure,id = <1>;//T0
-};
-
-
-
