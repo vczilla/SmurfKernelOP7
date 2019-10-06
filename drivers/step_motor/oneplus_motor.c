@@ -68,6 +68,7 @@ int         oneplus_dhall_get_irq_state(unsigned int id);
 static int  oneplus_hall_update_threshold(unsigned int id, int position, short lowthd, short highthd);
 void        oneplus_dhall_dump_regs(unsigned int id, u8* buf);
 int         oneplus_dhall_set_reg(unsigned int id, int reg, int val);
+int         oneplus_dhall_set_sensitive(unsigned int id, hall_sensitive_t sensitive);
 	
 /************************step_motor control interface************************/
 static int  oneplus_motor_set_power (motor_power mode);
@@ -177,6 +178,10 @@ static ssize_t  motor_change_speed_store(struct device* pdev, struct device_attr
 static ssize_t  motor_speed_store(struct device* pdev, struct device_attribute* attr,
 		                          const char* buff, size_t count);
 static ssize_t  motor_speed_show(struct device* dev, struct device_attribute* attr, char* buf);
+static ssize_t  hall_sensitive_store(struct device* pdev, struct device_attribute* attr,
+									 const char* buff, size_t count);
+static ssize_t  hall_sensitive_show(struct device* dev, struct device_attribute* attr, char* buf);
+
 
 /************************init function************************/	
 static int   oneplus_input_dev_init(struct oneplus_motor_chip* chip);
@@ -401,6 +406,40 @@ int oneplus_hall_get_real_data(unsigned int id)
 	}
 
 	return -EINVAL;
+}
+
+int oneplus_dhall_set_sensitive(unsigned int id, hall_sensitive_t sensitive)
+{
+	if (g_the_chip == NULL) {
+		MOTOR_ERR("g_the_chip == NULL \n");
+		return -EINVAL ;
+	}
+
+	switch (id){
+	case HALL_DOWN:
+		if (g_the_chip->hall_down_ops == NULL || g_the_chip->hall_down_ops->set_sensitive == NULL) {
+
+			MOTOR_ERR("g_the_chip->hall_down_ops == NULL || g_the_chip->hall_down_ops->get_data_real == NULL \n");
+			return -EINVAL;
+		} else {
+			g_the_chip->hall_down_ops->set_sensitive(sensitive);
+			return 0;
+		}
+	case HALL_UP:
+		if (g_the_chip->hall_up_ops == NULL || g_the_chip->hall_up_ops->set_sensitive == NULL) {
+
+			MOTOR_ERR("g_the_chip->hall_up_ops == NULL || g_the_chip->hall_up_ops->get_data_real == NULL \n");
+			return -EINVAL;
+		} else {
+			g_the_chip->hall_up_ops->set_sensitive(sensitive);
+			return 0;
+		}
+		default:
+			MOTOR_ERR("id : %d is not correct \n", id);
+			return -EINVAL;
+	}
+
+	return 0;
 }
 
 int oneplus_dhall_set_detection_mode(unsigned int id, u8 mode)
@@ -1402,8 +1441,8 @@ static void  camera_position_detect_work(struct work_struct* work)
 	int            down_stop_times = 0;
 	int            abnormal_judge_time = 400000;//400ms default
 	int            data_count = 0;
-	int            deltad_range_low = -10;
-	int            deltad_range_high = 10;
+	int            deltad_range_low = -5;
+	int            deltad_range_high = 5;
 	unsigned long  enter_deltad_first_time = 0;
 	bool           mag_noise = false;
 	bool           append_to_line = false;
@@ -2034,7 +2073,7 @@ static ssize_t hall_calibration_show(struct device* dev, struct device_attribute
 	}
 
 	step_count = g_the_chip->camera_up_step_count / 32;
-	return sprintf(buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+	return sprintf(buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 	                    g_the_chip->hall_down_irq_position, 
 						g_the_chip->hall_up_irq_position,
 	                    g_the_chip->camera_down_slow_down_position_hall_down_data, 
@@ -2045,22 +2084,23 @@ static ssize_t hall_calibration_show(struct device* dev, struct device_attribute
 						g_the_chip->bottom_position_hall_up_data,
 						g_the_chip->peak_position_hall_down_data,
 						g_the_chip->peak_position_hall_up_data,
-						step_count);
+						step_count,
+						g_the_chip->hall_sensitive);
 }
 
 static ssize_t hall_calibration_store(struct device* pdev, struct device_attribute* attr,
 						              const char* buff, size_t count)
 {
-	int data[11] = {0};
+	int data[12] = {0};
 
 	if (g_the_chip == NULL) {
 		MOTOR_ERR("g_the_chip == NULL \n");
 		return count;
 	}
 
-	if (sscanf(buff, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", 
+	if (sscanf(buff, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
 	                 &data[0], &data[1], &data[2], &data[3], &data[4], &data[5],
-					 &data[6], &data[7], &data[8], &data[9], &data[10]) == 11) {
+					 &data[6], &data[7], &data[8], &data[9], &data[10], &data[11]) == 12) {
 
 		if (data[0] >= 0)
 			g_the_chip->hall_down_irq_position = data[0];
@@ -2084,10 +2124,12 @@ static ssize_t hall_calibration_store(struct device* pdev, struct device_attribu
 			g_the_chip->peak_position_hall_up_data = data[9];
 		if (data[10] >= 0)
 			g_the_chip->camera_up_step_count = data[10] * 32;
+		if (data[11] == 1 || data[11] == 2)
+			g_the_chip->hall_sensitive = data[11];
 
-		MOTOR_LOG("hall calibrate date : %d %d %d %d %d %d %d %d %d %d %d\n",
+		MOTOR_LOG("hall calibrate date : %d %d %d %d %d %d %d %d %d %d %d %d\n",
 		                data[0], data[1], data[2], data[3], data[4], data[5],
-						data[6], data[7], data[8], data[9], data[10]);
+						data[6], data[7], data[8], data[9], data[10], data[11]);
 
 		if (g_the_chip->bottom_position_hall_down_data < 330)
 			g_the_chip->deltad_range = 5;
@@ -2095,6 +2137,9 @@ static ssize_t hall_calibration_store(struct device* pdev, struct device_attribu
 			g_the_chip->deltad_range = 10;
 
 		MOTOR_LOG("deltad_range : %d \n", g_the_chip->deltad_range);
+
+		oneplus_dhall_set_sensitive(HALL_DOWN, g_the_chip->hall_sensitive);
+		oneplus_dhall_set_sensitive(HALL_UP, g_the_chip->hall_sensitive);
 
 		//oneplus_hall_update_threshold(HALL_DOWN, BOTTOM_STATE, HALL_DETECT_RANGE_LOW, g_the_chip->hall_down_irq_position);
 	} else {
@@ -2625,6 +2670,44 @@ static ssize_t infrared_shut_down_state_show(struct device* dev,struct device_at
 
 	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->infrared_shut_down_state);
 }
+
+static ssize_t hall_sensitive_store(struct device* pdev, struct device_attribute* attr,
+			                               const char* buff, size_t count)
+{
+
+	unsigned long hall_sensitive = 0;
+
+	MOTOR_LOG("call");
+
+	if (g_the_chip == NULL) {
+		MOTOR_ERR("g_the_chip == NULL \n");
+		return count;
+	}
+
+	if (sscanf(buff, "%lu", &hall_sensitive) == 1) {
+		g_the_chip->hall_sensitive = hall_sensitive;
+
+		MOTOR_LOG("would set hall_sensitive, hall_sensitive : %d", g_the_chip->hall_sensitive);
+
+		oneplus_dhall_set_sensitive(HALL_DOWN, g_the_chip->hall_sensitive);
+		oneplus_dhall_set_sensitive(HALL_UP, g_the_chip->hall_sensitive);
+	}
+
+	MOTOR_LOG("hall_sensitive : %d", hall_sensitive);
+
+	return count;
+}
+
+static ssize_t hall_sensitive_show(struct device* dev,struct device_attribute* attr, char* buf)
+{
+	if (g_the_chip == NULL) {
+		MOTOR_ERR("g_the_chip == NULL \n");
+		return snprintf(buf, PAGE_SIZE, "%d\n", 0);;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", g_the_chip->hall_sensitive);
+}
+
 static DEVICE_ATTR(direction, S_IRUGO | S_IWUSR, motor_direction_show, motor_direction_store);
 static DEVICE_ATTR(speed, S_IRUGO | S_IWUSR, motor_speed_show, motor_speed_store);
 static DEVICE_ATTR(mode, S_IRUGO | S_IWUSR, motor_mode_show, motor_mode_store);
@@ -2659,6 +2742,7 @@ static DEVICE_ATTR(begin_stop_detect_percent, S_IRUGO | S_IWUSR, begin_stop_dete
 static DEVICE_ATTR(factory_mode, S_IRUGO | S_IWUSR, factory_mode_show, factory_mode_store);
 static DEVICE_ATTR(free_fall_irq_times, S_IRUGO | S_IWUSR, free_fall_irq_times_show, free_fall_irq_times_store);
 static DEVICE_ATTR(infrared_shut_down_state, S_IRUGO | S_IWUSR, infrared_shut_down_state_show, infrared_shut_down_state_store);
+static DEVICE_ATTR(hall_sensitive, S_IRUGO | S_IWUSR, hall_sensitive_show, hall_sensitive_store);
 
 
 static struct attribute*  __attributes[] = {
@@ -2696,6 +2780,7 @@ static struct attribute*  __attributes[] = {
 	&dev_attr_factory_mode.attr,
 	&dev_attr_free_fall_irq_times.attr,
 	&dev_attr_infrared_shut_down_state.attr,
+	&dev_attr_hall_sensitive.attr,
 	NULL
 };
 
@@ -2839,6 +2924,7 @@ static int oneplus_motor_chip_init(struct oneplus_motor_chip* chip)
 	chip->hall_up_data = 0;
 	chip->hall_down_irq_count = 0;
 	chip->hall_up_irq_count = 0;
+	chip->hall_sensitive = HALL_10BIT_0_034mT;
 
 	//calibrate property
 	chip->hall_down_irq_position = HALL_DETECT_RANGE_HIGH;
@@ -3070,11 +3156,11 @@ static int motor_platform_probe(struct platform_device* pdev)
 		//goto input_fail;
 	}
 
-  	chip->motor_run_work_wq = create_singlethread_workqueue("motor_run_work_wq");
-  	if (chip->motor_run_work_wq == NULL) {
+	chip->motor_run_work_wq = create_singlethread_workqueue("motor_run_work_wq");
+	if (chip->motor_run_work_wq == NULL) {
   		MOTOR_ERR("create_singlethread_workqueue failed, motor_run_work_wq == NULL \n");
 		//goto input_fail;
-  	}
+	}
 
 	chip->manual2auto_wq = create_singlethread_workqueue("manual2auto_wq");
 	if (!chip->manual2auto_wq) {
@@ -3192,4 +3278,4 @@ static int __init motor_platform_init(void)
 late_initcall(motor_platform_init);
 MODULE_DESCRIPTION("camera motor platform driver");
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("quentin.lin");
+MODULE_AUTHOR("quentin.lin@oneplus.com");

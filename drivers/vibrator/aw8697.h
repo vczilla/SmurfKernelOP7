@@ -52,8 +52,8 @@
 #ifdef LRA_0619
 #define AW8697_HAPTIC_F0_PRE                1700    /* 170Hz*/
 #define AW8697_HAPTIC_F0_CALI_PERCEN        7       /* -7%~7%*/
-#define AW8697_HAPTIC_CONT_DRV_LVL          85  /*op modify for count mode*/   /* 105*6.1/256=2.50v*/
-#define AW8697_HAPTIC_CONT_DRV_LVL_OV       105 /*op modify for count mode*/    /* 125*6.1/256=2.98v*/
+#define AW8697_HAPTIC_CONT_DRV_LVL          97  /*op modify for count mode*/   /* value*6.1/256*/
+#define AW8697_HAPTIC_CONT_DRV_LVL_OV       97 /*op modify for count mode*/    /* value*6.1/256*/
 #define AW8697_HAPTIC_CONT_TD               0x009a
 #define AW8697_HAPTIC_CONT_ZC_THR           0x0ff1
 #define AW8697_HAPTIC_CONT_NUM_BRK          3
@@ -300,8 +300,9 @@ struct ai_trust_zone {
 
 
 struct haptic_audio_trust_zone {
-    uint8_t  level;
+    uint8_t  level;//tz score
     uint8_t  cnt;
+    uint8_t  dirty;
     uint16_t x;
     uint16_t y;
     uint16_t w;
@@ -390,12 +391,14 @@ struct haptic_audio{
     struct list_head ctr_list;
     struct tp tp;
     struct list_head list;
+    struct list_head score_list;
     struct haptic_audio_tp_size tp_size;
     struct trust_zone_info output_tz_info[10];
     int tz_num;
     int tz_high_num;
     int tz_cnt_thr;
     int tz_cnt_max;
+    int tz_init;
     unsigned int uevent_report_flag;
     unsigned int hap_cnt_outside_tz;
     unsigned int hap_cnt_max_outside_tz;
@@ -423,6 +426,7 @@ struct aw8697 {
     struct delayed_work ram_work;
     struct timeval current_time;
     struct timeval pre_enter_time;
+    struct wakeup_source vibrator_on;
 #ifdef TIMED_OUTPUT
     struct timed_output_dev to_dev;
 #else
@@ -430,6 +434,7 @@ struct aw8697 {
 #endif
     struct fileops fileops;
     struct ram ram;
+    bool pm_awake;
     bool haptic_ready;
     bool audio_ready;
     bool ignore_sync;
@@ -493,6 +498,7 @@ struct aw8697 {
     unsigned int ram_test_flag_0;
     unsigned int ram_test_flag_1;
     unsigned int ram_test_result;
+    bool count_go;
 
     struct trig trig[AW8697_TRIG_NUM];
     struct haptic_audio haptic_audio;

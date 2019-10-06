@@ -553,19 +553,22 @@ config QPNP_MISC
 	  and the driver provides an API to check if this interrupt
 	  is available on the current PMIC chip.
 
-#add by xcb
-config BOOTLOADER_LOG
-	tristate "show bootloader log"
-	depends on OF
-	default y
+config OKL4_USER_VIRQ
+	tristate "User space accessible OKL4 virtual interrupts"
+	depends on OKL4_GUEST
+	default n
 	help
-	  show bootloader log in kernel
+	  Say Y here if you want to enable the driver that exposes OKL4
+	  virtual interrupts and virtual interrupt sources which enable
+          inter-VM notifications.
 
-config FORCE_FAST_CHARGE
-	bool "Force faster charge rate for USB"
-	default y
+config OKL4_RINGBUF
+	tristate "Test driver for OKL4 inter-cell communication"
+	depends on OKL4_GUEST
+	default n
 	help
-	  This allows users to override default charge rate for USB
+	  Say Y here if you want to test communication between OKL4 guests
+	  using virtual interrupts and shared memory.
 
 config TEST_IRQ_REQUESTER
 	tristate "Receive interrupt notifications in user-space"
@@ -583,6 +586,23 @@ config TEST_IRQ_REQUESTER
 	  interrupt handling.
 
 	  If in doubt, say N.
+
+config BOOTLOADER_LOG
+	tristate "show bootloader log"
+	depends on OF
+	default y
+	help
+	  show bootloader log in kernel
+
+config AUDIO_SENSOR
+	tristate "support sensor notify audio to control ultrasound"
+	default y
+
+config FORCE_FAST_CHARGE
+	bool "Force faster charge rate for USB"
+	default n
+	help
+	  This allows users to override default charge rate for USB
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

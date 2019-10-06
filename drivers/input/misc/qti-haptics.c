@@ -63,7 +63,6 @@ enum haptics_custom_effect_param {
 };
 
 #define REG_HAP_LRA_AUTO_RES	0x0B
-
 /* common definitions */
 #define HAP_BRAKE_PATTERN_MAX		4
 #define HAP_WAVEFORM_BUFFER_MAX		8
@@ -240,7 +239,6 @@ struct qti_hap_chip {
 	bool				test_mode;
 	int				resonant_frequency;
 };
-
 
 static int wf_repeat[8] = {1, 2, 4, 8, 16, 32, 64, 128};
 static int wf_s_repeat[4] = {1, 2, 4, 8};
@@ -496,7 +494,7 @@ static int qti_haptics_config_vmax(struct qti_hap_chip *chip, int vmax_mv)
 	if (chip->test_mode)/*op for factory test*/
 		val = (2820 / HAP_VMAX_MV_LSB) << HAP_VMAX_MV_SHIFT;
 	else
-		val = (vmax_mv / HAP_VMAX_MV_LSB) << HAP_VMAX_MV_SHIFT;
+	val = (vmax_mv / HAP_VMAX_MV_LSB) << HAP_VMAX_MV_SHIFT;
 	rc = qti_haptics_masked_write(chip, addr, mask, val);
 	if (rc < 0)
 		dev_err(chip->dev, "write VMAX_CFG failed, rc=%d\n",
@@ -528,22 +526,21 @@ static int qti_haptics_config_play_rate_us(struct qti_hap_chip *chip,
 						int play_rate_us)
 {
 	u8 addr, val[2];
-	int tmp, rc ;
+	int tmp, rc;
 
 	addr = REG_HAP_RATE_CFG1;
 	tmp = play_rate_us / HAP_PLAY_RATE_US_LSB;
 	val[0] = tmp & 0xff;
 	val[1] = (tmp >> 8) & 0xf;
-
 	if (true){/*op for use check rf*/
 		rc = qti_haptics_read(chip, REG_HAP_LRA_AUTO_RES, val, 2);
 		if (rc < 0)
 			dev_err(chip->dev, "read lra_auto_res failed, rc=%d\n", rc);
 		dev_info(chip->dev, "haptic val[0]=0x%x,val[1]=0x%x",val[0],val[1]);
 		val[1] = ((val[1] & 0xF0) >> 4);
-		rc = qti_haptics_write(chip, addr, val, 2);
-		if (rc < 0)
-			dev_err(chip->dev, "write play_rate failed, rc=%d\n", rc);
+	rc = qti_haptics_write(chip, addr, val, 2);
+	if (rc < 0)
+		dev_err(chip->dev, "write play_rate failed, rc=%d\n", rc);
 	} else {
 		rc = qti_haptics_write(chip, addr, val, 2);
 		if (rc < 0)
@@ -624,6 +621,7 @@ static int qti_haptics_clear_settings(struct qti_hap_chip *chip)
 	rc = qti_haptics_config_play_rate_us(chip, HAP_CLEAR_PLAYING_RATE_US);
 	if (rc < 0)
 		return rc;
+
 	rc = qti_haptics_write(chip, REG_HAP_WF_S1, pattern,
 			HAP_WAVEFORM_BUFFER_MAX);
 	if (rc < 0)
@@ -679,10 +677,8 @@ static int qti_haptics_load_constant_waveform(struct qti_hap_chip *chip)
 		play->playing_pattern = false;
 		play->effect = NULL;
 	} else {
-		/*op for vibration less than VMAX_MIN_PLAY_TIME_US begin*/
 		play->effect = &chip->predefined[5];
 		rc = qti_haptics_config_brake(chip, play->effect->brake);
-		/*op for vibration less than VMAX_MIN_PLAY_TIME_US begin*/
 		rc = qti_haptics_config_vmax(chip, config->vmax_mv);
 		if (rc < 0)
 			return rc;
@@ -2065,7 +2061,6 @@ static int qti_haptics_probe(struct platform_device *pdev)
 	init_op_haptic_node();
 	init_op_haptic_rf_node();
 	pr_info("qti_haptics_probe done\n");
-
 	return 0;
 
 destroy_ff:

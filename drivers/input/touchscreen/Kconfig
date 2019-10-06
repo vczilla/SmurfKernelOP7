@@ -803,17 +803,6 @@ config TOUCHSCREEN_WM97XX_ZYLONITE
 	  To compile this driver as a module, choose M here: the
 	  module will be called zylonite-wm97xx.
 
-config SECURE_TOUCH_SYNAPTICS_DSX
-	bool "Secure Touch"
-	depends on TOUCHSCREEN_SYNAPTICS_DSX_I2C
-	help
-	  Say Y here to enable Secure Touch in supported driver.
-
-	  If unsure, say N.
-
-	  To compile the supported driver with Secure Touch enabled,
-	  choose M here.
-
 config TOUCHSCREEN_USB_COMPOSITE
 	tristate "USB Touchscreen Driver"
 	depends on USB_ARCH_HAS_HCD
@@ -1267,12 +1256,6 @@ config TOUCHSCREEN_ST
 
 source "drivers/input/touchscreen/st/Kconfig"
 
-config TOUCHSCREEN_SYNAPTICS_S3320_I2C_RMI
-	tristate "Synaptics s3320 i2c touchscreen"
-	depends on I2C
-	help
-	  This enables support for Synaptics s1302 RMI over I2C based touch key.
-
 config TOUCHSCREEN_HIMAX_CHIPSET
 	bool "Himax touchpanel CHIPSET"
 	depends on I2C
@@ -1295,9 +1278,6 @@ config TOUCHSCREEN_SYNAPTICS_DSX
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 
-config WAKE_GESTURES
-	bool "wake gestures"
-
 config TOUCHSCREEN_SYNAPTICS_TCM
 	bool "Synaptics TCM Touchscreen Driver"
 	depends on I2C
@@ -1307,5 +1287,8 @@ config TOUCHSCREEN_SYNAPTICS_TCM
 	  If unsure, say N.
 
 source "drivers/input/touchscreen/synaptics_tcm/Kconfig"
+
+config WAKE_GESTURES
+	bool "wake gestures"
 
 endif

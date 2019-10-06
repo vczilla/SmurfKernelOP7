@@ -32,14 +32,20 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
-
+/* @bsp, 2019/04/17 Battery & Charging porting */
 #include <linux/power/oem_external_fg.h>
+
 #include <linux/syscalls.h>
 #include <linux/atomic.h>
-#include <linux/oem_force_dump.h>
-#include <linux/param_rw.h>
+//#include <linux/oem/param_rw.h>
 #include <linux/oneplus/boot_mode.h>
+
 //#include <linux/oem_force_dump.h>
+
+#include <linux/sched/debug.h>
+#include <linux/msm_drm_notify.h>
+
+#include "../../power/reset/msm-poweroff.h"
 
 #define PMIC_VER_8941				0x01
 #define PMIC_VERSION_REG			0x0105
@@ -200,8 +206,45 @@ struct pon_regulator {
 	u32			bit;
 	bool			enabled;
 };
-
-
+/* @bsp, 2019/04/17 Battery & Charging porting */
+/*
+struct qpnp_pon {
+	struct device		*dev;
+	struct regmap		*regmap;
+	struct input_dev	*pon_input;
+	struct qpnp_pon_config	*pon_cfg;
+	struct pon_regulator	*pon_reg_cfg;
+	struct list_head	list;
+	struct delayed_work	bark_work;
+	struct dentry		*debugfs;
+	u16			base;
+	u8			subtype;
+	u8			pon_ver;
+	u8			warm_reset_reason1;
+	u8			warm_reset_reason2;
+	int			num_pon_config;
+	int			num_pon_reg;
+	int			pon_trigger_reason;
+	int			pon_power_off_reason;
+	u32			dbc_time_us;
+	u32			uvlo;
+	int			warm_reset_poff_type;
+	int			hard_reset_poff_type;
+	int			shutdown_poff_type;
+	int			resin_warm_reset_type;
+	int			resin_hard_reset_type;
+	int			resin_shutdown_type;
+	bool			is_spon;
+	bool			store_hard_reset_reason;
+	bool			resin_hard_reset_disable;
+	bool			resin_shutdown_disable;
+	bool			ps_hold_hard_reset_disable;
+	bool			ps_hold_shutdown_disable;
+	bool			kpdpwr_dbc_enable;
+	bool			resin_pon_reset;
+	ktime_t			kpdpwr_last_release_time;
+};
+*/
 static int pon_ship_mode_en;
 module_param_named(
 	ship_mode_en, pon_ship_mode_en, int, 0600
@@ -863,7 +906,7 @@ static int qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 			cancel_delayed_work(&pon->press_work);
 		} else {
 			pr_info("Power-Key DOWN\n");
-			schedule_delayed_work(&pon->press_work, msecs_to_jiffies(3000));
+			schedule_delayed_work(&pon->press_work, msecs_to_jiffies(4000));
 		}
 		break;
 	case PON_RESIN:
@@ -1056,17 +1099,17 @@ int check_powerkey_count(int press)
     int ret=0;
     int param_poweroff_count=0;
 
-    ret = get_param_by_index_and_offset(13, 0x30, &param_poweroff_count,
-        sizeof(param_poweroff_count));
+    //ret = get_param_by_index_and_offset(13, 0x30, &param_poweroff_count,
+        //sizeof(param_poweroff_count));
 
     if(press)
         param_poweroff_count ++ ;
     else
         param_poweroff_count -- ;
 
-    ret = set_param_by_index_and_offset(13, 0x30, &param_poweroff_count,
-        sizeof(param_poweroff_count));
-    pr_info("param_poweroff_count=%d \n",param_poweroff_count);
+    //ret = set_param_by_index_and_offset(13, 0x30, &param_poweroff_count,
+        //sizeof(param_poweroff_count));
+    //pr_info("param_poweroff_count=%d \n",param_poweroff_count);
     return 0;
 }
 
@@ -1105,31 +1148,39 @@ static void up_work_func(struct work_struct *work)
 
 static void press_work_func(struct work_struct *work)
 {
-       int rc;
-       uint pon_rt_sts = 0;
-       struct qpnp_pon_config *cfg;
-       struct qpnp_pon *pon =
-               container_of(work, struct qpnp_pon, press_work.work);
+	int display_bl, boot_mode;
+	int rc;
+	uint pon_rt_sts = 0;
+	struct qpnp_pon_config *cfg;
+	struct qpnp_pon *pon =
+		container_of(work, struct qpnp_pon, press_work.work);
 
-       cfg = qpnp_get_cfg(pon, PON_KPDPWR);
-       if (!cfg) {
-               dev_err(pon->dev, "Invalid config pointer\n");
-               goto err_return;
-       }
-       /* check the RT status to get the current status of the line */
-       rc = regmap_read(pon->regmap, QPNP_PON_RT_STS(pon), &pon_rt_sts);
-       if (rc) {
-               dev_err(pon->dev, "Unable to read PON RT status\n");
-               goto err_return;
-       }
-       if ((pon_rt_sts & QPNP_PON_KPDPWR_N_SET) == 1) {
-               qpnp_powerkey_state_check(pon,1);
-               dev_err(pon->dev, "after 3s Power-Key is still DOWN\n");
-        }
-       msleep(20);
-       sys_sync();
+	cfg = qpnp_get_cfg(pon, PON_KPDPWR);
+	if (!cfg) {
+		dev_err(pon->dev, "Invalid config pointer\n");
+		goto err_return;
+	}
+	/* check the RT status to get the current status of the line */
+	rc = regmap_read(pon->regmap, QPNP_PON_RT_STS(pon), &pon_rt_sts);
+	if (rc) {
+		dev_err(pon->dev, "Unable to read PON RT status\n");
+		goto err_return;
+	}
+	if ((pon_rt_sts & QPNP_PON_KPDPWR_N_SET) == 1) {
+		qpnp_powerkey_state_check(pon, 1);
+		dev_err(pon->dev, "after 4s Power-Key is still DOWN\n");
+		display_bl = dsi_panel_backlight_get();
+		boot_mode = get_boot_mode();
+		if (display_bl == 0 && boot_mode == MSM_BOOT_MODE__NORMAL) {
+			//oem_force_minidump_mode();
+			show_state_filter(TASK_UNINTERRUPTIBLE);
+			panic("power key still pressed\n");
+		}
+	}
+	msleep(20);
+	sys_sync();
 err_return:
-       return;
+	return;
 }
 
 static irqreturn_t qpnp_resin_bark_irq(int irq, void *_pon)
@@ -1218,7 +1269,7 @@ static  int param_set_long_press_pwr_dump_enabled
 			(unsigned int)enable, cfg->s1_timer);
 
 	if (long_pwr_dump_enabled != enable) {
-		cfg->support_reset = !!enable;
+
 		if (enable) {
 			cfg->s1_timer = 10256; /*reduce this time */
 			cfg->s2_timer = 2000;
@@ -1233,23 +1284,13 @@ static  int param_set_long_press_pwr_dump_enabled
 	}
 	return 0;
 }
-static int param_get_long_press_pwr_dump_enabled(char *val, const struct kernel_param *kp)
-{
-	struct qpnp_pon *pon = sys_reset_dev;
-	struct qpnp_pon_config *cfg = NULL;
-
-	cfg = qpnp_get_cfg(pon, PON_KPDPWR); /*0 means pwr key*/
-	if (!cfg)
-		return -EINVAL;
-	return snprintf(val, sizeof(cfg->support_reset), "%d", cfg->support_reset); ;
-}
 
 module_param_call(pwr_dump_enabled,
 param_set_pwr_dump_enabled, param_get_uint, &pwr_dump_enabled, 0644);
 
 module_param_call(long_pwr_dump_enabled,
 param_set_long_press_pwr_dump_enabled,
-param_get_long_press_pwr_dump_enabled, &long_pwr_dump_enabled, 0644);
+param_get_uint, &long_pwr_dump_enabled, 0644);
 
 static int qpnp_config_pull(struct qpnp_pon *pon, struct qpnp_pon_config *cfg)
 {
@@ -2355,18 +2396,8 @@ static int qpnp_pon_read_hardware_info(struct qpnp_pon *pon, bool sys_reset)
 	int reason_index_offset = 0;
 	unsigned int pon_sts = 0;
 	u16 poff_sts = 0;
-	int rc, index, i;
+	int rc, index;
 
-	for (i = 0; i < 16; i++) {
-		rc = regmap_read(pon->regmap, ((pon)->base + 0xC0+i), &reg);
-		dev_info(pon->dev, "(0x%x:0x%x)\n",
-			((pon)->base + 0xC0+i), reg);
-		if (rc) {
-			dev_err(pon->dev, "Unable to read addr=0x%x, rc(%d)\n",
-			((pon)->base + 0xC0+i), rc);
-			return rc;
-		}
-	}
 	/* Read PON_PERPH_SUBTYPE register to get PON type */
 	rc = qpnp_pon_read(pon, QPNP_PON_PERPH_SUBTYPE(pon), &reg);
 	if (rc)
@@ -2409,7 +2440,8 @@ static int qpnp_pon_read_hardware_info(struct qpnp_pon *pon, bool sys_reset)
 		boot_reason = ffs(pon_sts);
 
 	index = ffs(pon_sts) - 1;
-	cold_boot = !qpnp_pon_is_warm_reset();
+	cold_boot = sys_reset_dev ? !_qpnp_pon_is_warm_reset(sys_reset_dev)
+				  : !_qpnp_pon_is_warm_reset(pon);
 	for_each_set_bit(index, (unsigned long *)&pon_sts,
 		ARRAY_SIZE(qpnp_pon_reason)) {
 		if (index >= ARRAY_SIZE(qpnp_pon_reason) || index < 0) {
@@ -2475,6 +2507,7 @@ static int qpnp_pon_read_hardware_info(struct qpnp_pon *pon, bool sys_reset)
 	    of_property_read_bool(dev->of_node, "qcom,uvlo-panic")) {
 		panic("UVLO occurred");
 	}
+
 	return 0;
 }
 
@@ -2619,7 +2652,6 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	dev_set_drvdata(dev, pon);
 
 	INIT_DELAYED_WORK(&pon->bark_work, bark_work_func);
-
 	INIT_DELAYED_WORK(&pon->press_work, press_work_func);
 	INIT_WORK(&pon->up_work, up_work_func);
 

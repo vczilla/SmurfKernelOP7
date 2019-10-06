@@ -690,6 +690,36 @@ static int m1120_down_set_reg(int reg, int val)
     return 0;  
 }
 
+static void m1120_down_set_sensitive(hall_sensitive_t sensitive)
+{
+    int err = 0;
+    u8  data = 0x00;
+
+    MOTOR_LOG("sensitive %d \n", sensitive);
+
+    switch (sensitive) {
+    case HALL_10BIT_0_068mT:
+        data = M1120_DETECTION_MODE | M1120_VAL_INTSRS_SRS_10BIT_0_068mT;
+        break;
+    case HALL_10BIT_0_034mT:
+        data = M1120_DETECTION_MODE | M1120_VAL_INTSRS_SRS_10BIT_0_034mT;
+        break;
+    default:
+        data = M1120_DETECTION_MODE | M1120_VAL_INTSRS_SRS_10BIT_0_034mT;
+    }
+
+    if (data & M1120_DETECTION_MODE_INTERRUPT) {
+        data |= M1120_INTERRUPT_TYPE;
+    }
+
+    err = m1120_down_i2c_write_block(g_hall_data, M1120_REG_INTSRS, &data, 1);
+    if (err < 0) {
+        MOTOR_ERR("m1120_down_i2c_write_block error, data : %d \n", data);
+    }
+
+    return;
+}
+
 struct oneplus_hall_operations  m1120_down_ops = {
     .name = "m1120_down",
     .is_power_on = m1120_down_is_power_on,
@@ -703,7 +733,8 @@ struct oneplus_hall_operations  m1120_down_ops = {
 	.get_irq_state = m1120_down_get_irq_state,
 	.update_threshold = m1120_down_update_threshold,
 	.dump_regs = m1120_down_dump_reg,
-	.set_reg = m1120_down_set_reg
+	.set_reg = m1120_down_set_reg,
+    .set_sensitive = m1120_down_set_sensitive
 };
 
  /*********************************************************************
@@ -999,5 +1030,5 @@ module_exit(m1120_down_driver_exit_down);
 
 MODULE_DESCRIPTION("M1120 hallswitch driver");
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("quentin.lin");
+MODULE_AUTHOR("quentin.lin@oneplus.com");
 

@@ -41,6 +41,10 @@ static void drv8834_parse_dts(struct oneplus_mdrv_chip * chip)
 	struct device_node *np = chip->dev->of_node;
 	int rc = 0;
 
+	if (np == NULL) {
+		MOTOR_ERR("=====>lkh np == NULL \n");
+	}
+
 	chip->pctrl = devm_pinctrl_get(chip->dev);
 	if (IS_ERR(chip->pctrl)) {
 		MOTOR_ERR("failed to get pinctrl\n");
@@ -644,8 +648,13 @@ static int drv8834_pwm_config(int duty_ns, int period_ns)
 	int pwm_count = 0;
 	int mdmode = 0;
 
-	if (g_the_chip == NULL || IS_ERR(g_the_chip->pwm_dev)) {
-		MOTOR_LOG("g_the_chip null or pwm_dev not exist!\n");
+	if (g_the_chip == NULL) {
+		MOTOR_LOG("====>lkh g_the_chip null\n");
+		return -EINVAL;
+	}
+
+	if (IS_ERR(g_the_chip->pwm_dev)) {
+		MOTOR_LOG("======>lkh pwm_dev not exist!\n");
 		return -EINVAL;
 	}
 
@@ -811,5 +820,5 @@ module_init(drv8834_init);
 module_exit(drv8834_exit);
 MODULE_DESCRIPTION("camera motor driver");
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("infi.he");
+MODULE_AUTHOR("mofei@oneplus.com");
 

@@ -131,6 +131,10 @@ typedef enum motor_speed_t {
 	MOTOR_SPEED_SPECIAL   //2800pps
 } motor_speed_t;
 
+typedef enum hall_sensitive_t {
+	HALL_10BIT_0_068mT = 1,
+	HALL_10BIT_0_034mT
+} hall_sensitive_t;
 
 struct oneplus_hall_operations {
 	const char*  name;
@@ -146,6 +150,7 @@ struct oneplus_hall_operations {
 	bool (*update_threshold) (int position, short lowthd, short highthd);
 	void (*dump_regs) (u8* buf);
 	int  (*set_reg) (int reg, int val);
+	void  (*set_sensitive) (hall_sensitive_t sensitive);
 };
 
 struct oneplus_motor_operations {
@@ -179,6 +184,7 @@ struct oneplus_motor_chip {
 	int	                              hall_up_irq_count;
 	short                             hall_down_irq_position;
 	short                             hall_up_irq_position;
+	hall_sensitive_t                  hall_sensitive;
 
 	//calibrate property
 	short	                          camera_up_slow_down_position_hall_down_data;
