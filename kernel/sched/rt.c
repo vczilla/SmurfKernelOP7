@@ -1778,7 +1778,7 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 #ifdef CONFIG_OPCHAIN
 	bool best_cpu_is_claimed = false;
 #endif
-	if (task->is_surfaceflinger && tutil > 90) {
+	if (task->is_surfaceflinger && tutil > 85) {
 		cpu_input_boost_kick_core(1000, task->cpu);
 		devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
 		devfreq_boost_ddr_kick_max(DEVFREQ_MSM_DDRBW, 1000);
