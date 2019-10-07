@@ -831,6 +831,7 @@ static int __init cpu_input_boost_init(void)
 	
 	b->state = 0;
 	b->stune_state=0;
+	set_stune_boost_default("top-app", &default_level_stune_boost);
 	
 	b->wq_i = alloc_workqueue("cpu_input_boost_wq_i", WQ_HIGHPRI, 0);
 	if (!b->wq_i) {
