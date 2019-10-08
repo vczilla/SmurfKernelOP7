@@ -269,11 +269,11 @@ static void update_gpu_boost(struct boost_drv *b, int freq)
 			level=8;
 	} else {
 		if (freq==427)
-			level=2;
-		if (freq==345)
 			level=3;
-		if (freq==257)
+		if (freq==345)
 			level=4;
+		if (freq==257)
+			level=5;
 	}
 
 	mutex_lock(&b->gpu_device->mutex);
