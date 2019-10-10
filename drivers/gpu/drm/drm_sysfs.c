@@ -40,6 +40,7 @@
 #define DSI_PANEL_SAMSUNG_SOFEF03F_M 2
 extern char gamma_para[2][413];
 extern char dsi_panel_name;
+bool h_is_oos = true;
 /**
  * DOC: overview
  *
@@ -365,7 +366,7 @@ static ssize_t acl_show(struct device *dev,
 
 	acl_mode = dsi_display_get_acl_mode(connector);
 #ifdef CONFIG_UNIFIED
-	if (is_oos()) 
+	if (ih_is_oos) 
 #endif
 		ret = scnprintf(buf, PAGE_SIZE, "acl mode = %d\n"
 											"0--acl mode(off)\n"
@@ -409,7 +410,7 @@ static ssize_t hbm_show(struct device *dev,
 
 	hbm_mode = dsi_display_get_hbm_mode(connector);
 #ifdef CONFIG_UNIFIED
-	if (is_oos())
+	if (h_is_oos)
 #endif
 		ret = scnprintf(buf, PAGE_SIZE, "hbm mode = %d\n"
 											"0--hbm mode(off)\n"
@@ -554,7 +555,7 @@ static ssize_t aod_disable_show(struct device *dev,
 
 	aod_disable = dsi_display_get_aod_disable(connector);
 #ifdef CONFIG_UNIFIED	
-	if (is_oos())
+	if (h_is_oos)
 #endif
 		ret = scnprintf(buf, PAGE_SIZE, "AOD disable = %d\n"
 											"0--AOD enable\n"
@@ -597,7 +598,7 @@ static ssize_t DCI_P3_show(struct device *dev,
 
 	dci_p3_mode = dsi_display_get_dci_p3_mode(connector);
 #ifdef CONFIG_UNIFIED
-	if (is_oos())
+	if (h_is_oos)
 #endif
 		ret = scnprintf(buf, PAGE_SIZE, "dci-p3 mode = %d\n"
 											"0--dci-p3 mode Off\n"
@@ -639,7 +640,7 @@ static ssize_t night_mode_show(struct device *dev,
 
 	night_mode = dsi_display_get_night_mode(connector);
 #ifdef CONFIG_UNIFIED
-	if (is_oos())
+	if (h_is_oos)
 #endif
 		ret = scnprintf(buf, PAGE_SIZE, "night mode = %d\n"
 											"0--night mode Off\n"
@@ -681,7 +682,7 @@ static ssize_t native_display_p3_mode_show(struct device *dev,
 
 	native_display_p3_mode = dsi_display_get_native_display_p3_mode(connector);
 #ifdef CONFIG_UNIFIED
-	if (is_oos())
+	if (h_is_oos)
 #endif
 		ret = scnprintf(buf, PAGE_SIZE, "native display p3 mode = %d\n"
 											"0--native display p3 mode Off\n"
@@ -722,7 +723,7 @@ static ssize_t native_display_wide_color_mode_show(struct device *dev,
 
 	native_display_wide_color_mode = dsi_display_get_native_display_wide_color_mode(connector);
 #ifdef CONFIG_UNIFIED
-	if (is_oos())
+	if (h_is_oos)
 #endif
 	ret = scnprintf(buf, PAGE_SIZE, "native display wide color mode = %d\n"
 											"0--native display wide color mode Off\n"
@@ -764,7 +765,7 @@ static ssize_t native_display_loading_effect_mode_show(struct device *dev,
 
 	native_display_loading_effect_mode = dsi_display_get_native_display_loading_effect_mode(connector);
 #ifdef CONFIG_UNIFIED
-	if (is_oos())
+	if (h_is_oos)
 #endif
 		ret = scnprintf(buf, PAGE_SIZE, "native display loading effect mode = %d\n"
 											"0--native display loading effect mode Off\n"
@@ -806,7 +807,7 @@ static ssize_t native_display_customer_p3_mode_show(struct device *dev,
 
 	native_display_customer_p3_mode = dsi_display_get_customer_p3_mode(connector);
 #ifdef CONFIG_UNIFIED
-	if (is_oos())
+	if (h_is_oos)
 #endif
 		ret = scnprintf(buf, PAGE_SIZE, "native display customer p3 mode = %d\n"
 											"0--native display customer p3 mode Off\n"
@@ -847,7 +848,7 @@ static ssize_t native_display_customer_srgb_mode_show(struct device *dev,
 
 	native_display_customer_srgb_mode = dsi_display_get_customer_srgb_mode(connector);
 #ifdef CONFIG_UNIFIED
-	if (is_oos())
+	if (h_is_oos)
 #endif
 		ret = scnprintf(buf, PAGE_SIZE, "native display customer srgb mode = %d\n"
 											"0--native display customer srgb mode Off\n"
@@ -890,7 +891,7 @@ static ssize_t native_display_srgb_color_mode_show(struct device *dev,
 
 	native_display_srgb_color_mode = dsi_display_get_native_display_srgb_color_mode(connector);
 #ifdef CONFIG_UNIFIED
-	if (is_oos())
+	if (h_is_oos)
 #endif
 		ret = scnprintf(buf, PAGE_SIZE, "native display srgb color mode = %d\n"
 											"0--native display srgb color mode Off\n"
