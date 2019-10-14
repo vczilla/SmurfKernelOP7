@@ -563,16 +563,13 @@ static int _sde_connector_update_bl_scale(struct sde_connector *c_conn)
 	SDE_DEBUG("bl_scale = %u, bl_scale_ad = %u, bl_level = %u\n",
 		bl_config->bl_scale, bl_config->bl_scale_ad,
 		bl_config->bl_level);
-		if(c_conn->ops.set_backlight==NULL){
-			printk(KERN_ERR"c_conn->ops.set_backlight==NULL\n");
-			return 0;
-		}
 	rc = c_conn->ops.set_backlight(&c_conn->base,
 			dsi_display, bl_config->bl_level);
 	c_conn->unset_bl_level = 0;
 
 	return rc;
 }
+
 //xiaoxiaohuan@OnePlus.MultiMediaService,2018/08/04, add for fingerprint
 extern bool sde_crtc_get_fingerprint_mode(struct drm_crtc_state *crtc_state);
 extern bool sde_crtc_get_fingerprint_pressed(struct drm_crtc_state *crtc_state);
