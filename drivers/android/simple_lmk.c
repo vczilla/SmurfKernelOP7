@@ -331,11 +331,13 @@ static int simple_lmk_init_set(const char *val, const struct kernel_param *kp)
 	if (i.totalram > 2000000) {
 		lmk_aggression = 3;
 		pr_info("Detected 12GB memory: lmk aggression 3");
-	} else {
+	} else if (i.totalram > 1500000) {
 		lmk_aggression = 2;
 		pr_info("Detected 8GB memory: lmk aggression 2");
+	} else { 
+		lmk_aggression = 1;
+		pr_info("Detected 6GB memory: lmk aggression 1");
 	}
-
 	thread = kthread_run(simple_lmk_reclaim_thread, NULL, "simple_lmkd");
 	BUG_ON(IS_ERR(thread));
 
