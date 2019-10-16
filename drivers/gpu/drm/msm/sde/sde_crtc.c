@@ -5771,7 +5771,7 @@ static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
 	else
 		display->panel->dim_status = false;
 
-	if (fp_mode == 1) {
+	if (fp_mode == 1 || fppressed_index > 0) {
 		/*Kick for fp scan*/
     		cpu_input_boost_kick_cluster1_wake(750);
 		cpu_input_boost_kick_cluster2_wake(750);
