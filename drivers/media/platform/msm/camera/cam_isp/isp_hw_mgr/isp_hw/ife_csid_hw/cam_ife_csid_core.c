@@ -1736,9 +1736,13 @@ static int cam_ife_csid_enable_pxl_path(
 	if (res->res_id == CAM_IFE_PIX_PATH_RES_IPP) {
 		is_ipp = true;
 		pxl_reg = csid_reg->ipp_reg;
+		path_config = &(csid_hw->ipp_path_config);
+		csid_hw->res_sof_cnt[CAM_IFE_PIX_PATH_RES_IPP] = 0;
 	} else {
 		is_ipp = false;
 		pxl_reg = csid_reg->ppp_reg;
+		path_config = &(csid_hw->ppp_path_config);
+		csid_hw->res_sof_cnt[CAM_IFE_PIX_PATH_RES_PPP] = 0;
 	}
 
 	if (res->res_state != CAM_ISP_RESOURCE_STATE_INIT_HW) {
@@ -2104,6 +2108,7 @@ static int cam_ife_csid_enable_rdi_path(
 			res->res_type, res->res_id, res->res_state);
 		return -EINVAL;
 	}
+	csid_hw->res_sof_cnt[res->res_id] = 0;
 
 	/*resume at frame boundary */
 	cam_io_w_mb(CAM_CSID_RESUME_AT_FRAME_BOUNDARY,
