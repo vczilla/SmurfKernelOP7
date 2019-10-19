@@ -60,8 +60,13 @@ tmp3		.req	x9
 zeroones	.req	x10
 pos		.req	x11
 
-	.p2align 6
 WEAK(strcmp)
+	prfm    pldl1strm, [src1]
+	prfm    pldl1strm, [src2]
+	b	.Lperf_critical
+.align  6
+.Lperf_critical:
+	/* Start of performance-critical section  -- one 64B cache line.  */
 	eor	tmp1, src1, src2
 	mov	zeroones, #REP8_01
 	tst	tmp1, #7
