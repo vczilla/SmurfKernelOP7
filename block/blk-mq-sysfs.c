@@ -24,7 +24,7 @@ static void blk_mq_hw_sysfs_release(struct kobject *kobj)
 						  kobj);
 
 	if (hctx->flags & BLK_MQ_F_BLOCKING)
-		cleanup_srcu_struct(hctx->srcu);
+		cleanup_srcu_struct(hctx->queue_rq_srcu);
 	blk_free_flush_queue(hctx->fq);
 	sbitmap_free(&hctx->ctx_map);
 	free_cpumask_var(hctx->cpumask);
