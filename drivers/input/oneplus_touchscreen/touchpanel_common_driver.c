@@ -878,6 +878,7 @@ static void tp_work_func(struct touchpanel_data *ts)
      *  1.IRQ_EXCEPTION /IRQ_GESTURE /IRQ_IGNORE /IRQ_FW_CONFIG --->should be only reported  individually
      *  2.IRQ_TOUCH && IRQ_BTN_KEY --->should depends on real situation && set correspond bit on trigger_reason
      */
+    pm_qos_update_request(&ts->pm_qos_req, 75);
     cur_event = ts->ts_ops->trigger_reason(ts->chip_data, ts->gesture_enable, ts->is_suspended);
     if (CHK_BIT(cur_event, IRQ_TOUCH) || CHK_BIT(cur_event, IRQ_BTN_KEY) || CHK_BIT(cur_event, IRQ_DATA_LOGGER) || CHK_BIT(cur_event, IRQ_FACE_STATE)) {
         if (CHK_BIT(cur_event, IRQ_BTN_KEY)) {
@@ -901,6 +902,7 @@ static void tp_work_func(struct touchpanel_data *ts)
     }  else if (CHK_BIT(cur_event, IRQ_FW_AUTO_RESET)) {
         tp_fw_auto_reset_handle(ts);
     }
+    pm_qos_update_request(&ts->pm_qos_req, PM_QOS_DEFAULT_VALUE);
 }
 
 static void tp_work_func_unlock(struct touchpanel_data *ts)
@@ -1055,8 +1057,6 @@ static irqreturn_t tp_irq_thread_fn(int irq, void *dev_id)
 {
     struct touchpanel_data *ts = (struct touchpanel_data *)dev_id;
 
-    pm_qos_update_request(&ts->pm_qos_req_dma, 100);
-
     if (ts->int_mode == BANNABLE) {
 		__pm_stay_awake(&ts->source);	//avoid system enter suspend lead to i2c error
         mutex_lock(&ts->mutex);
@@ -1066,8 +1066,6 @@ static irqreturn_t tp_irq_thread_fn(int irq, void *dev_id)
     } else {
         tp_work_func_unlock(ts);
     }
-
-    pm_qos_update_request(&ts->pm_qos_req_dma, PM_QOS_DEFAULT_VALUE);
 
     return IRQ_HANDLED;
 }
@@ -4448,29 +4446,9 @@ int register_common_touch_device(struct touchpanel_data *pdata)
     } else {
         ts->irq = ts->client->irq;
     }
-#ifdef CONFIG_SMP
-    ts->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
-    ts->pm_qos_req_dma.irq = ts->irq;
-#endif
 
-    pm_qos_add_request(&ts->pm_qos_req_dma, PM_QOS_CPU_DMA_LATENCY,
+    pm_qos_add_request(&ts->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
 		PM_QOS_DEFAULT_VALUE);
-
-    if (ts->l2pc_cpus_mask) {
-
-		ts->l2pc_cpus_qos.type =
-				PM_QOS_REQ_AFFINE_CORES;
-		cpumask_empty(&ts->l2pc_cpus_qos.cpus_affine);
-		for_each_possible_cpu(cpu) {
-			if ((1 << cpu) & ts->l2pc_cpus_mask)
-				cpumask_set_cpu(cpu, &ts->
-						l2pc_cpus_qos.cpus_affine);
-		}
-
-		pm_qos_add_request(&ts->l2pc_cpus_qos,
-				PM_QOS_CPU_DMA_LATENCY,
-				PM_QOS_DEFAULT_VALUE);
-    }
 
     tp_register_times++;
     g_tp = ts;
@@ -4540,9 +4518,7 @@ power_control_failed:
 	msleep(200);
 	sec_ts_pinctrl_configure(&ts->hw_res, false);
 
-    pm_qos_remove_request(&ts->pm_qos_req_dma);
-	if (ts->l2pc_cpus_mask)
-		pm_qos_remove_request(&ts->l2pc_cpus_qos);
+    pm_qos_remove_request(&ts->pm_qos_req);
     return ret;
 }
 

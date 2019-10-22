@@ -514,8 +514,7 @@ struct touchpanel_data {
     void                  *private_data;                /*Reserved Private data*/
     char                  *earsense_delta;
     unsigned int l2pc_cpus_mask;
-    struct pm_qos_request l2pc_cpus_qos;
-    struct pm_qos_request pm_qos_req_dma;
+    struct pm_qos_request pm_qos_req;
 };
 
 struct touchpanel_operations {
