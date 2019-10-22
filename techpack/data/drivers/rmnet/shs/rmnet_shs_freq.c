@@ -106,8 +106,7 @@ void rmnet_shs_boost_cpus()
 	if (work_pending(&boost_cpu))
 		return;
 
-	if (shs_boost_wq)
-		queue_work(shs_boost_wq, &boost_cpu);
+	queue_work(shs_boost_wq, &boost_cpu);
 }
 
 void rmnet_shs_reset_cpus()
@@ -127,15 +126,12 @@ void rmnet_shs_reset_cpus()
 	if (work_pending(&boost_cpu))
 		return;
 
-	if (shs_boost_wq)
-		queue_work(shs_boost_wq, &boost_cpu);
+	queue_work(shs_boost_wq, &boost_cpu);
 }
 
 int rmnet_shs_freq_init(void)
 {
-
-	if (!shs_boost_wq)
-		shs_boost_wq = alloc_workqueue("shs_boost_wq", WQ_HIGHPRI, 0);
+	shs_boost_wq = alloc_workqueue("shs_boost_wq", WQ_HIGHPRI, 0);
 
 	if (!shs_boost_wq)
 		return -EFAULT;
@@ -152,11 +148,6 @@ int rmnet_shs_freq_exit(void)
 {
 	rmnet_shs_reset_freq();
 	cancel_work_sync(&boost_cpu);
-
-	if (shs_boost_wq) {
-		destroy_workqueue(shs_boost_wq);
-		shs_boost_wq = NULL;
-	}
 
 	if (rmnet_shs_freq_enable)
 		cpufreq_unregister_notifier(&freq_boost_nb,
