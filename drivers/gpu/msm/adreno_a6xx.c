@@ -1001,14 +1001,6 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	return ret;
 }
 
-static void a6xx_zap_shader_unload(struct adreno_device *adreno_dev)
-{
-	if (!IS_ERR_OR_NULL(adreno_dev->zap_handle_ptr)) {
-		subsystem_put(adreno_dev->zap_handle_ptr);
-		adreno_dev->zap_handle_ptr = NULL;
-	}
-}
-
 /*
  * CP_INIT_MAX_CONTEXT bit tells if the multiple hardware contexts can
  * be used at once of if they should be serialized
@@ -1872,15 +1864,6 @@ static void adreno_gx_regread(struct kgsl_device *device,
 		adreno_qdss_gfx_dbg_regread(device, offsetwords, value);
 	else
 		kgsl_regread(device, offsetwords, value);
-}
-
-static void adreno_gx_regwrite(struct kgsl_device *device,
-	unsigned int offsetwords, unsigned int value)
-{
-	if (adreno_is_qdss_dbg_register(device, offsetwords))
-		adreno_qdss_gfx_dbg_regwrite(device, offsetwords, value);
-	else
-		kgsl_regwrite(device, offsetwords, value);
 }
 
 static struct adreno_coresight_register a6xx_coresight_regs[] = {
@@ -3215,95 +3198,6 @@ unlock:
 	wmb();
 	lock->flag_kmd = 0;
 	return ret;
-}
-
-static void a6xx_clk_set_options(struct adreno_device *adreno_dev,
-	const char *name, struct clk *clk, bool on)
-{
-	if (!adreno_is_a610(adreno_dev))
-		return;
-
-	/* Handle clock settings for GFX PSCBCs */
-	if (on) {
-		if (!strcmp(name, "mem_iface_clk")) {
-			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
-			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
-		} else if (!strcmp(name, "core_clk")) {
-			clk_set_flags(clk, CLKFLAG_RETAIN_PERIPH);
-			clk_set_flags(clk, CLKFLAG_RETAIN_MEM);
-		}
-	} else {
-		if (!strcmp(name, "core_clk")) {
-			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
-			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
-		}
-	}
-}
-
-/*
- * Secure buffers cannot be preserved during hibernation.
- * Issue hyp_assign call to assign non-used internal secure
- * buffers to kernel.
- * This function will fail if there is an active secure context
- * since we cannot remove the content from user secure buffer.
- */
-static int a6xx_secure_pt_hibernate(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_ringbuffer *rb;
-	unsigned int i = 0;
-	int ret;
-
-	if (adreno_drawctxt_has_secure(device)) {
-		KGSL_DRV_ERR(device,
-		    "Secure context is active, cannot hibernate secure PT\n");
-		goto fail;
-	}
-
-	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		if (rb->secure_preemption_desc.sgt) {
-			ret = kgsl_unlock_sgt(rb->secure_preemption_desc.sgt);
-			if (ret) {
-				KGSL_DRV_ERR(device,
-				    "kgsl_unlock_sgt failed ret %d\n", ret);
-				goto fail;
-			}
-		}
-	}
-
-	return 0;
-
-fail:
-	while (i > 0) {
-		rb = &(adreno_dev->ringbuffers[i - 1]);
-		if (rb->secure_preemption_desc.sgt)
-			kgsl_lock_sgt(rb->secure_preemption_desc.sgt,
-					rb->secure_preemption_desc.size);
-		i--;
-	}
-	return -EBUSY;
-}
-
-static int a6xx_secure_pt_restore(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_ringbuffer *rb;
-	unsigned int i;
-	int ret;
-
-	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		if (rb->secure_preemption_desc.sgt) {
-			ret = kgsl_lock_sgt(rb->secure_preemption_desc.sgt,
-					rb->secure_preemption_desc.size);
-			if (ret) {
-				KGSL_DRV_ERR(device,
-				    "kgsl_lock_sgt failed ret %d\n", ret);
-				return ret;
-			}
-		}
-	}
-
-	return 0;
 }
 
 struct adreno_gpudev adreno_a6xx_gpudev = {
