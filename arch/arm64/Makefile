@@ -37,7 +37,9 @@ else
 # Pass --no-fix-cortex-a53-843419 to ensure the erratum fix is disabled
 LDFLAGS	+= --no-fix-cortex-a53-843419
   endif
-KBUILD_CFLAGS += -mno-fix-cortex-a53-843419
+ifneq ($(cc-name),clang)
+	KBUILD_CFLAGS += -mno-fix-cortex-a53-843419
+endif
 endif
 
 KBUILD_DEFCONFIG := defconfig
