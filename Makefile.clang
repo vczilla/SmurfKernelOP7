@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 4
 PATCHLEVEL = 14
-SUBLEVEL = 129
+SUBLEVEL = 150
 EXTRAVERSION =
 NAME = Petit Gorille
 
@@ -599,7 +599,7 @@ scripts: scripts_basic include/config/auto.conf include/config/tristate.conf \
 
 # Objects we will link into vmlinux / subdirs we need to visit
 init-y		:= init/
-drivers-y	:= drivers/ sound/ firmware/ techpack/
+drivers-y	:= drivers/ sound/ firmware/ opslalib/ techpack/ techpack/data/drivers/
 net-y		:= net/
 libs-y		:= lib/
 core-y		:= usr/
@@ -714,12 +714,12 @@ KBUILD_CFLAGS   += $(call cc-disable-warning, designated-init)
 KBUILD_CFLAGS   += $(call cc-disable-warning, maybe-uninitialized)
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
-KBUILD_CFLAGS	+= -O3 $(call cc-disable-warning,maybe-uninitialized,)
+KBUILD_CFLAGS	+= -Ofast $(call cc-disable-warning,maybe-uninitialized,)
 else
 ifdef CONFIG_PROFILE_ALL_BRANCHES
-KBUILD_CFLAGS	+= -O3 $(call cc-disable-warning,maybe-uninitialized,)
+KBUILD_CFLAGS	+= -Ofast $(call cc-disable-warning,maybe-uninitialized,)
 else
-KBUILD_CFLAGS   += -O3
+KBUILD_CFLAGS   += -Ofast
 endif
 endif
 
