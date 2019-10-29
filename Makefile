@@ -209,8 +209,6 @@ VPATH		:= $(srctree)$(if $(KBUILD_EXTMOD),:$(KBUILD_EXTMOD))
 
 export srctree objtree VPATH
 
-CCACHE := $(shell which ccache)
-
 # To make sure we do not include .config for any of the *config targets
 # catch them early, and hand them over to scripts/kconfig/Makefile
 # It is allowed to specify more targets when calling make, including
@@ -312,7 +310,7 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
 # "make" in the configured kernel build directory always uses that.
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
-override ARCH		:= arm64
+ARCH		?= $(SUBARCH)
 CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
 # Architecture as present in compile.h
@@ -363,10 +361,10 @@ HOST_LFS_CFLAGS := $(shell getconf LFS_CFLAGS 2>/dev/null)
 HOST_LFS_LDFLAGS := $(shell getconf LFS_LDFLAGS 2>/dev/null)
 HOST_LFS_LIBS := $(shell getconf LFS_LIBS 2>/dev/null)
 
-HOSTCC       = $(CCACHE) gcc
-HOSTCXX      = $(CCACHE) g++
+HOSTCC       = gcc
+HOSTCXX      = g++
 HOSTCFLAGS   := -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 \
-		-fomit-frame-pointer -std=gnu89 -pipe $(HOST_LFS_CFLAGS)
+		-fomit-frame-pointer -std=gnu89 $(HOST_LFS_CFLAGS)
 HOSTCXXFLAGS := -O2 $(HOST_LFS_CFLAGS)
 HOSTLDFLAGS  := $(HOST_LFS_LDFLAGS)
 HOST_LOADLIBES := $(HOST_LFS_LIBS)
@@ -393,8 +391,7 @@ OPT_FLAGS	:= -mcpu=kryo -funsafe-math-optimizations -ffast-math \
 # Make variables (CC, etc...)
 AS		= $(CROSS_COMPILE)as
 LD		= $(CROSS_COMPILE)ld
-CC		= ccache $(CROSS_COMPILE)gcc
-REAL_CC		= ccache $(CROSS_COMPILE)gcc
+REAL_CC		= $(CROSS_COMPILE)gcc
 LDGOLD		= $(CROSS_COMPILE)ld.gold
 CPP		= $(CC) -E
 AR		= $(CROSS_COMPILE)ar
@@ -416,7 +413,7 @@ CC		= $(REAL_CC)
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
-KBUILD_CFLAGS += -mcpu=kryo -stune=ckryo -mtune=kryo -fmodulo-sched -fmodulo-sched-allow-regmoves -ftree-vectorize -ftree-slp-vectorize -fvect-cost-model -fgcse-after-reload -fgcse-sm -ffast-math -fsingle-precision-constant -fvectorize -fslp-vectorize -pipe -Wno-ignored-optimization-argument -funsafe-math-optimizations \
+KBUILD_CFLAGS += -mcpu=kryo -stune=ckryo -mtune=kryo -fmodulo-sched -fmodulo-sched-allow-regmoves -ftree-vectorize -ftree-slp-vectorize -fvect-cost-model -fgcse-after-reload -fgcse-sm -ffast-math -fsingle-precision-constant -fvectorize -fslp-vectorize -Wno-ignored-optimization-argument -funsafe-math-optimizations \
 -fasynchronous-unwind-tables -fno-signed-zeros -fno-trapping-math -frename-registers -funroll-loops $(POLLY_FLAGS
 NOSTDINC_FLAGS  =
 CFLAGS_MODULE   =
@@ -449,14 +446,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -std=gnu89
-KBUILD_CFLAGS	+= -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
-		   -fno-strict-aliasing -fno-common -fshort-wchar -std=gnu89 $(call cc-option,-fno-PIE) \
-		   -mcpu=cortex-a76.cortex-a55+crypto -mtune=cortex-a76.cortex-a55 -fdiagnostics-color=always \
-		   -Wno-attribute-alias -fno-common -fshort-wchar -floop-nest-optimize -fgraphite-identity \
-		   -ftree-loop-distribution -floop-parallelize-all -floop-interchange -floop-block \
-		   -floop-strip-mine -ffast-math -fgcse-sm -fipa-pta -foptimize-sibling-calls \
-		   -fgcse-las -fbranch-target-load-optimize -fno-asynchronous-unwind-tables -fforward-propagate \
-		   -flive-range-shrinkage -fvariable-expansion-in-unroller -funsafe-math-optimizations
+	KBUILD_CFLAGS	+= -ffast-math -funsafe-math-optimizations
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
@@ -609,7 +599,7 @@ scripts: scripts_basic include/config/auto.conf include/config/tristate.conf \
 
 # Objects we will link into vmlinux / subdirs we need to visit
 init-y		:= init/
-drivers-y	:= drivers/ sound/ firmware/ techpack/ techpack/data/drivers/
+drivers-y	:= drivers/ sound/ firmware/ opslalib/ techpack/ techpack/data/drivers/
 net-y		:= net/
 libs-y		:= lib/
 core-y		:= usr/
@@ -1339,6 +1329,7 @@ headers_install: __headers
 	  $(error Headers not exportable for the $(SRCARCH) architecture))
 	$(Q)$(MAKE) $(hdr-inst)=include/uapi dst=include
 	$(Q)$(MAKE) $(hdr-inst)=arch/$(hdr-arch)/include/uapi $(hdr-dst)
+	$(Q)$(MAKE) $(hdr-inst)=techpack
 
 PHONY += headers_check_all
 headers_check_all: headers_install_all
@@ -1348,6 +1339,7 @@ PHONY += headers_check
 headers_check: headers_install
 	$(Q)$(MAKE) $(hdr-inst)=include/uapi dst=include HDRCHECK=1
 	$(Q)$(MAKE) $(hdr-inst)=arch/$(hdr-arch)/include/uapi $(hdr-dst) HDRCHECK=1
+	$(Q)$(MAKE) $(hdr-inst)=techpack HDRCHECK=1
 
 
 # ---------------------------------------------------------------------------
