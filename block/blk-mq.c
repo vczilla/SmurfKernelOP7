@@ -34,8 +34,8 @@
 #include "blk-mq-debugfs.h"
 #include "blk-mq-tag.h"
 #include "blk-stat.h"
+#include "blk-wbt.h"
 #include "blk-mq-sched.h"
-#include "blk-rq-qos.h"
 
 static void blk_mq_poll_stats_start(struct request_queue *q);
 static void blk_mq_poll_stats_fn(struct blk_stat_callback *cb);
@@ -60,10 +60,10 @@ static int blk_mq_poll_stats_bkt(const struct request *rq)
 /*
  * Check if any of the ctx's have pending work in this hardware queue
  */
-static bool blk_mq_hctx_has_pending(struct blk_mq_hw_ctx *hctx)
+bool blk_mq_hctx_has_pending(struct blk_mq_hw_ctx *hctx)
 {
-	return !list_empty_careful(&hctx->dispatch) ||
-		sbitmap_any_bit_set(&hctx->ctx_map) ||
+	return sbitmap_any_bit_set(&hctx->ctx_map) ||
+			!list_empty_careful(&hctx->dispatch) ||
 			blk_mq_sched_has_work(hctx);
 }
 
@@ -94,15 +94,19 @@ static void blk_mq_check_inflight(struct blk_mq_hw_ctx *hctx,
 {
 	struct mq_inflight *mi = priv;
 
-	/*
-	 * index[0] counts the specific partition that was asked for. index[1]
-	 * counts the ones that are active on the whole device, so increment
-	 * that if mi->part is indeed a partition, and not a whole device.
-	 */
-	if (rq->part == mi->part)
-		mi->inflight[0]++;
-	if (mi->part->partno)
-		mi->inflight[1]++;
+	if (test_bit(REQ_ATOM_STARTED, &rq->atomic_flags) &&
+	    !test_bit(REQ_ATOM_COMPLETE, &rq->atomic_flags)) {
+		/*
+		 * index[0] counts the specific partition that was asked
+		 * for. index[1] counts the ones that are active on the
+		 * whole device, so increment that if mi->part is indeed
+		 * a partition, and not a whole device.
+		 */
+		if (rq->part == mi->part)
+			mi->inflight[0]++;
+		if (mi->part->partno)
+			mi->inflight[1]++;
+	}
 }
 
 void blk_mq_in_flight(struct request_queue *q, struct hd_struct *part,
@@ -273,6 +277,13 @@ void blk_mq_wake_waiters(struct request_queue *q)
 	queue_for_each_hw_ctx(q, hctx, i)
 		if (blk_mq_hw_queue_mapped(hctx))
 			blk_mq_tag_wakeup_all(hctx->tags, true);
+
+	/*
+	 * If we are called because the queue has now been marked as
+	 * dying, we need to ensure that processes currently waiting on
+	 * the queue are notified as well.
+	 */
+	wake_up_all(&q->mq_freeze_wq);
 }
 
 bool blk_mq_can_queue(struct blk_mq_hw_ctx *hctx)
@@ -302,17 +313,15 @@ static struct request *blk_mq_rq_ctx_init(struct blk_mq_alloc_data *data,
 		data->hctx->tags->rqs[rq->tag] = rq;
 	}
 
+	INIT_LIST_HEAD(&rq->queuelist);
 	/* csd/requeue_work/fifo_time is initialized before use */
 	rq->q = data->q;
 	rq->mq_ctx = data->ctx;
-	rq->rq_flags = rq_flags;
-	rq->cpu = -1;
 	rq->cmd_flags = op;
-	if (data->flags & BLK_MQ_REQ_PREEMPT)
-		rq->rq_flags |= RQF_PREEMPT;
 	if (blk_queue_io_stat(data->q))
 		rq->rq_flags |= RQF_IO_STAT;
-	INIT_LIST_HEAD(&rq->queuelist);
+	/* do not touch atomic flags, it needs atomic ops against the timer */
+	rq->cpu = -1;
 	INIT_HLIST_NODE(&rq->hash);
 	RB_CLEAR_NODE(&rq->rb_node);
 	rq->rq_disk = NULL;
@@ -326,7 +335,6 @@ static struct request *blk_mq_rq_ctx_init(struct blk_mq_alloc_data *data,
 	rq->special = NULL;
 	/* tag was already set */
 	rq->extra_len = 0;
-	rq->__deadline = 0;
 
 	INIT_LIST_HEAD(&rq->timeout_list);
 	rq->timeout = 0;
@@ -340,7 +348,6 @@ static struct request *blk_mq_rq_ctx_init(struct blk_mq_alloc_data *data,
 #endif
 
 	data->ctx->rq_dispatched[op_is_sync(op)]++;
-	refcount_set(&rq->ref, 1);
 	return rq;
 }
 
@@ -463,7 +470,7 @@ struct request *blk_mq_alloc_request_hctx(struct request_queue *q,
 		blk_queue_exit(q);
 		return ERR_PTR(-EXDEV);
 	}
-	cpu = cpumask_first_and(alloc_data.hctx->cpumask, cpu_online_mask);
+	cpu = cpumask_first(alloc_data.hctx->cpumask);
 	alloc_data.ctx = __blk_mq_get_ctx(q, cpu);
 
 	rq = blk_mq_get_request(q, NULL, op, &alloc_data);
@@ -525,7 +532,7 @@ inline void __blk_mq_end_request(struct request *rq, blk_status_t error)
 	blk_account_io_done(rq, now);
 
 	if (rq->end_io) {
-		rq_qos_done(rq->q, rq);
+		wbt_done(rq->q->rq_wb, rq);
 		rq->end_io(rq, error);
 	} else {
 		if (unlikely(blk_bidi_rq(rq)))
@@ -618,7 +625,7 @@ void blk_mq_start_request(struct request *rq)
 		rq->throtl_size = blk_rq_sectors(rq);
 #endif
 		rq->rq_flags |= RQF_STATS;
-		rq_qos_issue(q, rq);
+		wbt_issue(q->rq_wb, rq);
 	}
 
 	blk_add_timer(rq);
@@ -665,7 +672,7 @@ static void __blk_mq_requeue_request(struct request *rq)
 	struct request_queue *q = rq->q;
 
 	trace_block_rq_requeue(q, rq);
-	rq_qos_requeue(q, rq);
+	wbt_requeue(q->rq_wb, rq);
 	blk_mq_sched_requeue_request(rq);
 
 	if (test_and_clear_bit(REQ_ATOM_STARTED, &rq->atomic_flags)) {
@@ -1227,11 +1234,9 @@ static int blk_mq_hctx_next_cpu(struct blk_mq_hw_ctx *hctx)
 	if (--hctx->next_cpu_batch <= 0) {
 		int next_cpu;
 
-		next_cpu = cpumask_next_and(next_cpu, hctx->cpumask,
-				cpu_online_mask);
+		next_cpu = cpumask_next(hctx->next_cpu, hctx->cpumask);
 		if (next_cpu >= nr_cpu_ids)
-			next_cpu = cpumask_first( hctx->cpumask,
-				cpu_online_mask);
+			next_cpu = cpumask_first(hctx->cpumask);
 
 		hctx->next_cpu = next_cpu;
 		hctx->next_cpu_batch = BLK_MQ_CPU_WORK_BATCH;
