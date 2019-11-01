@@ -208,6 +208,7 @@ struct qmp_device {
 	u32 rx_irq_count;
 
 	void *ilc;
+	bool early_boot;
 };
 
 /**
@@ -960,7 +961,41 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 			mdev->rx_irq_line, ret);
 
 	/* Trigger fake RX in case of missed interrupt */
-	if (of_property_read_bool(edge_node, "qcom,early-boot"))
+	if (of_property_read_bool(edge_node, "qcom,early-boot")) {
+		mdev->early_boot = true;
+		qmp_irq_handler(0, mdev);
+	}
+
+	return 0;
+}
+
+static int qmp_mbox_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int qmp_mbox_resume(struct device *dev)
+{
+	struct qmp_device *mdev = dev_get_drvdata(dev);
+	struct qmp_mbox *mbox;
+
+	list_for_each_entry(mbox, &mdev->mboxes, list) {
+		mbox->local_state = LINK_DISCONNECTED;
+		init_completion(&mbox->link_complete);
+		init_completion(&mbox->ch_complete);
+		mbox->tx_sent = false;
+		/*
+		 * set suspend flag to indicate self channel open is required
+		 * after restore operation
+		 */
+		mbox->suspend_flag = true;
+		/* Release rx packet buffer */
+		if (mbox->rx_pkt.data) {
+			devm_kfree(mdev->dev, mbox->rx_pkt.data);
+			mbox->rx_pkt.data = NULL;
+		}
+	}
+	if (mdev->early_boot)
 		qmp_irq_handler(0, mdev);
 
 	return 0;
