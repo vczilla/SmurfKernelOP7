@@ -17,8 +17,8 @@ config ADJ_CHAIN
 	 To chain task adj for any purpose
 
 config HOUSTON
-	default n
-	bool "houston rocket play your temperature guard"
+	default y
+	bool "to collect system-wide and pmu data"
 	help
 	 Realtime temperature monitor
 
@@ -27,6 +27,7 @@ config MEMPLUS
 	bool "memory+ feature"
 	help
 	 Memory+ feature
+
 config FSC
 	default n
 	bool "system layer file status cache"
