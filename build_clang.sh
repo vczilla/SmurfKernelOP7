@@ -21,7 +21,7 @@ export KBUILD_COMPILER_STRING=$(~/android/Toolchains/clang/clang10/bin/clang --v
 DEFCONFIG="smurf_defconfig"
 
 # Kernel Details
-VER=".3.2.7.Unified"
+VER=".3.3.0.unified"
 
 # Paths
 KERNEL_DIR=`pwd`
@@ -72,6 +72,11 @@ function make_zip {
 		mv  `echo $AK_VER`.zip $ZIP_MOVE
 		cd $KERNEL_DIR
 }
+
+function make_sep_dtb {
+	find ~/android/SmurfKernelOP7/out/arch/arm64/boot/dts -name '*.dtb' -exec cat {} + > ~/android/SmurfKernelOP7/out/arch/arm64/boot/dtb
+}
+
 
 
 DATE_START=$(date +"%s")
@@ -127,6 +132,7 @@ case "$dchoice" in
 		make_boot
 		move_boot
 		make_zip
+	      	make_sep_dtb
 		break
 		;;
 	n|N )

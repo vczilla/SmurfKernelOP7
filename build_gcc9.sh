@@ -23,7 +23,7 @@ export CROSS_COMPILE_ARM32=${HOME}/android/Toolchains/gcc9eabi_92/bin/arm-eabi-
 DEFCONFIG="smurf_defconfig"
 
 # Kernel Details
-VER=".3.2.7.unified"
+VER=".3.3.0.unified"
 
 # Paths
 KERNEL_DIR=`pwd`
@@ -129,6 +129,7 @@ case "$dchoice" in
 		make_boot
 		move_boot
 		make_zip
+		make_sep_dtb
 		break
 		;;
 	n|N )
