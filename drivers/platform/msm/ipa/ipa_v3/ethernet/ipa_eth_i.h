@@ -168,4 +168,15 @@ int ipa_eth_pm_deactivate(struct ipa_eth_device *eth_dev);
 
 int ipa_eth_pm_vote_bw(struct ipa_eth_device *eth_dev);
 
+/* ipa_eth_utils.c APIs */
+
+const char *ipa_eth_device_event_name(enum ipa_eth_device_event event);
+int ipa_eth_send_msg_connect(struct ipa_eth_device *eth_dev);
+int ipa_eth_send_msg_disconnect(struct ipa_eth_device *eth_dev);
+
+void *ipa_eth_get_ipc_logbuf(void);
+void *ipa_eth_get_ipc_logbuf_dbg(void);
+
+int ipa_eth_ipc_log_init(void);
+void ipa_eth_ipc_log_cleanup(void);
 #endif // _IPA_ETH_I_H_
