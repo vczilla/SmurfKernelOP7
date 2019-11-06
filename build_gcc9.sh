@@ -23,7 +23,7 @@ export CROSS_COMPILE_ARM32=${HOME}/android/Toolchains/gcc10_32/bin/arm-yuhan-lin
 DEFCONFIG="smurf_defconfig"
 
 # Kernel Details
-VER=".3.3.1.unified"
+VER=".3.3.2.unified"
 
 # Paths
 KERNEL_DIR=`pwd`
