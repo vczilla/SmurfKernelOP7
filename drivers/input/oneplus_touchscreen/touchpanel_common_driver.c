@@ -73,6 +73,8 @@ static DECLARE_WAIT_QUEUE_HEAD(waiter);
 static struct input_dev *ps_input_dev = NULL;
 static int lcd_id = 0;
 static int gesture_switch_value = 0;
+char *raw_tmp_data = NULL;
+char *self_tmp_data = NULL;
 
 
 /* add haptic audio tp mask */
@@ -628,7 +630,7 @@ static void tp_touch_handle(struct touchpanel_data *ts)
     int i = 0;
     uint8_t finger_num = 0, touch_near_edge = 0;
     int obj_attention = 0;
-    struct point_info *points;
+    struct point_info points[10];
     struct corner_info corner[4];
     static struct point_info last_point = {.x = 0, .y = 0};
     static int touch_report_num = 0;
@@ -642,10 +644,7 @@ static void tp_touch_handle(struct touchpanel_data *ts)
         return;
     }
 
-	points= kzalloc(sizeof(struct point_info)*ts->max_num, GFP_KERNEL);
-	if (!points) {
-		return;
-	}
+    memset(points, 0, sizeof(points));
     memset(corner, 0, sizeof(corner));
 	if (ts->reject_point) {		//sensor will reject point when call mode.
 		if (ts->touch_count) {
@@ -662,7 +661,6 @@ static void tp_touch_handle(struct touchpanel_data *ts)
 			#endif
 				input_sync(ts->input_dev);
 		}
-		kfree(points);
 		return;
 	}
     obj_attention = ts->ts_ops->get_touch_points(ts->chip_data, points, ts->max_num);
@@ -750,7 +748,6 @@ static void tp_touch_handle(struct touchpanel_data *ts)
     }
     input_sync(ts->input_dev);
     ts->touch_count = finger_num;
-	kfree(points);
 }
 
 static void tp_btnkey_release(struct touchpanel_data *ts)
@@ -2875,7 +2872,6 @@ static ssize_t proc_earsense_rawdata_read(struct file *file, char __user *user_b
     struct touchpanel_data *ts = PDE_DATA(file_inode(file));
     int read_len = 2 * ts->hw_res.EARSENSE_TX_NUM * ts->hw_res.EARSENSE_RX_NUM;
 
-    char *tmp_data = NULL;
     if (!ts)
         *ppos += 11;
     if (*ppos > 10)
@@ -2891,11 +2887,9 @@ static ssize_t proc_earsense_rawdata_read(struct file *file, char __user *user_b
         return 0;
     }
     if (ts->delta_state == TYPE_DELTA_IDLE) {
-        tmp_data = kzalloc(read_len ,GFP_KERNEL);
-        ts->earsense_ops->rawdata_read(ts->chip_data, tmp_data, read_len);
+        ts->earsense_ops->rawdata_read(ts->chip_data, raw_tmp_data, read_len);
         mutex_unlock(&ts->mutex);
-        ret = copy_to_user(user_buf, tmp_data, read_len);
-        kfree(tmp_data);
+        ret = copy_to_user(user_buf, raw_tmp_data, read_len);
         *ppos += 11;
     } else {
         mutex_unlock(&ts->mutex);
@@ -2953,7 +2947,6 @@ static ssize_t proc_earsense_selfdata_read(struct file *file, char __user *user_
     struct touchpanel_data *ts = PDE_DATA(file_inode(file));
     uint16_t data_len = 2*(ts->hw_res.TX_NUM + ts->hw_res.RX_NUM);
 
-    char *tmp_data = NULL;
     if (!ts)
         *ppos += 11;
     if (*ppos > 10)
@@ -2969,11 +2962,9 @@ static ssize_t proc_earsense_selfdata_read(struct file *file, char __user *user_
         return 0;
     }
     if (ts->delta_state == TYPE_DELTA_IDLE) {
-        tmp_data = kzalloc(data_len ,GFP_KERNEL);
-        ts->earsense_ops->self_data_read(ts->chip_data, tmp_data, data_len);
+        ts->earsense_ops->self_data_read(ts->chip_data, self_tmp_data, data_len);
         mutex_unlock(&ts->mutex);
-        ret = copy_to_user(user_buf, tmp_data, data_len);
-        kfree(tmp_data);
+        ret = copy_to_user(user_buf, self_tmp_data, data_len);
         *ppos += 11;
     } else {
         mutex_unlock(&ts->mutex);
@@ -3692,7 +3683,6 @@ static void init_parse_dts(struct device *dev, struct touchpanel_data *ts)
 
     np = dev->of_node;
 
-    ts->register_is_16bit       = of_property_read_bool(np, "register-is-16bit");
     ts->edge_limit_support      = of_property_read_bool(np, "edge_limit_support");
     ts->glove_mode_support      = of_property_read_bool(np, "glove_mode_support");
     ts->esd_handle_support      = of_property_read_bool(np, "esd_handle_support");
@@ -3808,6 +3798,9 @@ static void init_parse_dts(struct device *dev, struct touchpanel_data *ts)
         ts->hw_res.EARSENSE_TX_NUM = tx_rx_num[0];
         ts->hw_res.EARSENSE_RX_NUM = tx_rx_num[1];
     }
+
+    raw_tmp_data = kzalloc(2 * ts->hw_res.EARSENSE_TX_NUM * ts->hw_res.EARSENSE_RX_NUM ,GFP_KERNEL);
+    self_tmp_data = kzalloc(2*(ts->hw_res.TX_NUM + ts->hw_res.RX_NUM),GFP_KERNEL);
 
     rc = of_property_read_u32_array(np, "touchpanel,display-coords", temp_array, 2);
     if (rc) {
@@ -4189,7 +4182,7 @@ int register_common_touch_device(struct touchpanel_data *pdata)
     init_parse_dts(ts->dev, ts);
 
     //step2 : IIC interfaces init
-    init_touch_interfaces(ts->dev, ts->register_is_16bit);
+    init_touch_interfaces();
 
     //step3 : mutex init
     mutex_init(&ts->mutex);
