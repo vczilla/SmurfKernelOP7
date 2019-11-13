@@ -3687,7 +3687,6 @@ static void init_parse_dts(struct device *dev, struct touchpanel_data *ts)
 
     np = dev->of_node;
 
-    ts->register_is_16bit       = of_property_read_bool(np, "register-is-16bit");
     ts->edge_limit_support      = of_property_read_bool(np, "edge_limit_support");
     ts->glove_mode_support      = of_property_read_bool(np, "glove_mode_support");
     ts->esd_handle_support      = of_property_read_bool(np, "esd_handle_support");
@@ -3702,20 +3701,20 @@ static void init_parse_dts(struct device *dev, struct touchpanel_data *ts)
     ts->is_noflash_ic           = of_property_read_bool(np, "noflash_support");
     ts->face_detect_support     = of_property_read_bool(np, "face_detect_support");
     ts->lcd_refresh_rate_switch = of_property_read_bool(np, "lcd_refresh_rate_switch");
-    ts->touch_hold_support 		= of_property_read_bool(np, "touch_hold_support");
-	ts->ctl_base_address		= of_property_read_bool(np, "ctrl_base_change");
+    ts->touch_hold_support 	= of_property_read_bool(np, "touch_hold_support");
+    ts->ctl_base_address	= of_property_read_bool(np, "ctrl_base_change");
 
-	ts->charge_detect_support	= of_property_read_bool(np, "charge_detect_support");
-	ts->module_id_support		= of_property_read_bool(np, "module_id_support");
+    ts->charge_detect_support	= of_property_read_bool(np, "charge_detect_support");
+    ts->module_id_support	= of_property_read_bool(np, "module_id_support");
     ts->spuri_fp_touch.lcd_trigger_fp_check = of_property_read_bool(np, "lcd_trigger_fp_check");
     ts->spuri_fp_touch.lcd_resume_ok = true;
 
-	rc = of_property_read_string(np, "project-name", &ts->panel_data.project_name);
-	rc = of_property_read_string(np, "chip-name", &ts->panel_data.chip_name);
-	rc = of_property_read_u32(np, "module_id" , &ts->panel_data.tp_type);
-	if(rc < 0) {
-		ts->panel_data.tp_type = 0;
-	}
+    rc = of_property_read_string(np, "project-name", &ts->panel_data.project_name);
+    rc = of_property_read_string(np, "chip-name", &ts->panel_data.chip_name);
+    rc = of_property_read_u32(np, "module_id" , &ts->panel_data.tp_type);
+    if(rc < 0) {
+       ts->panel_data.tp_type = 0;
+    }
 
     rc = of_property_read_u32(np, "vdd_2v8_volt", &ts->hw_res.vdd_volt);
     if (rc < 0) {
@@ -4188,7 +4187,7 @@ int register_common_touch_device(struct touchpanel_data *pdata)
     init_parse_dts(ts->dev, ts);
 
     //step2 : IIC interfaces init
-    init_touch_interfaces(ts->dev, ts->register_is_16bit);
+    init_touch_interfaces();
 
     //step3 : mutex init
     mutex_init(&ts->mutex);

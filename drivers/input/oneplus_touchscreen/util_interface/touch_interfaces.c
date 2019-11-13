@@ -149,14 +149,9 @@ int touch_i2c_write_block(struct i2c_client* client, u16 addr, unsigned short le
     msg[0].flags = 0;
     msg[0].buf = buffer;
 
-    if (!register_is_16bit) {	// if register is 8bit
-		msg[0].len = 1;
-		msg[0].buf[0] = addr & 0xff;
-    } else {
-		msg[0].len = 2;
-		msg[0].buf[0] = addr >> 8 & 0xff;
-		msg[0].buf[1] = addr * 0xff;
-    }
+    msg[0].len = length + 1;
+    msg[0].buf[0] = addr & 0xff;
+    memcpy(&buffer[1], &data[0], length);
 
     for (retry = 0; retry < MAX_I2C_RETRY_TIME; retry++) {
         if (i2c_transfer(client->adapter, msg, 1) == 1) {
@@ -185,7 +180,7 @@ int touch_i2c_read_byte(struct i2c_client* client, unsigned short addr)
     int retval = 0;
     unsigned char buf[2] = {0};
 
-    if (!client)    {
+    if (unlikely(!client))    {
         dump_stack();
         return -1;
     }
@@ -212,7 +207,7 @@ int touch_i2c_write_byte(struct i2c_client* client, unsigned short addr, unsigne
     int length_trans = 1;
     unsigned char data_send = data;
 
-    if (!client)    {
+    if (unlikely(!client))    {
         dump_stack();
         return -EINVAL;
     }
@@ -237,7 +232,7 @@ int touch_i2c_read_word(struct i2c_client* client, unsigned short addr)
     int retval;
     unsigned char buf[2] = {0};
 
-    if (!client)    {
+    if (unlikely(!client))    {
         dump_stack();
         return -EINVAL;
     }
@@ -263,7 +258,7 @@ int touch_i2c_write_word(struct i2c_client* client, unsigned short addr, unsigne
     int length_trans = 2;
     unsigned char buf[2] = {data & 0xff, (data >> 8) & 0xff};
 
-    if (!client)    {
+    if (unlikely(!client))    {
         dump_stack();
         return -EINVAL;
     }
@@ -291,7 +286,7 @@ int touch_i2c_read(struct i2c_client *client, char *writebuf, int writelen, char
     int retval = 0;
     int retry = 0;
 
-    if (client == NULL) {
+    if (unlikely(client == NULL)) {
         TPD_INFO("%s: i2c_client == NULL!\n", __func__);
         return -1;
     }
@@ -364,7 +359,7 @@ int touch_i2c_write(struct i2c_client *client, char *writebuf, int writelen)
     int retval = 0;
     int retry = 0;
 
-    if (client == NULL) {
+    if (unlikely(client == NULL)) {
         TPD_INFO("%s: i2c_client == NULL!", __func__);
         return -1;
     }
@@ -486,11 +481,9 @@ int32_t CTP_SPI_WRITE(struct spi_device *client, uint8_t *buf, uint16_t len)
 	return ret;
 }
 
-int init_touch_interfaces(struct device *dev, bool flag_register_16bit)
+int init_touch_interfaces(void)
 {
-	if (!flag_register_16bit)
-		rb_buffer = kzalloc(2, GFP_KERNEL | GFP_DMA);
-	else 
+	rb_buffer = kzalloc(2, GFP_KERNEL | GFP_DMA);
 
 	return 0;
 }
