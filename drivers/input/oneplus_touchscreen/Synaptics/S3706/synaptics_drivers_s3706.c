@@ -28,6 +28,7 @@ static int synaptics_get_chip_info(void *chip_data);
 static int synaptics_mode_switch(void *chip_data, work_mode mode, bool flag);
 static int synaptics_power_control(void *chip_data, bool enable);
 int gf_opticalfp_irq_handler(int event);
+char *tp_buf=NULL;
 #define PM_QOS_VALUE_TP 200
 struct pm_qos_request pm_qos_req_tp;
 struct touchpanel_data *syna_tp;
@@ -98,7 +99,6 @@ static int synaptics_get_touch_points(void *chip_data, struct point_info *points
 	int ret, i, obj_attention;
 	unsigned char fingers_to_process = max_num;
 	struct chip_data_s3706 *chip_info = (struct chip_data_s3706 *)chip_data;
-	char *buf = kzalloc(8 * max_num, GFP_KERNEL);
 
 	obj_attention = touch_i2c_read_word(chip_info->client, chip_info->reg_info.F12_2D_DATA15);
 	for (i = 9; ; i--) {
@@ -108,21 +108,19 @@ static int synaptics_get_touch_points(void *chip_data, struct point_info *points
 			fingers_to_process--;
 		}
 	}
-
-	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F12_2D_DATA_BASE, 8*fingers_to_process, buf);
+	memset(tp_buf, 0, 80);
+	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F12_2D_DATA_BASE, 8*fingers_to_process, tp_buf);
 	if (ret < 0) {
 		TPD_INFO("touch i2c read block failed\n");
-		kfree(buf);
 		return -1;
 	}
 	for (i = 0; i< fingers_to_process; i++) {
-		points[i].x = ((buf[i*8 + 2] & 0x0f) << 8) | (buf[i*8 + 1] & 0xff);
-		points[i].y = ((buf[i*8 + 4] & 0x0f) << 8) | (buf[i*8 + 3] & 0xff);
-		points[i].z = buf[i*8 + 5];
-		points[i].width_major = ((buf[i*8 + 6] & 0x0f) + (buf[i*8 + 7] & 0x0f)) / 2;
-		points[i].status = buf[i*8];
+		points[i].x = ((tp_buf[i*8 + 2] & 0x0f) << 8) | (tp_buf[i*8 + 1] & 0xff);
+		points[i].y = ((tp_buf[i*8 + 4] & 0x0f) << 8) | (tp_buf[i*8 + 3] & 0xff);
+		points[i].z = tp_buf[i*8 + 5];
+		points[i].width_major = ((tp_buf[i*8 + 6] & 0x0f) + (tp_buf[i*8 + 7] & 0x0f)) / 2;
+		points[i].status = tp_buf[i*8];
 	}
-	kfree(buf);
 	pm_qos_remove_request(&pm_qos_req_tp);
 	return obj_attention;
 }
@@ -5090,6 +5088,9 @@ static int synaptics_tp_probe(struct i2c_client *client, const struct i2c_device
 	ts->dev = &client->dev;
 	ts->chip_data = chip_info;
 	chip_info->hw_res = &ts->hw_res;
+	
+	if (!tp_buf)
+		tp_buf = kzalloc(80, GFP_KERNEL || GFP_DMA);
 
 	/*step4:file_operations callback binding*/
 	ts->ts_ops = &synaptics_ops;
