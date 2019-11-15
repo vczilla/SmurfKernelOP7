@@ -168,6 +168,7 @@ struct qmp_mbox {
 	struct completion ch_complete;
 	struct delayed_work dwork;
 	struct qmp_device *mdev;
+	bool suspend_flag;
 };
 
 /**
@@ -569,6 +570,11 @@ static void __qmp_rx_worker(struct qmp_mbox *mbox)
 		mbox->local_state = LINK_CONNECTED;
 		complete_all(&mbox->link_complete);
 		QMP_INFO(mdev->ilc, "Set to link connected\n");
+		if (mbox->suspend_flag == true) {
+			set_mcore_ch(mbox, QMP_MBOX_CH_CONNECTED);
+			mbox->local_state = LOCAL_CONNECTING;
+			send_irq(mbox->mdev);
+		}
 		break;
 	case LINK_CONNECTED:
 		if (desc.ucore.ch_state == desc.ucore.ch_state_ack) {
@@ -852,6 +858,7 @@ static int qmp_mbox_init(struct device_node *n, struct qmp_device *mdev)
 	mbox->tx_sent = false;
 	mbox->num_assigned = 0;
 	INIT_DELAYED_WORK(&mbox->dwork, qmp_notify_timeout);
+	mbox->suspend_flag = false;
 
 	mdev_add_mbox(mdev, mbox);
 	return 0;
