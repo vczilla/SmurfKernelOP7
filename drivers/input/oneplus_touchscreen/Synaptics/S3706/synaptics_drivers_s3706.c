@@ -5078,6 +5078,9 @@ static int synaptics_tp_probe(struct i2c_client *client, const struct i2c_device
 	}
 	memset(ts, 0, sizeof(*ts));
 
+	if (tp_buf == NULL)
+		tp_buf = kzalloc(80, GFP_KERNEL || GFP_DMA);
+
 	/*step3:binding client && dev for easy operate*/
 	chip_info->client = client;
 	chip_info->syna_ops = &synaptics_proc_ops;
@@ -5088,9 +5091,6 @@ static int synaptics_tp_probe(struct i2c_client *client, const struct i2c_device
 	ts->dev = &client->dev;
 	ts->chip_data = chip_info;
 	chip_info->hw_res = &ts->hw_res;
-	
-	if (!tp_buf)
-		tp_buf = kzalloc(80, GFP_KERNEL || GFP_DMA);
 
 	/*step4:file_operations callback binding*/
 	ts->ts_ops = &synaptics_ops;
