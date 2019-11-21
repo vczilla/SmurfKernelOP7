@@ -27,12 +27,19 @@ typedef enum {
 
 int touch_i2c_read_byte(struct i2c_client* client, u16 addr);
 int touch_i2c_write_byte(struct i2c_client* client, u16 addr, unsigned char data);
+int touch_i2c_read_byte_syna(struct i2c_client* client, u16 addr);
+int touch_i2c_write_byte_syna(struct i2c_client* client, u16 addr, unsigned char data);
 
 int touch_i2c_read_word(struct i2c_client* client, u16 addr);
 int touch_i2c_write_word(struct i2c_client* client, u16 addr, unsigned short data);
+int touch_i2c_read_word_syna(struct i2c_client* client, u16 addr);
+int touch_i2c_write_word_syna(struct i2c_client* client, u16 addr, unsigned short data);
 
 int touch_i2c_read_block(struct i2c_client* client, u16 addr, unsigned short length, unsigned char *data);
 int touch_i2c_write_block(struct i2c_client* client, u16 addr, unsigned short length, unsigned char const *data);
+int touch_i2c_read_block_syna(struct i2c_client* client, u16 addr, unsigned short length, unsigned char *data);
+int touch_i2c_write_block_syna(struct i2c_client* client, u16 addr, unsigned short length, unsigned char const *data);
+
 
 int touch_i2c_read(struct i2c_client *client, char *writebuf, int writelen, char *readbuf, int readlen);
 int touch_i2c_write(struct i2c_client *client, char *writebuf, int writelen);

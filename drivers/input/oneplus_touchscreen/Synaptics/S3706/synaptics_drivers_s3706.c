@@ -66,27 +66,27 @@ int tp_single_tap_en(struct chip_data_s3706 *ts, bool enable)
 {
 	uint8_t ret = 0;
 
-	ret = touch_i2c_write_byte(ts->client, 0xff, 0x04);
+	ret = touch_i2c_write_byte_syna(ts->client, 0xff, 0x04);
 	if (ret < 0)
 		return ret;
 	if (syna_tp->ctl_base_address)
 		return 0;
 	if (enable) {
-		//ret = touch_i2c_write_byte(ts->client,
+		//ret = touch_i2c_write_byte_syna(ts->client,
 		//		0x1F, 0x01);
-		ret = touch_i2c_write_byte(ts->client,
+		ret = touch_i2c_write_byte_syna(ts->client,
 				0x20, 0x1e);
-		ret = touch_i2c_write_byte(ts->client,
+		ret = touch_i2c_write_byte_syna(ts->client,
 				0x21, 0x1e);
-		ret = touch_i2c_write_byte(ts->client,
+		ret = touch_i2c_write_byte_syna(ts->client,
 				0x22, 0x32);
-		//ret = touch_i2c_write_word(ts->client,
+		//ret = touch_i2c_write_word_syna(ts->client,
 		//	F54_ANALOG_COMMAND_BASE, 0x04); // force update
 	} else
-		ret = touch_i2c_write_byte(ts->client,
+		ret = touch_i2c_write_byte_syna(ts->client,
 				0x1F, 0x00);
 
-	ret = touch_i2c_write_byte(ts->client, 0xff, 0x00);
+	ret = touch_i2c_write_byte_syna(ts->client, 0xff, 0x00);
 	if (ret < 0)
 		TPD_INFO("%s: set page 00 fail!\n", __func__);
 
@@ -100,7 +100,7 @@ static int synaptics_get_touch_points(void *chip_data, struct point_info *points
 	unsigned char fingers_to_process = max_num;
 	struct chip_data_s3706 *chip_info = (struct chip_data_s3706 *)chip_data;
 
-	obj_attention = touch_i2c_read_word(chip_info->client, chip_info->reg_info.F12_2D_DATA15);
+	obj_attention = touch_i2c_read_word_syna(chip_info->client, chip_info->reg_info.F12_2D_DATA15);
 	for (i = 9; ; i--) {
 		if ((obj_attention & 0x03FF) >> i  || i == 0) {
 			break;
@@ -145,7 +145,7 @@ static int synaptics_read_F54_base_reg(struct chip_data_s3706 *chip_info)
 	uint8_t *buf;
 	int ret = 0;
 	buf = (uint8_t *)kzalloc(4,GFP_KERNEL);
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x01);        /* page 1*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x01);        /* page 1*/
 	if (ret < 0) {
 		TPD_INFO("%s: failed for page select\n", __func__);
 		kfree(buf);
@@ -176,7 +176,7 @@ static int synaptics_get_chip_info(void *chip_data)
 
 	buf = (uint8_t *)kzalloc(4,GFP_KERNEL);
 	// memset(buf, 0, sizeof(buf));
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x0);   /* page 0*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x0);   /* page 0*/
 	if (ret < 0) {
 		TPD_INFO("%s: failed for page select\n", __func__);
 		kfree(buf);
@@ -248,7 +248,7 @@ static int synaptics_get_chip_info(void *chip_data)
 	reg_info->F12_2D_CMD00  = reg_info->F12_2D_CMD_BASE;        /*no use*/
 	reg_info->F12_2D_CTRL20 = reg_info->F12_2D_CTRL_BASE + 0x06;        /*no use*/
 	reg_info->F12_2D_CTRL27 = reg_info->F12_2D_CTRL_BASE + 0x09;        /*Roland, where is gesture type register*/
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x4);         /* page 4*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x4);         /* page 4*/
 	if (ret < 0) {
 		TPD_INFO("%s: failed for page select\n", __func__);
 		kfree(buf);
@@ -275,7 +275,7 @@ static int synaptics_get_chip_info(void *chip_data)
 	reg_info->F55_SENSOR_CTRL01 = 0x01;
 	reg_info->F55_SENSOR_CTRL02 = 0x02;
 	/* select page 0*/
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x00);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
 	kfree(buf);
 	return ret;
 }
@@ -291,7 +291,7 @@ static uint32_t synaptics_get_fw_id(struct chip_data_s3706 *chip_info)
 	uint8_t *buf;
 	uint32_t current_firmware = 0;
 	buf = (uint8_t *)kzalloc(4,GFP_KERNEL);
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x0);
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x0);
 	touch_i2c_read_block(chip_info->client, chip_info->reg_info.F34_FLASH_CTRL_BASE, 4, buf);
 	current_firmware = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
 	TPD_INFO("CURRENT_FIRMWARE_ID = 0x%x\n", current_firmware);
@@ -308,7 +308,7 @@ static fw_check_state synaptics_fw_check(void *chip_data, struct resolution_info
 	uint8_t *buf;
 	struct chip_data_s3706 *chip_info = (struct chip_data_s3706 *)chip_data;
 	buf = (uint8_t *)kzalloc(4,GFP_KERNEL);
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x00);
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
 
 	touch_i2c_read_block(chip_info->client, chip_info->reg_info.F12_2D_CTRL08, 4, buf);
 	max_x_ic = ((buf[1] << 8) & 0xffff) | (buf[0] & 0xffff);
@@ -319,7 +319,7 @@ static fw_check_state synaptics_fw_check(void *chip_data, struct resolution_info
 		resolution_info->max_y = max_y_ic;
 	}
 
-	bootloader_mode = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F01_RMI_DATA_BASE);
+	bootloader_mode = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_DATA_BASE);
 	bootloader_mode = bootloader_mode & 0xff;
 	bootloader_mode = bootloader_mode & 0x40;
 	TPD_INFO("%s, bootloader_mode = 0x%x\n", __func__, bootloader_mode);
@@ -351,7 +351,7 @@ static int synaptics_enable_interrupt(struct chip_data_s3706 *chip_info, bool en
 	uint8_t abs_status_int;
 
 	TPD_INFO("%s enter, enable = %d.\n", __func__, enable);
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x0);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x0);
 	if (ret < 0) {
 		TPD_INFO("%s: select page failed ret = %d\n", __func__, ret);
 		return -1;
@@ -359,7 +359,7 @@ static int synaptics_enable_interrupt(struct chip_data_s3706 *chip_info, bool en
 	if (enable) {
 		abs_status_int = 0x7f;
 		/*clear interrupt bits for previous touch*/
-		//ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F01_RMI_DATA01);
+		//ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_DATA01);
 		if (ret < 0) {
 			TPD_INFO("%s :clear interrupt bits failed\n", __func__);
 			return -1;
@@ -368,7 +368,7 @@ static int synaptics_enable_interrupt(struct chip_data_s3706 *chip_info, bool en
 		abs_status_int = 0x0;
 	}
 
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL01, abs_status_int);
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL01, abs_status_int);
 	if (ret < 0) {
 		TPD_INFO("%s: enable or disable abs interrupt failed, abs_int = %d\n", __func__, abs_status_int);
 		return -1;
@@ -397,8 +397,8 @@ static u8 synaptics_trigger_reason(void *chip_data, int gesture_enable, int is_s
 		return IRQ_IGNORE;
 	}
 #endif
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x0);
-	ret = touch_i2c_read_word(chip_info->client,
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x0);
+	ret = touch_i2c_read_word_syna(chip_info->client,
 			chip_info->reg_info.F01_RMI_DATA_BASE);
 	if (ret < 0) {
 		TPD_INFO("%s, i2c read error, ret = %d\n",
@@ -500,13 +500,13 @@ static int synaptics_configuration_init(struct chip_data_s3706 *chip_info, bool 
 	int ret = 0;
 
 	TPD_INFO("%s, configuration init = %d\n", __func__, config);
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x0); // page 0
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x0); // page 0
 	if (ret < 0) {
 		TPD_INFO("init_panel failed for page select\n");
 		return -1;
 	}
 
-	ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00);
+	ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00);
 	if (ret < 0) {
 		TPD_INFO("failed for get F01_RMI_CTRL00\n");
 		return -1;
@@ -514,13 +514,13 @@ static int synaptics_configuration_init(struct chip_data_s3706 *chip_info, bool 
 
 	//device control: normal operation
 	if (config) {//configed  && out of sleep mode
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, (ret & 0xf8) | 0x80);
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, (ret & 0xf8) | 0x80);
 		if (ret < 0) {
 			TPD_INFO("%s failed for mode select\n", __func__);
 			return -1;
 		}
 	} else {//sleep mode
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, (ret & 0xf8) | 0x81);
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, (ret & 0xf8) | 0x81);
 		if (ret < 0) {
 			TPD_INFO("%s failed for mode select\n", __func__);
 			return -1;
@@ -535,17 +535,17 @@ static int synaptics_glove_mode_enable(struct chip_data_s3706 *chip_info, bool e
 	int ret = 0;
 
 	TPD_INFO("%s, enable = %d\n", __func__, enable);
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x00);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
 	if (ret < 0) {
-		TPD_DEBUG("touch_i2c_write_byte failed for mode select\n");
+		TPD_DEBUG("touch_i2c_write_byte_syna failed for mode select\n");
 		return ret;
 	}
 
-	ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F12_2D_CTRL23);
+	ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F12_2D_CTRL23);
 	if (enable) {
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F12_2D_CTRL23, ret | 0x20);
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F12_2D_CTRL23, ret | 0x20);
 	} else {
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F12_2D_CTRL23, ret & 0xdf);
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F12_2D_CTRL23, ret & 0xdf);
 	}
 
 	return ret;
@@ -559,7 +559,7 @@ static int synaptics_enable_black_gesture(struct chip_data_s3706 *chip_info, boo
 
 	report_gesture_ctrl_buf = (unsigned char *)kzalloc(3, GFP_KERNEL);
 	TPD_INFO("%s, enable = %d\n", __func__, enable);
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x0);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x0);
 	if (ret < 0) {
 		TPD_INFO("%s: select page failed ret = %d\n", __func__, ret);
 		kfree(report_gesture_ctrl_buf);
@@ -572,16 +572,16 @@ static int synaptics_enable_black_gesture(struct chip_data_s3706 *chip_info, boo
 		report_gesture_ctrl_buf[2] |= 0x02;
 		chip_info->in_gesture_mode = 1;
 		/*set doze interval to 30ms*/
-		ret = touch_i2c_write_byte(chip_info->client,
+		ret = touch_i2c_write_byte_syna(chip_info->client,
 				chip_info->reg_info.F01_RMI_CTRL02, 0x3);
 	} else {
 		report_gesture_ctrl_buf[2] &= 0xfd;
 		chip_info->in_gesture_mode = 0;
 		/*set doze interval to 10ms*/
-		ret = touch_i2c_write_byte(chip_info->client,
+		ret = touch_i2c_write_byte_syna(chip_info->client,
 				chip_info->reg_info.F01_RMI_CTRL02, 0x1);
 	}
-	touch_i2c_write_block(chip_info->client,
+	touch_i2c_write_block_syna(chip_info->client,
 			chip_info->reg_info.F12_2D_CTRL20,
 			3, &(report_gesture_ctrl_buf[0x0]));
 
@@ -594,54 +594,54 @@ static int synaptics_limit_switch_mode(struct chip_data_s3706 *chip_info, bool e
 {
 	int ret = -1;
 
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x04);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x04);
 	if (syna_tp->limit_switch == 1) {
 		TPD_INFO("limit_switch is %d\n", syna_tp->limit_switch);
-		touch_i2c_write_byte(chip_info->client, 0x12, 0x00);
-		ret = touch_i2c_read_byte(chip_info->client, 0x12);
+		touch_i2c_write_byte_syna(chip_info->client, 0x12, 0x00);
+		ret = touch_i2c_read_byte_syna(chip_info->client, 0x12);
 		ret |= 0x05;
 //enable left and right corner limit
-		touch_i2c_write_byte(chip_info->client, 0x12, ret);
-		touch_i2c_write_byte(chip_info->client, 0x0C, 0x6F);
+		touch_i2c_write_byte_syna(chip_info->client, 0x12, ret);
+		touch_i2c_write_byte_syna(chip_info->client, 0x0C, 0x6F);
 	} else if (syna_tp->limit_switch == 3) {
 		TPD_INFO("limit_switch is %d\n", syna_tp->limit_switch);
-		touch_i2c_write_byte(chip_info->client, 0x12, 0x00);
-		ret  = touch_i2c_read_byte(chip_info->client, 0x12);
+		touch_i2c_write_byte_syna(chip_info->client, 0x12, 0x00);
+		ret  = touch_i2c_read_byte_syna(chip_info->client, 0x12);
 		ret |= 0x0A;
 //enable left and right corner limit
-		touch_i2c_write_byte(chip_info->client, 0x12, ret);
-		touch_i2c_write_byte(chip_info->client, 0x0C, 0x6F);
+		touch_i2c_write_byte_syna(chip_info->client, 0x12, ret);
+		touch_i2c_write_byte_syna(chip_info->client, 0x0C, 0x6F);
 	} else {
 		TPD_INFO("limit_switch is %d\n", syna_tp->limit_switch);
-		touch_i2c_write_byte(chip_info->client, 0x12, 0x00);
-		ret  = touch_i2c_read_byte(chip_info->client, 0x12);
+		touch_i2c_write_byte_syna(chip_info->client, 0x12, 0x00);
+		ret  = touch_i2c_read_byte_syna(chip_info->client, 0x12);
 		ret |= 0x03;
 //enable left and right corner limit
-		touch_i2c_write_byte(chip_info->client, 0x12, ret);
-		touch_i2c_write_byte(chip_info->client, 0x0C, 0x67);
+		touch_i2c_write_byte_syna(chip_info->client, 0x12, ret);
+		touch_i2c_write_byte_syna(chip_info->client, 0x0C, 0x67);
 	}
 
-	ret = touch_i2c_read_byte(chip_info->client, 0x0F);
+	ret = touch_i2c_read_byte_syna(chip_info->client, 0x0F);
 	TPD_INFO("ret is %d\n", ret);
 	if (ret == 40)
 		goto end;
 	else {
 //corner limit area is 80*80
-		touch_i2c_write_byte(chip_info->client, 0x0F, 0x28);
+		touch_i2c_write_byte_syna(chip_info->client, 0x0F, 0x28);
 //short edge area is 30
-		touch_i2c_write_byte(chip_info->client, 0x10, 0x0f);
+		touch_i2c_write_byte_syna(chip_info->client, 0x10, 0x0f);
 //set page 1
-		ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x01);
+		ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x01);
 		if (ret < 0) {
 			TPD_INFO("%s:set page 1 fail\n", __func__);
 			return ret;
 			}
 		/* force update*/
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);
 		msleep(20);
 	}
 end:
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x00);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
 	return ret;
 }
 
@@ -650,19 +650,19 @@ static int synaptics_gesture_switch_mode(struct chip_data_s3706 *chip_info, bool
 	int tmp_mod;
 	int ret;
 
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x00);
-	tmp_mod = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00);
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
+	tmp_mod = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00);
 	tmp_mod = tmp_mod & 0xF8;
 	if (enable) {//disable gesture,enter sleep
 		tmp_mod = tmp_mod | 0x81;
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, tmp_mod);
-		tmp_mod = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00);
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, tmp_mod);
+		tmp_mod = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00);
 		TPD_INFO("disable gesture, tmp_mod is %x\n", tmp_mod);
 		synaptics_enable_black_gesture(chip_info, 0);
 	} else {//enable gesture,exit sleep
 		tmp_mod = tmp_mod | 0x80;
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, tmp_mod);
-		tmp_mod = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00);
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, tmp_mod);
+		tmp_mod = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00);
 		TPD_INFO("enable gesture, tmp_mod is %x\n", tmp_mod);
 		synaptics_enable_black_gesture(chip_info, 1);
 	}
@@ -679,24 +679,24 @@ static int synaptics_enable_edge_limit(struct chip_data_s3706 *chip_info, bool e
 	int ret;
 
 	TPD_INFO("%s, edge limit enable = %d\n", __func__, enable);
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x04);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x04);
 	if (ret < 0) {
 		TPD_INFO("%s: select page failed ret = %d\n", __func__, ret);
 		return -1;
 	}
 
-	ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F51_CUSTOM_CTRL50);
+	ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F51_CUSTOM_CTRL50);
 	if (enable) {
 		ret |= 0x01;
 		TPD_INFO("enable is %d, ret = %d\n", enable, ret);
-		touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F51_CUSTOM_CTRL50, ret);
+		touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F51_CUSTOM_CTRL50, ret);
 	} else  {
 		ret &= 0xFE;
 		TPD_INFO("enable is %d, ret = %d\n", enable, ret);
-		touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F51_CUSTOM_CTRL50, ret);
+		touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F51_CUSTOM_CTRL50, ret);
 	}
 
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x00);
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
 
 	return ret;
 }
@@ -709,43 +709,43 @@ static int synaptics_enable_face_detect(struct chip_data_s3706 *chip_info, bool 
 
 	if (enable) {
 		//close doze
-		ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x00);
-		doze_status = touch_i2c_read_byte(chip_info->client, 0x0d);
+		ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
+		doze_status = touch_i2c_read_byte_syna(chip_info->client, 0x0d);
 		TPD_DEBUG("doze_status is 0x%x\n", doze_status);
 		doze_status = doze_status | 0x04;
 		TPD_DEBUG("doze_status is 0x%x\n", doze_status);
-		ret = touch_i2c_write_byte(chip_info->client, 0x0d,
+		ret = touch_i2c_write_byte_syna(chip_info->client, 0x0d,
 				doze_status);
 		msleep(120);
 		//enable fd
-		ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x04);
+		ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x04);
 		if (syna_tp->ctl_base_address) {
-			ret |= touch_i2c_write_byte(chip_info->client,
+			ret |= touch_i2c_write_byte_syna(chip_info->client,
 				chip_info->reg_info.F51_CUSTOM_DATA_BASE + 0x33, 0x01);
 		} else {
-			ret |= touch_i2c_write_byte(chip_info->client,
+			ret |= touch_i2c_write_byte_syna(chip_info->client,
 				chip_info->reg_info.F51_CUSTOM_DATA_BASE + 0x38, 0x01);
 		}
-		ret |= touch_i2c_write_byte(chip_info->client, 0xff, 0x00);
+		ret |= touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
 	} else {
 		//disable fd
-		ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x04);
+		ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x04);
 		if (syna_tp->ctl_base_address) {
-			ret |= touch_i2c_write_byte(chip_info->client,
+			ret |= touch_i2c_write_byte_syna(chip_info->client,
 				chip_info->reg_info.F51_CUSTOM_DATA_BASE + 0x33, 0x00);
 		} else {
-		ret |= touch_i2c_write_byte(chip_info->client,
+		ret |= touch_i2c_write_byte_syna(chip_info->client,
 				chip_info->reg_info.F51_CUSTOM_DATA_BASE + 0x38, 0x00);
 		}
 		//open doze
-		ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x00);
-		doze_status = touch_i2c_read_byte(chip_info->client, 0x0d);
+		ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
+		doze_status = touch_i2c_read_byte_syna(chip_info->client, 0x0d);
 		TPD_INFO("doze_status is 0x%x\n", doze_status);
 		doze_status = doze_status & 0xfb;
 		TPD_INFO("doze_status is 0x%x\n", doze_status);
-		ret = touch_i2c_write_byte(chip_info->client, 0x0d,
+		ret = touch_i2c_write_byte_syna(chip_info->client, 0x0d,
 				doze_status);
-		ret |= touch_i2c_write_byte(chip_info->client, 0xff, 0x00);
+		ret |= touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
 	}
 
 	TPD_INFO("%s state: %d %s\n", __func__,
@@ -758,17 +758,17 @@ static void synaptics_enable_charge_mode(struct chip_data_s3706 *chip_info, bool
 {
 	int ret = 0, arg = 0;
 
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x00);      //set page 0
-	ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);      //set page 0
+	ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00);
 
 	if(enable) {
 		arg = ret | 0x20;
 		TPD_DEBUG("%s enable is %d, arg is 0x%x\n", __func__, enable, arg);
-		touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, arg);
+		touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, arg);
 	} else {
 		arg = ret & 0xDF;
 		TPD_DEBUG("%s enable is %d, arg is 0x%x\n", __func__, enable, arg);
-		touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, arg);
+		touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, arg);
 	}
 }
 
@@ -778,7 +778,7 @@ static void synaptics_enable_game_mode(struct chip_data_s3706 *chip_info, bool e
 	uint8_t game_buffer[13];
 	struct touchpanel_data *ts = i2c_get_clientdata(chip_info->client);
 
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x00);      //set page 0
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);      //set page 0
 	if (ret < 0) {
 		TPD_INFO("%s:set page 0 fail\n",__func__);
 		return;
@@ -799,24 +799,24 @@ static void synaptics_enable_game_mode(struct chip_data_s3706 *chip_info, bool e
 		game_buffer[12] = 0x28;
 		TPD_DEBUG("%s disable is %d, arg is 0x%x\n", __func__, enable, game_buffer[12]);
 	}
-	ret = touch_i2c_write_block(chip_info->client, chip_info->reg_info.F12_2D_CTRL11, 13, &game_buffer[0]);
+	ret = touch_i2c_write_block_syna(chip_info->client, chip_info->reg_info.F12_2D_CTRL11, 13, &game_buffer[0]);
 	if (ret < 0) {
 		TPD_INFO("%s:F12_2D_CTRL11 fail\n",__func__);
 		return;
 	}
 
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x01);      //set page 1
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x01);      //set page 1
 	if (ret < 0) {
 		TPD_INFO("%s:set page 1 fail\n",__func__);
 		return;
 	}
 	TPD_INFO("%s:chip_info->reg_info.F54_ANALOG_COMMAND_BASE=0x%x\n",__func__, chip_info->reg_info.F54_ANALOG_COMMAND_BASE);
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);    /* force update*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);    /* force update*/
 	if (ret < 0) {
 		TPD_INFO("%s:force update fail\n",__func__);
 		return;
 	}
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x00);      //set page 0
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);      //set page 0
 	if (ret < 0) {
 		TPD_INFO("%s:set page 0 fail\n",__func__);
 		return;
@@ -837,49 +837,49 @@ static void synaptics_touchhold(struct chip_data_s3706 *chip_info, bool enable)
 {
 	int ret = -1;
 	int i = 0;
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x04);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x04);
 	if (ret < 0)
 		TPD_INFO("set page first fail!\n");
 
 	if (enable) {
 		for(i = 0; i < 10; i++) {
 			if (syna_tp->ctl_base_address && !syna_tp->tx_change_order) {
-				ret = touch_i2c_read_byte(chip_info->client, 0x29);
+				ret = touch_i2c_read_byte_syna(chip_info->client, 0x29);
 				ret |= 0x01;
 				chip_info->en_up_down = 1;
-				ret = touch_i2c_write_byte(chip_info->client,
+				ret = touch_i2c_write_byte_syna(chip_info->client,
 					0x29, ret);
 				msleep(10);
-				ret = touch_i2c_read_byte(chip_info->client, 0x29);
+				ret = touch_i2c_read_byte_syna(chip_info->client, 0x29);
 				if (ret == 1)
 					break;
 			} else {
-				ret = touch_i2c_read_byte(chip_info->client, 0x29);
+				ret = touch_i2c_read_byte_syna(chip_info->client, 0x29);
 				ret |= 0x01;
 				chip_info->en_up_down = 1;
-				ret = touch_i2c_write_byte(chip_info->client,
+				ret = touch_i2c_write_byte_syna(chip_info->client,
 					0x29, ret);
 				msleep(10);
-				ret = touch_i2c_read_byte(chip_info->client, 0x29);
+				ret = touch_i2c_read_byte_syna(chip_info->client, 0x29);
 				if (ret == 1)
 					break;
 			}
 		}
 	} else {
 		if (syna_tp->ctl_base_address && !syna_tp->tx_change_order) {
-			ret = touch_i2c_read_byte(chip_info->client, 0x29);
+			ret = touch_i2c_read_byte_syna(chip_info->client, 0x29);
 			ret &= 0xFE;
 			chip_info->en_up_down = 0;
-			ret = touch_i2c_write_byte(chip_info->client, 0x29, ret);
+			ret = touch_i2c_write_byte_syna(chip_info->client, 0x29, ret);
 		} else {
-			ret = touch_i2c_read_byte(chip_info->client, 0x29);
+			ret = touch_i2c_read_byte_syna(chip_info->client, 0x29);
 			ret &= 0xFE;
 			chip_info->en_up_down = 0;
-			ret = touch_i2c_write_byte(chip_info->client, 0x29, ret);
+			ret = touch_i2c_write_byte_syna(chip_info->client, 0x29, ret);
 		}
 	}
 
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x00);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
 	if (ret < 0)
 		TPD_INFO("set page first fail!\n");
 
@@ -1012,7 +1012,7 @@ static int synaptics_get_gesture_info(void *chip_data, struct gesture_info * ges
 
 	gesture_buffer = kzalloc(10 * sizeof(uint8_t), GFP_KERNEL);
 	coordinate_buf = kzalloc(25 * sizeof(uint8_t), GFP_KERNEL);
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x00);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
 	if (ret < 0) {
 		TPD_INFO("failed to transfer the data, ret = %d\n", ret);
 		kfree(gesture_buffer);
@@ -1027,14 +1027,14 @@ static int synaptics_get_gesture_info(void *chip_data, struct gesture_info * ges
 			chip_info->reg_info.F12_2D_DATA04, 5, &(gesture_buffer[0]));
 	TPD_INFO("F12_2D_DATA04 is %d\n", chip_info->reg_info.F12_2D_DATA04);
 	gesture_sign = gesture_buffer[0];
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x4);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x4);
 	/*get gesture coordinate and swipe type*/
 	ret = touch_i2c_read_block(chip_info->client,
 			chip_info->reg_info.F51_CUSTOM_DATA_BASE,
 			25, &(coordinate_buf[0]));
 
 	regswipe = coordinate_buf[24];
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x0);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x0);
 
 	/*detect the gesture mode*/
 	switch (gesture_sign) {
@@ -1145,7 +1145,7 @@ static int synaptics_power_control(void *chip_data, bool enable)
 		msleep(POWEWRUP_TO_RESET_TIME);
 		synaptics_resetgpio_set(chip_info->hw_res, true);
 		msleep(RESET_TO_NORMAL_TIME);
-		ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x0);   /* page 0*/
+		ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x0);   /* page 0*/
 		if (ret < 0) {
 			TPD_INFO("%s: failed for page select\n", __func__);
 			return -1;
@@ -1176,7 +1176,7 @@ static void checkCMD(struct chip_data_s3706 *chip_info, int retry_time)
 
 	do {
 		msleep(30); /*wait 10ms*/
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE);
 		ret = ret & 0x07;
 		flag_err++;
 	}while((ret > 0x00) && (flag_err < retry_time));
@@ -1192,7 +1192,7 @@ static int checkCMD_for_finger(struct chip_data_s3706 *chip_info)
 
 	do {
 		msleep(10); /*wait 10ms*/
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE);
 		flag_err++;
 	}while((ret > 0x00) && (flag_err < SPURIOUS_FP_BASE_DATA_RETRY));
 	TPD_INFO("checkCMD error ret is %x flag_err is %d\n", ret, flag_err);
@@ -1235,31 +1235,31 @@ static int synaptics_capacity_test(struct seq_file *s, struct chip_data_s3706 *c
 		sprintf(data_buf, "%s\n", "[RT20 Close CBC]");
 		sys_write(syna_testdata->fd, data_buf, strlen(data_buf));
 	}
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x14);/*select report type 0x14*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x14);/*select report type 0x14*/
 	if (ret < 0) {
-		TPD_INFO("[line:%d]read_baseline: touch_i2c_write_byte failed \n", __LINE__);
-		seq_printf(s, "[line:%d]read_baseline: touch_i2c_write_byte failed \n", __LINE__);
+		TPD_INFO("[line:%d]read_baseline: touch_i2c_write_byte_syna failed \n", __LINE__);
+		seq_printf(s, "[line:%d]read_baseline: touch_i2c_write_byte_syna failed \n", __LINE__);
 		error_count++;
 		return error_count;
 	}
 
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x14, 0x01);        /*No SignalClarity*/
-	ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17);                /*0125  CBC Xmtr carrier select*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x14, 0x01);        /*No SignalClarity*/
+	ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17);                /*0125  CBC Xmtr carrier select*/
 	tmp_arg1 = ret&0xff;
 
 	/*Close CBC*/
 	TPD_DEBUG("ret = %x, tmp_arg1 = %x, tmp_arg2 = %x\n", ret, tmp_arg1, (tmp_arg1 & 0xdf));
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17, (tmp_arg1 & 0xdf));/*Set CBC, F54_ANALOG_CTRL88, close CBC*/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);/*force update*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17, (tmp_arg1 & 0xdf));/*Set CBC, F54_ANALOG_CTRL88, close CBC*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);/*force update*/
 	checkCMD(chip_info, 30);
 	TPD_DEBUG("Test disable cbc\n");
 	baseline_data_test = (uint16_t *)(syna_testdata->fw->data + ph->array_limit_offset);
 
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0X02);/*force Cal*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0X02);/*force Cal*/
 	checkCMD(chip_info, 30);
 	TPD_DEBUG("Force Cal oK\n");
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 30);
 	TPD_INFO("key_TX is %d, key_RX is %d\n", syna_testdata->key_TX, syna_testdata->key_RX);
 	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3, syna_testdata->TX_NUM*syna_testdata->RX_NUM*2, raw_data);         /*read data*/
@@ -1316,33 +1316,33 @@ static int synaptics_capacity_test(struct seq_file *s, struct chip_data_s3706 *c
 		sys_write(syna_testdata->fd, data_buf, strlen(data_buf));
 	}
 
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x03);/*select report type 0x03*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x03);/*select report type 0x03*/
 	if (ret < 0) {
-		TPD_INFO("read_baseline: touch_i2c_write_byte failed \n");
+		TPD_INFO("read_baseline: touch_i2c_write_byte_syna failed \n");
 		error_count++;
 		//return error_count;
 	}
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x14, 0x01);        /*No SignalClarity*/
-	ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17);          /*0125  CBC Xmtr carrier select*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x14, 0x01);        /*No SignalClarity*/
+	ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17);          /*0125  CBC Xmtr carrier select*/
 	tmp_arg1 = ret&0xff;
 
 	TPD_DEBUG("ret = %x, tmp_arg1 = %x, tmp_arg2 = %x\n", ret, tmp_arg1, (tmp_arg1 | 0x10));
-	ret = touch_i2c_write_byte(chip_info->client,
+	ret = touch_i2c_write_byte_syna(chip_info->client,
 			chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x14, 0x00);          /* Disable No SignalClarity*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17, (tmp_arg1 | 0x10));        /*open CBC*/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17, (tmp_arg1 | 0x10));        /*open CBC*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);
 	checkCMD(chip_info, 30);
 	TPD_DEBUG("Test open cbc\n");
 	baseline_data_test = (uint16_t *)(syna_testdata->fw->data + ph->array_limitcbc_offset);
 	/******write No Relax to 1******/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04); /* force update*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04); /* force update*/
 	checkCMD(chip_info, 30);
 	TPD_DEBUG("forbid Forbid NoiseMitigation oK\n");
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0X02);/*force Cal*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0X02);/*force Cal*/
 	checkCMD(chip_info, 30);
 	TPD_DEBUG("Force Cal oK\n");
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 30);
 	TPD_INFO("F54_ANALOG_DATA_BASE %x \n",chip_info->reg_info.F54_ANALOG_DATA_BASE);
 	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3, syna_testdata->TX_NUM*syna_testdata->RX_NUM*2, raw_data);         /*read data*/
@@ -1389,7 +1389,7 @@ static int synaptics_capacity_test(struct seq_file *s, struct chip_data_s3706 *c
 		TPD_DEBUG_NTAG("\n");
 	}
 
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);
 	checkCMD(chip_info, 30);
 
 	return error_count;
@@ -1410,16 +1410,16 @@ static int synaptics_auto_test_rt25(struct seq_file *s, struct chip_data_s3706 *
 	buffer_tx = kzalloc(syna_testdata->TX_NUM * (sizeof(uint8_t)), GFP_KERNEL);
 	/*step 3 :check TRx-to-Ground, with rt25*/
 	TPD_INFO("step 3:check TRx-to-Ground, with rt25\n");
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x01);        /* page 1*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x19);/*select report type 25*/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x0);
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x01);        /* page 1*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x19);/*select report type 25*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x0);
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	/*msleep(100);*/
 	checkCMD(chip_info, 30);
 	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3, 7, buffer);
 
 	/*guomingqiang@phone.bsp, 2016-06-27, add for tp test step2*/
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x3);
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x3);
 	touch_i2c_read_block(chip_info->client, chip_info->reg_info.F55_SENSOR_CTRL01, syna_testdata->RX_NUM, buffer_rx);
 	touch_i2c_read_block(chip_info->client, chip_info->reg_info.F55_SENSOR_CTRL02, syna_testdata->TX_NUM, buffer_tx);
 
@@ -1481,19 +1481,19 @@ static int synaptics_auto_test_rt26(struct seq_file *s, struct chip_data_s3706 *
 
 	/*step 4 :check tx-to-tx and tx-to-vdd*/
 	TPD_INFO("step 4:check TRx-TRx & TRx-Vdd short\n");
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x01);        /* page 1*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x1A);/*select report type 26*/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x0);
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x01);        /* page 1*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x1A);/*select report type 26*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x0);
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	/*msleep(100);*/
 	checkCMD(chip_info, 30);
 	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3, 7, buffer);
 
 	/*guomingqiang@phone.bsp, 2016-06-27, add for tp test step2*/
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x3);                /*page 3*/
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x3);                /*page 3*/
 	touch_i2c_read_block(chip_info->client, chip_info->reg_info.F55_SENSOR_CTRL01, syna_testdata->RX_NUM, buffer_rx);
 	touch_i2c_read_block(chip_info->client, chip_info->reg_info.F55_SENSOR_CTRL02, syna_testdata->TX_NUM, buffer_tx);
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x1);                /*page 1*/
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x1);                /*page 1*/
 
 	TPD_INFO("RX_NUM : ");
 	for (i = 0; i< syna_testdata->RX_NUM; i++) {
@@ -1601,19 +1601,19 @@ static int synaptics_auto_test_rt100(struct seq_file *s, struct chip_data_s3706 
 
 	//step 5:check RT100 for pin 0,1,32,33
 	TPD_INFO("step 5:check RT100 for pin 0,1,32,33\n");
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x01);        /* page 1*/
-	ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE);         //read no scan
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x01);        /* page 1*/
+	ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE);         //read no scan
 	ret |= 0x02;
-	touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE, ret);           //set no scan
+	touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE, ret);           //set no scan
 
 	//set all local cbc to 0
-	touch_i2c_write_block(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x1D, syna_testdata->RX_NUM, &temp_data[0]);
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);    /* force update*/
+	touch_i2c_write_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x1D, syna_testdata->RX_NUM, &temp_data[0]);
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);    /* force update*/
 	checkCMD(chip_info, 30);
 
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x64);/*select report type 100*/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x0);
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x64);/*select report type 100*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x0);
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 30);
 	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3, syna_testdata->TX_NUM * syna_testdata->RX_NUM * 2, raw_data);         /*read raw data1*/
 
@@ -1631,9 +1631,9 @@ static int synaptics_auto_test_rt100(struct seq_file *s, struct chip_data_s3706 
 	}
 	/*end*/
 	//get logical pin
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x03);        /* page 3*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x03);        /* page 3*/
 	touch_i2c_read_block(chip_info->client, 0x01, syna_testdata->RX_NUM, &rx_assignment[0]);
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x01);        /* page 1*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x01);        /* page 1*/
 	for(i = 0; i < syna_testdata->RX_NUM; i++) {
 		if(rx_assignment[i] != 0xff) {
 			rx_physical[i] = rx_assignment[i];
@@ -1656,7 +1656,7 @@ static int synaptics_auto_test_rt100(struct seq_file *s, struct chip_data_s3706 
 		// 14. set local CBC to 8pf(2D) 3.5pf(0D)
 		temp_data[logical_pin] = 0x0f;          //EXTENDED_TRX_SHORT_CBC;
 
-		ret = touch_i2c_write_block(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x1D, syna_testdata->RX_NUM, &temp_data[0]);
+		ret = touch_i2c_write_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x1D, syna_testdata->RX_NUM, &temp_data[0]);
 		if (ret < 0) {
 			error_count++;
 			TPD_INFO("error: %s fail to set all F54 control_96 register after changing the cbc\n", __func__);
@@ -1665,13 +1665,13 @@ static int synaptics_auto_test_rt100(struct seq_file *s, struct chip_data_s3706 
 		temp_data[logical_pin] = 0;
 
 		// 15. force update
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);    /* force update*/
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);    /* force update*/
 		checkCMD(chip_info, 30);
 
 		// 16. read report type 100
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x64);/*select report type 100*/
-		ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x0);
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x64);/*select report type 100*/
+		ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x0);
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 		checkCMD(chip_info, 30);
 		ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3, syna_testdata->TX_NUM * syna_testdata->RX_NUM * 2, raw_data);         /*read raw data2*/
 
@@ -1760,16 +1760,16 @@ static int synaptics_auto_test_rt133(struct seq_file *s, struct chip_data_s3706 
 
 	/*Step 6 : Check the broken line with RT133*/
 	TPD_INFO("Step 6 : Check the broken line\n");
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x01);        /* page 1*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x85);/*select report type 0x85*/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x01);        /* page 1*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x85);/*select report type 0x85*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 30);
 
 	for (y = 0; y < syna_testdata->RX_NUM; y++) {
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
 		tmp_arg1 = ret & 0xff;
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
 		tmp_arg2 = ret & 0xff;
 		baseline_data = (tmp_arg2 << 8) | tmp_arg1;
 		TPD_INFO("Step 6 data[%d] is %d\n", y, baseline_data);
@@ -1800,15 +1800,15 @@ static int synaptics_auto_test_rt150(struct seq_file *s, struct chip_data_s3706 
 		sprintf(data_buf, "%s\n", "[RT150]");
 		sys_write(syna_testdata->fd, data_buf, strlen(data_buf));
 	}
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x01);        /* page 1*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x96);/*select report type RT150*/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x01);        /* page 1*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x96);/*select report type RT150*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 70);
 	for (y = 0; y < syna_testdata->RX_NUM + syna_testdata->TX_NUM - syna_testdata->key_TX - syna_testdata->key_RX; y++) {
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
 		tmp_arg1 = ret & 0xff;
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
 		tmp_arg2 = ret & 0xff;
 		unsigned_baseline_data = (tmp_arg2 << 8) | tmp_arg1;
 		if (syna_testdata->fd >= 0) {
@@ -1843,15 +1843,15 @@ static int synaptics_auto_test_rt154(struct seq_file *s, struct chip_data_s3706 
 		sprintf(data_buf, "%s\n", "[RT154]");
 		sys_write(syna_testdata->fd, data_buf, strlen(data_buf));
 	}
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x01);        /* page 1*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x9A);/*select report type 0xFE*/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x01);        /* page 1*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x9A);/*select report type 0xFE*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 30);
 	for (y = 0; y < chip_info->hw_res->RX_NUM + chip_info->hw_res->TX_NUM; y++) {
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
 		tmp_arg1 = ret & 0xff;
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
 		tmp_arg2 = ret & 0xff;
 		unsigned_baseline_data = (tmp_arg2 << 8) | tmp_arg1;
 		if (syna_testdata->fd >= 0) {
@@ -1892,20 +1892,20 @@ static int synaptics_auto_test_rt155(struct seq_file *s, struct chip_data_s3706 
 		sprintf(data_buf, "%s\n", "[RT155]");
 		sys_write(syna_testdata->fd, data_buf, strlen(data_buf));
 	}
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x01);        /* page 1*/
-	ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE);      /*get 0x10E status*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x01);        /* page 1*/
+	ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE);      /*get 0x10E status*/
 	ret |= 0x01;
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE, ret);       /*set no relax*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);    /* force update*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE, ret);       /*set no relax*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);    /* force update*/
 	checkCMD(chip_info, 30);
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x9B);/*select report type 0x9B*/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x9B);/*select report type 0x9B*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 30);
 	for (y = 0; y < chip_info->hw_res->RX_NUM + chip_info->hw_res->TX_NUM; y++) {
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
 		tmp_arg1 = ret & 0xff;
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
 		tmp_arg2 = ret & 0xff;
 		baseline_data = (tmp_arg2 << 8) | tmp_arg1;
 		if (syna_testdata->fd >= 0) {
@@ -2047,7 +2047,7 @@ static void synaptics_auto_test(struct seq_file *s, void *chip_data, struct syna
 	}
 	synaptics_reset(chip_info);
 	msleep(50);
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x00);        /* page 0*/
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);        /* page 0*/
 
 END:
 	kfree(data_buf);
@@ -2079,46 +2079,46 @@ static void synaptics_baseline_read(struct seq_file *s, void *chip_data)
 	synaptics_read_F54_base_reg(chip_info);
 	do {
 		if (enable_cbc) {
-			ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x03);/*select report type 0x03*/
+			ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x03);/*select report type 0x03*/
 		} else {
-			ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x14);/*select report type 0x14*/
+			ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x14);/*select report type 0x14*/
 		}
 		if (ret < 0) {
-			TPD_INFO("read_baseline: touch_i2c_write_byte failed \n");
+			TPD_INFO("read_baseline: touch_i2c_write_byte_syna failed \n");
 			seq_printf(s, "what the hell4, ");
 			goto END;
 		}
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x14, 0x01);        /*No SignalClarity*/
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17);
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x14, 0x01);        /*No SignalClarity*/
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17);
 		tmp_arg1 = ret & 0xff;
 
 		if (enable_cbc) {
 			seq_printf(s, "\nWith CBC:\n");
 			TPD_DEBUG("ret = %x, tmp_arg1 = %x, tmp_arg2 = %x\n", ret, tmp_arg1, (tmp_arg1 | 0x10));
-			ret = touch_i2c_write_byte(chip_info->client,
+			ret = touch_i2c_write_byte_syna(chip_info->client,
 					chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x14, 0x00);          /* Disable No SignalClarity*/
-			ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17, (tmp_arg1 | 0x10));
-			ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);
+			ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17, (tmp_arg1 | 0x10));
+			ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04);
 			checkCMD(chip_info, 30);
 			TPD_DEBUG("Test open cbc\n");
 		} else {
 			seq_printf(s, "\nWithout CBC:\n");
 			TPD_DEBUG("ret = %x, tmp_arg1 = %x, tmp_arg2 = %x\n", ret, tmp_arg1, (tmp_arg1 & 0xef));
-			ret = touch_i2c_write_byte(chip_info->client,
+			ret = touch_i2c_write_byte_syna(chip_info->client,
 					chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 20, 0x01);          /* Enable No SignalClarity*/
-			ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17, (tmp_arg1 & 0xef));
-			ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04); /* force update*/
-			ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 7, 0x01);/* Forbid NoiseMitigation*/
+			ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 0x17, (tmp_arg1 & 0xef));
+			ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04); /* force update*/
+			ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_CONTROL_BASE + 7, 0x01);/* Forbid NoiseMitigation*/
 		}
 		/******write No Relax to 1******/
-		ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04); /* force update*/
+		ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x04); /* force update*/
 		checkCMD(chip_info, 30);
 		TPD_DEBUG("forbid Forbid NoiseMitigation oK\n");
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0X02);/*force Cal*/
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0X02);/*force Cal*/
 		checkCMD(chip_info, 30);
 		TPD_DEBUG("Force Cal oK\n");
-		ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+		ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 		checkCMD(chip_info, 30);
 		ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3,
 				chip_info->hw_res->TX_NUM * chip_info->hw_res->RX_NUM * 2, raw_data);         /*read data*/
@@ -2153,8 +2153,8 @@ static void synaptics_reserve_read(struct seq_file *s, void *chip_data)
 	/*1.get firmware doze mode info*/
 	TPD_INFO("1.get firmware doze mode info\n");
 	seq_printf(s, "1.get firmware doze mode info\n");
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x04);        /* page 4*/
-	ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F51_CUSTOM_DATA_BASE + 0x1A);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x04);        /* page 4*/
+	ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F51_CUSTOM_DATA_BASE + 0x1A);
 	TPD_INFO("TP doze mode status is %d\n", ret);
 	seq_printf(s, "TP doze mode status is %d\n", ret);
 
@@ -2181,9 +2181,9 @@ static void synaptics_RT76_read(struct seq_file *s, void *chip_data)
 	/*disable irq when read data from IC*/
 	synaptics_read_F54_base_reg(chip_info);
 
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x4C);/*select report type 0x4C*/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x4C);/*select report type 0x4C*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 30);
 	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3,
 			chip_info->hw_res->TX_NUM * chip_info->hw_res->RX_NUM * 2, raw_data);         /*read data*/
@@ -2197,7 +2197,7 @@ static void synaptics_RT76_read(struct seq_file *s, void *chip_data)
 	}
 	seq_printf(s, "\n");
 
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x00);        /* page 0*/
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);        /* page 0*/
 	msleep(60);
 	kfree(raw_data);
 }
@@ -2217,15 +2217,15 @@ static void synaptics_RT251_read(struct seq_file *s, void *chip_data)
 	synaptics_read_F54_base_reg(chip_info);
 
 	/*Check RT252 for random touch event*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x96);/*select report type 0xFC*/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x96);/*select report type 0xFC*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 70);
 	seq_printf(s, "\n[RT252]");
 	for (y = 0; y < chip_info->hw_res->RX_NUM + chip_info->hw_res->TX_NUM - chip_info->hw_res->key_TX - chip_info->hw_res->key_RX; y++) {
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
 		tmp_arg1 = ret & 0xff;
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
 		tmp_arg2 = ret & 0xff;
 		RT_data = (tmp_arg2 << 8) | tmp_arg1;
 		seq_printf(s, "%hu, ", RT_data);
@@ -2233,22 +2233,22 @@ static void synaptics_RT251_read(struct seq_file *s, void *chip_data)
 	seq_printf(s, "\n");
 
 	/*Get RT254 info*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x9A);/*select report type 0xFE*/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x9A);/*select report type 0xFE*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 70);
 	seq_printf(s, "\n[RT254]");
 	for (y = 0; y < chip_info->hw_res->RX_NUM + chip_info->hw_res->TX_NUM - chip_info->hw_res->key_TX - chip_info->hw_res->key_RX; y++) {
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
 		tmp_arg1 = ret & 0xff;
-		ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
+		ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3);
 		tmp_arg2 = ret & 0xff;
 		RT_data = (tmp_arg2 << 8) | tmp_arg1;
 		seq_printf(s, "%hu, ", RT_data);
 	}
 	seq_printf(s, "\n");
 
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x00);        /* page 0*/
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);        /* page 0*/
 	synaptics_reset(chip_info);
 	msleep(60);
 }
@@ -2291,9 +2291,9 @@ static void synaptics_delta_read(struct seq_file *s, void *chip_data)
 	synaptics_read_F54_base_reg(chip_info);
 
 	/*TPD_DEBUG("\nstep 2:report type2 delta image\n");*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x02);/*select report type 0x02*/
-	ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
-	ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x02);/*select report type 0x02*/
+	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 30);
 	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3,
 			chip_info->hw_res->TX_NUM * chip_info->hw_res->RX_NUM * 2, raw_data);         /*read data*/
@@ -2309,9 +2309,9 @@ static void synaptics_delta_read(struct seq_file *s, void *chip_data)
 	msleep(10);
 
 	if (tp_debug != 0 && chip_info->d_log.data_logger_control== true) {
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0xC8);/*select report type 0xC8*/
-		ret = touch_i2c_write_word(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
-		ret = touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0xC8);/*select report type 0xC8*/
+		ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
+		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 		checkCMD(chip_info, 30);
 		ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3,
 				chip_info->hw_res->TX_NUM * chip_info->hw_res->RX_NUM * 2, raw_data);         /*read data*/
@@ -2326,7 +2326,7 @@ static void synaptics_delta_read(struct seq_file *s, void *chip_data)
 		seq_printf(s, "\n");
 	}
 
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x00);        /* page 0*/
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);        /* page 0*/
 	msleep(60);
 	kfree(raw_data);
 }
@@ -2460,7 +2460,7 @@ static int fwu_scan_pdt(struct chip_data_s3706 *chip_info)
 	rmi4_data->intr_mask[0] |= chip_info->fwu->intr_mask;           //Roland interrupts mode for write flash, like checkFlashState in 3508 notice
 
 	addr = rmi4_data->f01_ctrl_base_addr + 1;
-	retval = touch_i2c_write_block(chip_info->client,
+	retval = touch_i2c_write_block_syna(chip_info->client,
 			addr,
 			sizeof(rmi4_data->intr_mask[0]),
 			&(rmi4_data->intr_mask[0]));
@@ -2545,7 +2545,7 @@ static int fwu_write_f34_v7_partition_id(struct chip_data_s3706 *chip_info, unsi
 			return -EINVAL;
 	}
 
-	retval = touch_i2c_write_block(chip_info->client,
+	retval = touch_i2c_write_block_syna(chip_info->client,
 			data_base + chip_info->fwu->off.partition_id,
 			sizeof(partition),
 			&partition);
@@ -2713,7 +2713,7 @@ static int fwu_write_f34_v7_command_single_transaction(struct chip_data_s3706 *c
 	data_1_5.payload_0 = chip_info->fwu->bootloader_id[0];
 	data_1_5.payload_1 = chip_info->fwu->bootloader_id[1];
 
-	retval = touch_i2c_write_block(chip_info->client,
+	retval = touch_i2c_write_block_syna(chip_info->client,
 			data_base + chip_info->fwu->off.partition_id,
 			sizeof(data_1_5.data),
 			data_1_5.data);
@@ -2789,7 +2789,7 @@ static int fwu_write_f34_v7_command(struct chip_data_s3706 *chip_info, unsigned 
 			break;
 	}
 
-	retval = touch_i2c_write_block(chip_info->client,
+	retval = touch_i2c_write_block_syna(chip_info->client,
 			data_base + chip_info->fwu->off.flash_cmd,
 			sizeof(command),
 			&command);
@@ -2828,7 +2828,7 @@ static int fwu_read_f34_v7_partition_table(struct chip_data_s3706 *chip_info, un
 		return retval;
 	}
 
-	retval = touch_i2c_write_block(chip_info->client,
+	retval = touch_i2c_write_block_syna(chip_info->client,
 			data_base + chip_info->fwu->off.block_number,
 			sizeof(block_number),
 			(unsigned char *)&block_number);
@@ -2840,7 +2840,7 @@ static int fwu_read_f34_v7_partition_table(struct chip_data_s3706 *chip_info, un
 	length[0] = (unsigned char)(chip_info->fwu->flash_config_length & MASK_8BIT);
 	length[1] = (unsigned char)(chip_info->fwu->flash_config_length >> 8);
 
-	retval = touch_i2c_write_block(chip_info->client,
+	retval = touch_i2c_write_block_syna(chip_info->client,
 			data_base + chip_info->fwu->off.transfer_length,
 			sizeof(length),
 			length);
@@ -3664,7 +3664,7 @@ static int fwu_enter_flash_prog(struct chip_data_s3706 *chip_info)
 	f01_device_control.nosleep = true;
 	f01_device_control.sleep_mode = SLEEP_MODE_NORMAL;
 
-	retval = touch_i2c_write_block(chip_info->client,
+	retval = touch_i2c_write_block_syna(chip_info->client,
 			chip_info->fwu->rmi4_data->f01_ctrl_base_addr,
 			sizeof(f01_device_control.data),
 			f01_device_control.data);               //Roland set no sleep mode
@@ -3698,7 +3698,7 @@ static int fwu_write_f34_v7_blocks(struct chip_data_s3706 *chip_info, unsigned c
 		return retval;
 	}
 
-	retval = touch_i2c_write_block(chip_info->client,
+	retval = touch_i2c_write_block_syna(chip_info->client,
 			data_base + chip_info->fwu->off.block_number,
 			sizeof(block_number),
 			(unsigned char *)&block_number);
@@ -3717,7 +3717,7 @@ static int fwu_write_f34_v7_blocks(struct chip_data_s3706 *chip_info, unsigned c
 		length[0] = (unsigned char)(transfer & MASK_8BIT);
 		length[1] = (unsigned char)(transfer >> 8);
 
-		retval = touch_i2c_write_block(chip_info->client,
+		retval = touch_i2c_write_block_syna(chip_info->client,
 				data_base + chip_info->fwu->off.transfer_length,
 				sizeof(length),
 				length);
@@ -3753,7 +3753,7 @@ static int fwu_write_f34_v7_blocks(struct chip_data_s3706 *chip_info, unsigned c
 				write_size = left_bytes;
 			}
 
-			retval = touch_i2c_write_block(chip_info->client,
+			retval = touch_i2c_write_block_syna(chip_info->client,
 					data_base + chip_info->fwu->off.payload,
 					write_size,
 					block_ptr);
@@ -4290,7 +4290,7 @@ static int fwu_read_f34_v7_blocks(struct chip_data_s3706 *chip_info, unsigned sh
 	if (retval < 0)
 		return retval;
 
-	retval = touch_i2c_write_block(chip_info->client,
+	retval = touch_i2c_write_block_syna(chip_info->client,
 			data_base + chip_info->fwu->off.block_number,
 			sizeof(block_number),
 			(unsigned char *)&block_number);
@@ -4308,7 +4308,7 @@ static int fwu_read_f34_v7_blocks(struct chip_data_s3706 *chip_info, unsigned sh
 		length[0] = (unsigned char)(transfer & MASK_8BIT);
 		length[1] = (unsigned char)(transfer >> 8);
 
-		retval = touch_i2c_write_block(chip_info->client,
+		retval = touch_i2c_write_block_syna(chip_info->client,
 				data_base + chip_info->fwu->off.transfer_length,
 				sizeof(length),
 				length);
@@ -4745,21 +4745,21 @@ static fp_touch_state synaptics_spurious_fp_check(void *chip_data)
 		return fp_touch_state;
 	}
 
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x0);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x0);
 	if (ret < 0) {
 		TPD_INFO("%s, I2C transfer error\n", __func__);
 		goto OUT;
 	}
 
-	ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00);
+	ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00);
 	ret = (ret & 0xF8) | 0x80;
-	touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, ret);   /*exit sleep*/
+	touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F01_RMI_CTRL00, ret);   /*exit sleep*/
 	msleep(5);
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x1);
-	touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x7c);/*select report type 124*/
-	touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+1, 0x00);/*set LSB*/
-	touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+2, 0x00);/*set MSB*/
-	touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x1);
+	touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x7c);/*select report type 124*/
+	touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+1, 0x00);/*set LSB*/
+	touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+2, 0x00);/*set MSB*/
+	touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 
 	ret = checkCMD_for_finger(chip_info);
 	if (ret < 0) {
@@ -4792,9 +4792,9 @@ static fp_touch_state synaptics_spurious_fp_check(void *chip_data)
 	}
 
 	TPD_INFO("%s:%d chip_info->reg_info.F54_ANALOG_COMMAND_BASE=0x%x set 0, \n", __func__, __LINE__, chip_info->reg_info.F54_ANALOG_COMMAND_BASE); /*add for Prevent TP failure*/
-	touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0);
+	touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0);
 
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x0);
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x0);
 	if (ret < 0) {
 		TPD_INFO("%s, I2C transfer error, line=%d\n", __func__, __LINE__);
 	}
@@ -4813,8 +4813,8 @@ static u8 synaptics_get_keycode(void *chip_data)
 	u8 bitmap_result = 0;
 	struct chip_data_s3706 *chip_info = (struct chip_data_s3706 *)chip_data;
 
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x02);
-	ret = touch_i2c_read_byte(chip_info->client, 0x00);
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x02);
+	ret = touch_i2c_read_byte_syna(chip_info->client, 0x00);
 	TPD_INFO("touch key int_key code = %d\n", ret);
 
 	if (ret & 0x01)
@@ -4822,7 +4822,7 @@ static u8 synaptics_get_keycode(void *chip_data)
 	if (ret & 0x02)
 		SET_BIT(bitmap_result, BIT_BACK);
 
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x00);
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
 	return bitmap_result;
 }
 
@@ -4858,14 +4858,14 @@ static void synaptics_finger_proctect_data_get(void * chip_data)
 
 RE_TRY:
 	TPD_INFO("%s retry_time=%d line=%d\n", __func__, retry_time, __LINE__);
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x1);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x1);
 	if (ret < 0) {
 		TPD_INFO("%s, I2C transfer error\n", __func__);
 		kfree(raw_data);
 		raw_data = NULL;
 		return;
 	}
-	touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0X02); /*forcecal*/
+	touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0X02); /*forcecal*/
 	ret = checkCMD_for_finger(chip_info);
 	if (ret < 0) {
 		if (retry_time) {
@@ -4875,10 +4875,10 @@ RE_TRY:
 		}
 	}
 
-	touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x7c);/*select report type 0x02*/
-	touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+1, 0x00);/*set LSB*/
-	touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+2, 0x00);/*set MSB*/
-	touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
+	touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE, 0x7c);/*select report type 0x02*/
+	touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+1, 0x00);/*set LSB*/
+	touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+2, 0x00);/*set MSB*/
+	touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 
 	ret = checkCMD_for_finger(chip_info);
 	if (ret < 0) {
@@ -4909,9 +4909,9 @@ RE_TRY:
 	}
 
 	TPD_INFO("%s F54_ANALOG_COMMAND_BASE=0x%x set 0, \n", __func__, chip_info->reg_info.F54_ANALOG_COMMAND_BASE); /*add for Prevent TP failure*/
-	touch_i2c_write_byte(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0);
+	touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0);
 
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x0);   /* page 0*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x0);   /* page 0*/
 	if (ret < 0) {
 		TPD_INFO("%s, I2C transfer error\n", __func__);
 	}
@@ -4927,8 +4927,8 @@ static void synaptics_data_logger_get(void * chip_data)
 	struct chip_data_s3706 *chip_info = (struct chip_data_s3706 *)chip_data;
 
 	if (true == chip_info->d_log.data_logger_control) {
-		ret = touch_i2c_write_byte(chip_info->client, 0xff, (uint8_t)(chip_info->d_log.loglength_addr >> 8));        /* page 4*/
-		data_length = touch_i2c_read_byte(chip_info->client, (uint8_t)(chip_info->d_log.loglength_addr & 0xFF));
+		ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, (uint8_t)(chip_info->d_log.loglength_addr >> 8));        /* page 4*/
+		data_length = touch_i2c_read_byte_syna(chip_info->client, (uint8_t)(chip_info->d_log.loglength_addr & 0xFF));
 		if (data_length < 1 || data_length > 255) {
 			kfree(log_data);
 			return;
@@ -4941,7 +4941,7 @@ static void synaptics_data_logger_get(void * chip_data)
 			TPD_INFO("\n");
 		}
 
-		ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x0);        /* page 0*/
+		ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x0);        /* page 0*/
 	}
 	kfree(log_data);
 }
@@ -4953,18 +4953,18 @@ static void synaptics_data_logger_open(void * chip_data)
 	struct chip_data_s3706 *chip_info = (struct chip_data_s3706 *)chip_data;
 
 	/*Get status of IC log*/
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x04);        /* page 4*/
-	ret = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F51_CUSTOM_QUERY_BASE + 0x04);
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x04);        /* page 4*/
+	ret = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F51_CUSTOM_QUERY_BASE + 0x04);
 	TPD_INFO("F51_CUSTOM_QUERY05 is %d\n", ret);
 	if (1 == ret) {
 		chip_info->d_log.data_logger_control = true;
-		l_tmp = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F51_CUSTOM_QUERY_BASE + 0x05);
-		h_tmp = touch_i2c_read_byte(chip_info->client, chip_info->reg_info.F51_CUSTOM_QUERY_BASE + 0x06);
+		l_tmp = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F51_CUSTOM_QUERY_BASE + 0x05);
+		h_tmp = touch_i2c_read_byte_syna(chip_info->client, chip_info->reg_info.F51_CUSTOM_QUERY_BASE + 0x06);
 		chip_info->d_log.loglength_addr = (h_tmp << 8) | l_tmp;
 		chip_info->d_log.loginfo_addr = chip_info->d_log.loglength_addr + 1;
 		TPD_INFO("l_tmp = 0x%x h_tmp = 0x%x chip_info->d_log.loglength_addr = 0x%x chip_info->d_log.loginfo_addr = 0x%x\n", l_tmp, h_tmp, chip_info->d_log.loglength_addr, chip_info->d_log.loginfo_addr);
 	}
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, 0x00);        /* page 0*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);        /* page 0*/
 }
 
 static void synaptics_register_info_read(void * chip_data, uint16_t register_addr, uint8_t * result, uint8_t length)
@@ -4980,7 +4980,7 @@ static void synaptics_register_info_read(void * chip_data, uint16_t register_add
 		TPD_INFO("register_addr error!\n");
 		return;
 	}
-	ret = touch_i2c_write_byte(chip_info->client, 0xff, h_tmp);        /*set page*/
+	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, h_tmp);        /*set page*/
 	ret = touch_i2c_read_block(chip_info->client, l_tmp, length, result);         /*read data*/
 }
 
@@ -4995,15 +4995,15 @@ static int synaptics_get_face_state(void * chip_data)
 	struct chip_data_s3706 *chip_info = (struct chip_data_s3706 *)chip_data;
 
 	TPD_INFO("%s\n", __func__);
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x04);        /*set page*/
-	state = touch_i2c_read_byte(chip_info->client,
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x04);        /*set page*/
+	state = touch_i2c_read_byte_syna(chip_info->client,
 			chip_info->reg_info.F51_CUSTOM_DATA_BASE + 0x01);
 	TPD_INFO("state is %d\n", state);
 	if (state == 128)
 		state = 0;
 	else
 		state = 1;
-	touch_i2c_write_byte(chip_info->client, 0xff, 0x00);        /*set page*/
+	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);        /*set page*/
 
 	return state;
 }
