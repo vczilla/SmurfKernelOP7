@@ -601,6 +601,7 @@ extern bool tp_judge_ic_match(char * tp_ic_name);
 /* add haptic audio tp mask */
 extern int msm_drm_notifier_call_chain(unsigned long val, void *v);
 extern int gf_opticalfp_irq_handler(int event);
+bool __read_mostly isPro = true;
 
 #endif
 

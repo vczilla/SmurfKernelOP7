@@ -76,7 +76,7 @@ static int gesture_switch_value = 0;
 char *raw_tmp_data = NULL;
 char *self_tmp_data = NULL;
 struct point_info *points;
-
+bool __read_mostly isPro = true;
 
 /* add haptic audio tp mask */
 struct shake_point record_point[10];
@@ -88,22 +88,22 @@ int pointx[2] = {0, 0};
 int pointy[2] = {0, 0};
 #define ABS(a,b) ((a - b > 0) ? a - b : b - a)
 
-uint8_t DouTap_enable = 0;				 // double tap
-uint8_t UpVee_enable  = 0;				 // V
-uint8_t DownVee_enable  = 0;			 // ^
-uint8_t LeftVee_enable = 0; 			 // >
-uint8_t RightVee_enable = 0;			 // <
-uint8_t Circle_enable = 0;				 // O
-uint8_t DouSwip_enable = 0; 			 // ||
+uint8_t DouTap_enable = 1;				 // double tap
+uint8_t UpVee_enable  = 1;				 // V
+uint8_t DownVee_enable  = 1;			 // ^
+uint8_t LeftVee_enable = 1; 			 // >
+uint8_t RightVee_enable = 1;			 // <
+uint8_t Circle_enable = 1;				 // O
+uint8_t DouSwip_enable = 1; 			 // ||
 uint8_t Left2RightSwip_enable = 0;		 // -->
 uint8_t Right2LeftSwip_enable = 0;		 // <--
 uint8_t Up2DownSwip_enable = 0;			 // |v
 uint8_t Down2UpSwip_enable = 0;	
-uint8_t Mgestrue_enable = 0;			 // M
-uint8_t Wgestrue_enable = 0;			 // W
-uint8_t Sgestrue_enable = 0;			 // S
+uint8_t Mgestrue_enable = 1;			 // M
+uint8_t Wgestrue_enable = 1;			 // W
+uint8_t Sgestrue_enable = 1;			 // S
 uint8_t SingleTap_enable = 0;			 // single tap
-uint8_t Enable_gesture = 0;
+uint8_t Enable_gesture = 1;
 
 /*******Part2:declear Area********************************/
 
@@ -754,6 +754,143 @@ static void tp_touch_handle(struct touchpanel_data *ts)
     ts->touch_count = finger_num;
 }
 
+static void tp_touch_handle_syna(struct touchpanel_data *ts)
+{
+    int i = 0;
+    uint8_t finger_num = 0, touch_near_edge = 0;
+    int obj_attention = 0;
+    struct point_info *points;
+    struct corner_info corner[4];
+    static struct point_info last_point = {.x = 0, .y = 0};
+    static int touch_report_num = 0;
+    struct msm_drm_notifier notifier_data;
+    /* add haptic audio tp mask */
+    int bank;
+    int record_flag[10] = {0};
+    /* add haptic audio tp mask end */
+
+    if (!ts->ts_ops->get_touch_points) {
+        TPD_INFO("not support ts->ts_ops->get_touch_points callback\n");
+        return;
+    }
+
+	points= kzalloc(sizeof(struct point_info)*ts->max_num, GFP_KERNEL);
+	if (!points) {
+		TPD_INFO("points kzalloc failed\n");
+		return;
+	}
+    memset(corner, 0, sizeof(corner));
+	if (ts->reject_point) {		//sensor will reject point when call mode.
+		if (ts->touch_count) {
+			#ifdef TYPE_B_PROTOCOL
+				for (i = 0; i < ts->max_num; i++) {
+					input_mt_slot(ts->input_dev, i);
+					input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, 0);
+				}
+			#endif
+				input_report_key(ts->input_dev, BTN_TOUCH, 0);
+				input_report_key(ts->input_dev, BTN_TOOL_FINGER, 0);
+			#ifndef TYPE_B_PROTOCOL
+				input_mt_sync(ts->input_dev);
+			#endif
+				input_sync(ts->input_dev);
+		}
+		kfree(points);
+		return;
+	}
+    obj_attention = ts->ts_ops->get_touch_points(ts->chip_data, points, ts->max_num);
+    if ((obj_attention & TOUCH_BIT_CHECK) != 0) {
+        for (i = 0; i < ts->max_num; i++) {
+            if (((obj_attention & TOUCH_BIT_CHECK) >> i) & 0x01 && (points[i].status == 0)) // buf[0] == 0 is wrong point, no process
+                continue;
+            if (((obj_attention & TOUCH_BIT_CHECK) >> i) & 0x01 && (points[i].status != 0)) {
+                //Edge process before report abs
+                if (ts->edge_limit_support) {
+                    if (ts->corner_delay_up < 1 && corner_point_process(ts, corner, points, i))
+                        continue;
+                    if (edge_point_process(ts, points[i]))
+                        continue;
+                }
+#ifdef TYPE_B_PROTOCOL
+                input_mt_slot(ts->input_dev, i);
+                input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, 1);
+#endif
+                touch_report_num++;
+                tp_touch_down(ts, points[i], touch_report_num, i);
+                /* add haptic audio tp mask */
+                /*bank = points[i].status;*/
+                bank = i;
+                notifier_data.data = &bank;
+                record_point[i].status = 1;
+                record_point[i].x = points[i].x;
+                record_point[i].y = points[i].y;
+                record_flag[i] = 1;
+                msm_drm_notifier_call_chain(11, &notifier_data);	//down;
+                /* add haptic audio tp mask end */
+                SET_BIT(ts->irq_slot, (1<<i));
+                finger_num++;
+                if (points[i].x > ts->resolution_info.max_x / 100 && points[i].x < ts->resolution_info.max_x * 99 / 100) {
+                    ts->view_area_touched = finger_num;
+                } else {
+                    touch_near_edge++;
+                }
+                /*strore  the last point data*/
+                memcpy(&last_point, &points[i], sizeof(struct point_info));
+            }
+#ifdef TYPE_B_PROTOCOL
+            else {
+                input_mt_slot(ts->input_dev, i);
+                input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, 0);
+                bank = i;
+                notifier_data.data = &bank;
+                record_point[i].status = 0;
+                msm_drm_notifier_call_chain(10, &notifier_data);    //up;
+                record_flag[i] = 0;
+                /* add haptic audio tp mak */
+            }
+#endif
+        }
+
+        if(ts->corner_delay_up > -1) {
+                TPD_DETAIL("corner_delay_up is %d\n", ts->corner_delay_up);
+        }
+        ts->corner_delay_up = ts->corner_delay_up > 0 ? ts->corner_delay_up - 1 : ts->corner_delay_up;
+        if (touch_near_edge == finger_num) {        //means all the touchpoint is near the edge
+            ts->view_area_touched = 0;
+        }
+        if(ts->ear_sense_support && ts->es_enable && (finger_num > ts->touch_count)) {
+            ts->delta_state = TYPE_DELTA_BUSY;
+            queue_work(ts->delta_read_wq, &ts->read_delta_work);
+        }
+    } else {
+        finger_num = 0;
+        touch_report_num = 0;
+#ifdef TYPE_B_PROTOCOL
+        for (i = 0; i < ts->max_num; i++) {
+            input_mt_slot(ts->input_dev, i);
+            input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, 0);
+            /* add haptic audio tp mask */
+            bank = i;
+            notifier_data.data = &bank;
+            record_point[i].status = 0;
+            msm_drm_notifier_call_chain(0, &notifier_data);
+            /* add haptic audio tp mask end */
+        }
+#endif
+        tp_touch_up(ts);
+        ts->view_area_touched = 0;
+        ts->irq_slot = 0;
+        ts->corner_delay_up = -1;
+        TPD_DETAIL("all touch up,view_area_touched=%d finger_num=%d\n",ts->view_area_touched, finger_num);
+        TPD_DETAIL("last point x:%d y:%d\n", last_point.x, last_point.y);
+        if (ts->edge_limit_support)
+            ts->edge_limit.in_which_area = AREA_NOTOUCH;
+    }
+    input_sync(ts->input_dev);
+    ts->touch_count = finger_num;
+	kfree(points);
+}
+
 static void tp_btnkey_release(struct touchpanel_data *ts)
 {
     if (CHK_BIT(ts->vk_bitmap, BIT_MENU))
@@ -886,7 +1023,10 @@ static void tp_work_func(struct touchpanel_data *ts)
             tp_btnkey_handle(ts);
         }
         if (CHK_BIT(cur_event, IRQ_TOUCH)) {
-            tp_touch_handle(ts);
+	    if (likely(isPro))
+            	tp_touch_handle(ts);
+	    else
+		tp_touch_handle_syna(ts);
         }
         if (CHK_BIT(cur_event, IRQ_DATA_LOGGER)) {
             tp_datalogger_handle(ts);
@@ -3784,7 +3924,6 @@ static void init_parse_dts(struct device *dev, struct touchpanel_data *ts)
     if (rc) {
         ts->max_num = 10;
     }
-    points= kzalloc(sizeof(struct point_info)*ts->max_num, GFP_KERNEL);
 
     rc = of_property_read_u32_array(np, "touchpanel,tx-rx-num", tx_rx_num, 2);
     if (rc) {
@@ -3803,9 +3942,6 @@ static void init_parse_dts(struct device *dev, struct touchpanel_data *ts)
         ts->hw_res.EARSENSE_TX_NUM = tx_rx_num[0];
         ts->hw_res.EARSENSE_RX_NUM = tx_rx_num[1];
     }
-
-    raw_tmp_data = kzalloc(2 * ts->hw_res.EARSENSE_TX_NUM * ts->hw_res.EARSENSE_RX_NUM ,GFP_KERNEL);
-    self_tmp_data = kzalloc(2*(ts->hw_res.TX_NUM + ts->hw_res.RX_NUM),GFP_KERNEL);
 
     rc = of_property_read_u32_array(np, "touchpanel,display-coords", temp_array, 2);
     if (rc) {
@@ -4273,6 +4409,15 @@ int register_common_touch_device(struct touchpanel_data *pdata)
 		ts->ts_ops->get_vendor(ts->chip_data, &ts->panel_data);
 	}
 
+    if (strncmp(ts->panel_data.manufacture_info.manufacture,"SEC_SY761",9)) {
+	isPro = true;
+	raw_tmp_data = kzalloc(2 * ts->hw_res.EARSENSE_TX_NUM * ts->hw_res.EARSENSE_RX_NUM ,GFP_KERNEL | GFP_DMA);
+        self_tmp_data = kzalloc(2*(ts->hw_res.TX_NUM + ts->hw_res.RX_NUM),GFP_KERNEL | GFP_DMA);
+        points= kzalloc(sizeof(struct point_info)*ts->max_num, GFP_KERNEL | GFP_DMA);
+    } else {
+	isPro = false;
+    }
+
     //step10:get chip info
     if (!ts->ts_ops->get_chip_info) {
         ret = -EINVAL;
@@ -4393,7 +4538,7 @@ int register_common_touch_device(struct touchpanel_data *pdata)
         mutex_init(&ts->mutex_earsense);    // init earsense operate mutex
 
         //malloc space for storing earsense delta
-        ts->earsense_delta = kzalloc(2 * ts->hw_res.EARSENSE_TX_NUM * ts->hw_res.EARSENSE_RX_NUM, GFP_KERNEL);
+        ts->earsense_delta = kzalloc(2 * ts->hw_res.EARSENSE_TX_NUM * ts->hw_res.EARSENSE_RX_NUM, GFP_KERNEL | GFP_DMA);
         if (ts->earsense_delta == NULL) {
             ret = -ENOMEM;
             goto threaded_irq_free;
