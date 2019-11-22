@@ -1,1 +1,2 @@
-obj-y += perf/ shs/
+obj-y += perf/
+obj-y += shs/
