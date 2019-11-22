@@ -451,7 +451,6 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -std=gnu89
 KBUILD_CFLAGS	+= -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common -fshort-wchar -std=gnu89 $(call cc-option,-fno-PIE) \
-		   -mcpu=kryo -mtune=kryo \
 		   -mcpu=cortex-a76.cortex-a55+crypto -mtune=cortex-a76.cortex-a55 -fdiagnostics-color=always \
 		   -Wno-attribute-alias -fno-common -fshort-wchar -floop-nest-optimize -fgraphite-identity \
 		   -ftree-loop-distribution -floop-parallelize-all -floop-interchange -floop-block \
