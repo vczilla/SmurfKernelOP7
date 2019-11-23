@@ -109,7 +109,7 @@ static int synaptics_get_touch_points(void *chip_data, struct point_info *points
 		}
 	}
 	memset(tp_buf, 0, 80);
-	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F12_2D_DATA_BASE, 8*fingers_to_process, tp_buf);
+	ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F12_2D_DATA_BASE, 8*fingers_to_process, tp_buf);
 	if (ret < 0) {
 		TPD_INFO("touch i2c read block failed\n");
 		return -1;
@@ -151,7 +151,7 @@ static int synaptics_read_F54_base_reg(struct chip_data_s3706 *chip_info)
 		kfree(buf);
 		return -1;
 	}
-	ret = touch_i2c_read_block(chip_info->client, 0xE9, 4, &(buf[0x0]));
+	ret = touch_i2c_read_block_syna(chip_info->client, 0xE9, 4, &(buf[0x0]));
 	chip_info->reg_info.F54_ANALOG_QUERY_BASE = buf[0];
 	chip_info->reg_info.F54_ANALOG_COMMAND_BASE = buf[1];
 	chip_info->reg_info.F54_ANALOG_CONTROL_BASE = buf[2];
@@ -182,7 +182,7 @@ static int synaptics_get_chip_info(void *chip_data)
 		kfree(buf);
 		return -1;
 	}
-	ret = touch_i2c_read_block(chip_info->client, 0xDD, 4, &(buf[0x0]));
+	ret = touch_i2c_read_block_syna(chip_info->client, 0xDD, 4, &(buf[0x0]));
 	if (ret < 0) {
 		TPD_INFO("failed for page select!\n");
 		kfree(buf);
@@ -201,7 +201,7 @@ static int synaptics_get_chip_info(void *chip_data)
 			reg_info->F12_2D_QUERY_BASE, reg_info->F12_2D_CMD_BASE,
 			reg_info->F12_2D_CTRL_BASE,  reg_info->F12_2D_DATA_BASE);
 
-	ret = touch_i2c_read_block(chip_info->client, 0xE3, 4, &(buf[0x0]));
+	ret = touch_i2c_read_block_syna(chip_info->client, 0xE3, 4, &(buf[0x0]));
 	reg_info->F01_RMI_QUERY_BASE = buf[0];
 	reg_info->F01_RMI_CMD_BASE = buf[1];
 	reg_info->F01_RMI_CTRL_BASE = buf[2];
@@ -213,7 +213,7 @@ static int synaptics_get_chip_info(void *chip_data)
 			reg_info->F01_RMI_QUERY_BASE, reg_info->F01_RMI_CMD_BASE,
 			reg_info->F01_RMI_CTRL_BASE,  reg_info->F01_RMI_DATA_BASE);
 
-	ret = touch_i2c_read_block(chip_info->client, 0xE9, 4, &(buf[0x0]));
+	ret = touch_i2c_read_block_syna(chip_info->client, 0xE9, 4, &(buf[0x0]));
 	reg_info->F34_FLASH_QUERY_BASE = buf[0];
 	reg_info->F34_FLASH_CMD_BASE = buf[1];
 	reg_info->F34_FLASH_CTRL_BASE = buf[2];
@@ -254,7 +254,7 @@ static int synaptics_get_chip_info(void *chip_data)
 		kfree(buf);
 		return -1;
 	}
-	ret = touch_i2c_read_block(chip_info->client, 0xE9, 4, &(buf[0x0]));
+	ret = touch_i2c_read_block_syna(chip_info->client, 0xE9, 4, &(buf[0x0]));
 	reg_info->F51_CUSTOM_QUERY_BASE = buf[0];
 	reg_info->F51_CUSTOM_CMD_BASE   = buf[1];
 	reg_info->F51_CUSTOM_CTRL_BASE  = buf[2];
@@ -292,7 +292,7 @@ static uint32_t synaptics_get_fw_id(struct chip_data_s3706 *chip_info)
 	uint32_t current_firmware = 0;
 	buf = (uint8_t *)kzalloc(4,GFP_KERNEL);
 	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x0);
-	touch_i2c_read_block(chip_info->client, chip_info->reg_info.F34_FLASH_CTRL_BASE, 4, buf);
+	touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F34_FLASH_CTRL_BASE, 4, buf);
 	current_firmware = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
 	TPD_INFO("CURRENT_FIRMWARE_ID = 0x%x\n", current_firmware);
 	kfree(buf);
@@ -310,7 +310,7 @@ static fw_check_state synaptics_fw_check(void *chip_data, struct resolution_info
 	buf = (uint8_t *)kzalloc(4,GFP_KERNEL);
 	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x00);
 
-	touch_i2c_read_block(chip_info->client, chip_info->reg_info.F12_2D_CTRL08, 4, buf);
+	touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F12_2D_CTRL08, 4, buf);
 	max_x_ic = ((buf[1] << 8) & 0xffff) | (buf[0] & 0xffff);
 	max_y_ic = ((buf[3] << 8) & 0xffff) | (buf[2] & 0xffff);
 	TPD_INFO("max_x = %d, max_y = %d, max_x_ic = %d, max_y_ic = %d\n", resolution_info->max_x, resolution_info->max_y, max_x_ic, max_y_ic);
@@ -413,7 +413,7 @@ static u8 synaptics_trigger_reason(void *chip_data, int gesture_enable, int is_s
 	if (interrupt_status & 0x04) {
 		if (chip_info->en_up_down &&
 				chip_info->in_gesture_mode == 0) {
-			ret = touch_i2c_read_block(chip_info->client,
+			ret = touch_i2c_read_block_syna(chip_info->client,
 					0x000A, 5, &(touchold_buffer[0]));
 			if (ret < 0) {
 				TPD_INFO("%s,i2c error,ret = %d\n",
@@ -565,7 +565,7 @@ static int synaptics_enable_black_gesture(struct chip_data_s3706 *chip_info, boo
 		kfree(report_gesture_ctrl_buf);
 		return -EINVAL;
 	}
-	touch_i2c_read_block(chip_info->client,
+	touch_i2c_read_block_syna(chip_info->client,
 			chip_info->reg_info.F12_2D_CTRL20,
 			3, &(report_gesture_ctrl_buf[0x0]));
 	if (enable) {
@@ -784,7 +784,7 @@ static void synaptics_enable_game_mode(struct chip_data_s3706 *chip_info, bool e
 		return;
 	}
 
-	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F12_2D_CTRL11, 13, &(game_buffer[0]));      /*get noise*/
+	ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F12_2D_CTRL11, 13, &(game_buffer[0]));      /*get noise*/
 	if (ret < 0) {
 		TPD_INFO("%s:get noise fail\n",__func__);
 		return;
@@ -823,7 +823,7 @@ static void synaptics_enable_game_mode(struct chip_data_s3706 *chip_info, bool e
 	}
 
 
-	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F12_2D_CTRL11, 13, &(game_buffer[0]));      /*get noise*/
+	ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F12_2D_CTRL11, 13, &(game_buffer[0]));      /*get noise*/
 	if (ret < 0) {
 		TPD_INFO("%s:get noise fail\n",__func__);
 		return;
@@ -1023,13 +1023,13 @@ static int synaptics_get_gesture_info(void *chip_data, struct gesture_info * ges
 		return -EINVAL;
 	}
 	/*get gesture type*/
-	ret = touch_i2c_read_block(chip_info->client,
+	ret = touch_i2c_read_block_syna(chip_info->client,
 			chip_info->reg_info.F12_2D_DATA04, 5, &(gesture_buffer[0]));
 	TPD_INFO("F12_2D_DATA04 is %d\n", chip_info->reg_info.F12_2D_DATA04);
 	gesture_sign = gesture_buffer[0];
 	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x4);
 	/*get gesture coordinate and swipe type*/
-	ret = touch_i2c_read_block(chip_info->client,
+	ret = touch_i2c_read_block_syna(chip_info->client,
 			chip_info->reg_info.F51_CUSTOM_DATA_BASE,
 			25, &(coordinate_buf[0]));
 
@@ -1262,7 +1262,7 @@ static int synaptics_capacity_test(struct seq_file *s, struct chip_data_s3706 *c
 	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 30);
 	TPD_INFO("key_TX is %d, key_RX is %d\n", syna_testdata->key_TX, syna_testdata->key_RX);
-	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3, syna_testdata->TX_NUM*syna_testdata->RX_NUM*2, raw_data);         /*read data*/
+	ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3, syna_testdata->TX_NUM*syna_testdata->RX_NUM*2, raw_data);         /*read data*/
 	for (x = 0; x < syna_testdata->TX_NUM; x++) {
 		TPD_DEBUG_NTAG("[%d]: ", x);
 		for (y = 0; y < syna_testdata->RX_NUM; y++) {
@@ -1345,7 +1345,7 @@ static int synaptics_capacity_test(struct seq_file *s, struct chip_data_s3706 *c
 	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 30);
 	TPD_INFO("F54_ANALOG_DATA_BASE %x \n",chip_info->reg_info.F54_ANALOG_DATA_BASE);
-	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3, syna_testdata->TX_NUM*syna_testdata->RX_NUM*2, raw_data);         /*read data*/
+	ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3, syna_testdata->TX_NUM*syna_testdata->RX_NUM*2, raw_data);         /*read data*/
 	count = 0;
 	for (x = 0; x < syna_testdata->TX_NUM; x++) {
 		TPD_DEBUG_NTAG("[%d]: ", x);
@@ -1416,12 +1416,12 @@ static int synaptics_auto_test_rt25(struct seq_file *s, struct chip_data_s3706 *
 	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	/*msleep(100);*/
 	checkCMD(chip_info, 30);
-	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3, 7, buffer);
+	ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3, 7, buffer);
 
 	/*guomingqiang@phone.bsp, 2016-06-27, add for tp test step2*/
 	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x3);
-	touch_i2c_read_block(chip_info->client, chip_info->reg_info.F55_SENSOR_CTRL01, syna_testdata->RX_NUM, buffer_rx);
-	touch_i2c_read_block(chip_info->client, chip_info->reg_info.F55_SENSOR_CTRL02, syna_testdata->TX_NUM, buffer_tx);
+	touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F55_SENSOR_CTRL01, syna_testdata->RX_NUM, buffer_rx);
+	touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F55_SENSOR_CTRL02, syna_testdata->TX_NUM, buffer_tx);
 
 	TPD_INFO("RX_NUM : ");
 	for (i = 0; i< syna_testdata->RX_NUM; i++) {
@@ -1487,12 +1487,12 @@ static int synaptics_auto_test_rt26(struct seq_file *s, struct chip_data_s3706 *
 	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	/*msleep(100);*/
 	checkCMD(chip_info, 30);
-	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3, 7, buffer);
+	ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3, 7, buffer);
 
 	/*guomingqiang@phone.bsp, 2016-06-27, add for tp test step2*/
 	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x3);                /*page 3*/
-	touch_i2c_read_block(chip_info->client, chip_info->reg_info.F55_SENSOR_CTRL01, syna_testdata->RX_NUM, buffer_rx);
-	touch_i2c_read_block(chip_info->client, chip_info->reg_info.F55_SENSOR_CTRL02, syna_testdata->TX_NUM, buffer_tx);
+	touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F55_SENSOR_CTRL01, syna_testdata->RX_NUM, buffer_rx);
+	touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F55_SENSOR_CTRL02, syna_testdata->TX_NUM, buffer_tx);
 	touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x1);                /*page 1*/
 
 	TPD_INFO("RX_NUM : ");
@@ -1615,7 +1615,7 @@ static int synaptics_auto_test_rt100(struct seq_file *s, struct chip_data_s3706 
 	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x0);
 	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 30);
-	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3, syna_testdata->TX_NUM * syna_testdata->RX_NUM * 2, raw_data);         /*read raw data1*/
+	ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3, syna_testdata->TX_NUM * syna_testdata->RX_NUM * 2, raw_data);         /*read raw data1*/
 
 	/*debug log*/
 	TPD_INFO("baseline1:\n");
@@ -1632,7 +1632,7 @@ static int synaptics_auto_test_rt100(struct seq_file *s, struct chip_data_s3706 
 	/*end*/
 	//get logical pin
 	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x03);        /* page 3*/
-	touch_i2c_read_block(chip_info->client, 0x01, syna_testdata->RX_NUM, &rx_assignment[0]);
+	touch_i2c_read_block_syna(chip_info->client, 0x01, syna_testdata->RX_NUM, &rx_assignment[0]);
 	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, 0x01);        /* page 1*/
 	for(i = 0; i < syna_testdata->RX_NUM; i++) {
 		if(rx_assignment[i] != 0xff) {
@@ -1673,7 +1673,7 @@ static int synaptics_auto_test_rt100(struct seq_file *s, struct chip_data_s3706 
 		ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x0);
 		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 		checkCMD(chip_info, 30);
-		ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3, syna_testdata->TX_NUM * syna_testdata->RX_NUM * 2, raw_data);         /*read raw data2*/
+		ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 3, syna_testdata->TX_NUM * syna_testdata->RX_NUM * 2, raw_data);         /*read raw data2*/
 
 		/*debug log*/
 		TPD_INFO("baseline2:\n");
@@ -2120,7 +2120,7 @@ static void synaptics_baseline_read(struct seq_file *s, void *chip_data)
 		ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
 		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 		checkCMD(chip_info, 30);
-		ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3,
+		ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3,
 				chip_info->hw_res->TX_NUM * chip_info->hw_res->RX_NUM * 2, raw_data);         /*read data*/
 
 		for (x = 0; x < chip_info->hw_res->TX_NUM; x++) {
@@ -2185,7 +2185,7 @@ static void synaptics_RT76_read(struct seq_file *s, void *chip_data)
 	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
 	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 30);
-	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3,
+	ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3,
 			chip_info->hw_res->TX_NUM * chip_info->hw_res->RX_NUM * 2, raw_data);         /*read data*/
 	for (x = 0; x < chip_info->hw_res->TX_NUM; x++) {
 		seq_printf(s, "\n[%2d]", x);
@@ -2295,7 +2295,7 @@ static void synaptics_delta_read(struct seq_file *s, void *chip_data)
 	ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
 	ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 	checkCMD(chip_info, 30);
-	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3,
+	ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3,
 			chip_info->hw_res->TX_NUM * chip_info->hw_res->RX_NUM * 2, raw_data);         /*read data*/
 	for (x = 0; x < chip_info->hw_res->TX_NUM; x++) {
 		seq_printf(s, "\n[%2d]", x);
@@ -2313,7 +2313,7 @@ static void synaptics_delta_read(struct seq_file *s, void *chip_data)
 		ret = touch_i2c_write_word_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE + 1, 0x00);/*set fifo 00*/
 		ret = touch_i2c_write_byte_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_COMMAND_BASE, 0x01);/*get report*/
 		checkCMD(chip_info, 30);
-		ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3,
+		ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3,
 				chip_info->hw_res->TX_NUM * chip_info->hw_res->RX_NUM * 2, raw_data);         /*read data*/
 		for (x = 0; x < chip_info->hw_res->TX_NUM; x++) {
 			seq_printf(s, "\n[%2d]", x);
@@ -2350,7 +2350,7 @@ static int fwu_recovery_check_status(struct chip_data_s3706 *chip_info)
 
 	data_base = chip_info->fwu->f35_fd.data_base_addr;
 
-	retval = touch_i2c_read_block(chip_info->client,
+	retval = touch_i2c_read_block_syna(chip_info->client,
 			data_base + F35_ERROR_CODE_OFFSET,
 			1,
 			&status);
@@ -2384,7 +2384,7 @@ static int fwu_scan_pdt(struct chip_data_s3706 *chip_info)
 	struct synaptics_rmi4_data *rmi4_data = chip_info->fwu->rmi4_data;
 	chip_info->fwu->in_ub_mode = false;        /*in_ub_mode declare*/
 	for (addr = PDT_START; addr > PDT_END; addr -= PDT_ENTRY_SIZE) {
-		retval = touch_i2c_read_block(chip_info->client, addr, sizeof(rmi_fd), (unsigned char *)&rmi_fd);
+		retval = touch_i2c_read_block_syna(chip_info->client, addr, sizeof(rmi_fd), (unsigned char *)&rmi_fd);
 		if (retval < 0) {
 			return retval;
 		}
@@ -2574,7 +2574,7 @@ static int fwu_read_flash_status(struct chip_data_s3706 *chip_info)
 	unsigned char status;
 	unsigned char command;
 
-	retval = touch_i2c_read_block(chip_info->client,
+	retval = touch_i2c_read_block_syna(chip_info->client,
 			chip_info->fwu->f34_fd.data_base_addr + chip_info->fwu->off.flash_status,
 			sizeof(status),
 			&status);              //Roland get ic state , idle or other
@@ -2609,7 +2609,7 @@ static int fwu_read_flash_status(struct chip_data_s3706 *chip_info)
 		}
 	}
 
-	retval = touch_i2c_read_block(chip_info->client,
+	retval = touch_i2c_read_block_syna(chip_info->client,
 			chip_info->fwu->f34_fd.data_base_addr + chip_info->fwu->off.flash_cmd,
 			sizeof(command),
 			&command);      //Roland read recent command
@@ -2863,7 +2863,7 @@ static int fwu_read_f34_v7_partition_table(struct chip_data_s3706 *chip_info, un
 		return retval;
 	}
 
-	retval = touch_i2c_read_block(chip_info->client,
+	retval = touch_i2c_read_block_syna(chip_info->client,
 			data_base + chip_info->fwu->off.payload,
 			chip_info->fwu->partition_table_bytes,
 			partition_table);
@@ -2986,7 +2986,7 @@ static int fwu_read_f34_v7_queries(struct chip_data_s3706 *chip_info)
 
 	query_base = chip_info->fwu->f34_fd.query_base_addr;
 
-	retval = touch_i2c_read_block(chip_info->client,
+	retval = touch_i2c_read_block_syna(chip_info->client,
 			query_base,
 			sizeof(query_0.data),
 			query_0.data);
@@ -2997,7 +2997,7 @@ static int fwu_read_f34_v7_queries(struct chip_data_s3706 *chip_info)
 
 	offset = query_0.subpacket_1_size + 1;
 
-	retval = touch_i2c_read_block(chip_info->client,
+	retval = touch_i2c_read_block_syna(chip_info->client,
 			query_base + offset,
 			sizeof(query_1_7.data),
 			query_1_7.data);
@@ -3118,7 +3118,7 @@ static int fwu_get_device_config_id(struct chip_data_s3706 *chip_info)
 		config_id_size = V7_CONFIG_ID_SIZE;
 	}
 
-	retval = touch_i2c_read_block(chip_info->client,
+	retval = touch_i2c_read_block_syna(chip_info->client,
 			chip_info->fwu->f34_fd.ctrl_base_addr,
 			config_id_size,
 			chip_info->fwu->config_id);
@@ -3159,7 +3159,7 @@ static int synaptics_rmi4_fwu_init(struct chip_data_s3706 *chip_info, bool force
 		retval = -ENOMEM;
 		goto exit;
 	}
-	retval = touch_i2c_read_block(chip_info->client, PDT_PROPS, sizeof(pdt_props.data), data);
+	retval = touch_i2c_read_block_syna(chip_info->client, PDT_PROPS, sizeof(pdt_props.data), data);
 
 	if (retval < 0) {
 		TPD_INFO("%s: Failed to read PDT properties, assuming 0x00\n", __func__);
@@ -3180,7 +3180,7 @@ static int synaptics_rmi4_fwu_init(struct chip_data_s3706 *chip_info, bool force
 	//Roland change in resume and suspend, notice if suspend hold mutex before the fw update queue work
 	chip_info->fwu->rmi4_data->sensor_sleep = 0;   /*don't enter sensor sleep or suspend while update*/
 	retval = fwu_scan_pdt(chip_info);
-	retval = touch_i2c_read_block(chip_info->client,
+	retval = touch_i2c_read_block_syna(chip_info->client,
 			chip_info->fwu->rmi4_data->f01_query_base_addr + 18,
 			sizeof(build_id),
 			build_id);
@@ -3652,7 +3652,7 @@ static int fwu_enter_flash_prog(struct chip_data_s3706 *chip_info)
 		return retval;
 	}
 
-	retval = touch_i2c_read_block(chip_info->client,
+	retval = touch_i2c_read_block_syna(chip_info->client,
 			chip_info->fwu->rmi4_data->f01_ctrl_base_addr,
 			sizeof(f01_device_control.data),
 			f01_device_control.data);
@@ -3813,7 +3813,7 @@ static int fwu_do_lockdown_v7(struct chip_data_s3706 *chip_info)
 	if (retval < 0)
 		return retval;
 
-	retval = touch_i2c_read_block(chip_info->client,
+	retval = touch_i2c_read_block_syna(chip_info->client,
 			chip_info->fwu->f34_fd.data_base_addr + chip_info->fwu->off.flash_status,
 			sizeof(status.data),
 			status.data);
@@ -4332,7 +4332,7 @@ static int fwu_read_f34_v7_blocks(struct chip_data_s3706 *chip_info, unsigned sh
 			return retval;
 		}
 
-		retval = touch_i2c_read_block(chip_info->client,
+		retval = touch_i2c_read_block_syna(chip_info->client,
 				data_base + chip_info->fwu->off.payload,
 				transfer * chip_info->fwu->block_size,
 				&chip_info->fwu->read_config_buf[index]);
@@ -4768,7 +4768,7 @@ static fp_touch_state synaptics_spurious_fp_check(void *chip_data)
 	}
 
 	fp_touch_state = FINGER_PROTECT_TOUCH_UP;
-	touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3, TX_NUM*SPURIOUS_FP_RX_NUM*2, raw_data); /*read baseline data*/
+	touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3, TX_NUM*SPURIOUS_FP_RX_NUM*2, raw_data); /*read baseline data*/
 	for (x = 1; x < TX_NUM - 2; x++) {
 		TPD_DEBUG_NTAG("[%2d]: ", x);
 		for (y = 0; y < (SPURIOUS_FP_RX_NUM - 3); y++) {
@@ -4889,10 +4889,10 @@ RE_TRY:
 		}
 	}
 
-	ret = touch_i2c_read_block(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3, TX_NUM*SPURIOUS_FP_RX_NUM*2, raw_data);         /*read data*/
+	ret = touch_i2c_read_block_syna(chip_info->client, chip_info->reg_info.F54_ANALOG_DATA_BASE+3, TX_NUM*SPURIOUS_FP_RX_NUM*2, raw_data);         /*read data*/
 	if (ret < 0) {
 		if (retry_time) {
-			TPD_INFO("%s touch_i2c_read_block error\n", __func__);
+			TPD_INFO("%s touch_i2c_read_block_syna error\n", __func__);
 			retry_time--;
 			goto RE_TRY;
 		}
@@ -4933,7 +4933,7 @@ static void synaptics_data_logger_get(void * chip_data)
 			kfree(log_data);
 			return;
 		} else {
-			ret = touch_i2c_read_block(chip_info->client, ((uint8_t)(chip_info->d_log.loglength_addr & 0xFF) + 1), data_length, log_data);         /*read log*/
+			ret = touch_i2c_read_block_syna(chip_info->client, ((uint8_t)(chip_info->d_log.loglength_addr & 0xFF) + 1), data_length, log_data);         /*read log*/
 			TPD_INFO("data_length = %d, ", data_length);
 			for (i = 0; i< data_length; i++) {
 				printk(" [0x%x], ", log_data[i]);
@@ -4981,7 +4981,7 @@ static void synaptics_register_info_read(void * chip_data, uint16_t register_add
 		return;
 	}
 	ret = touch_i2c_write_byte_syna(chip_info->client, 0xff, h_tmp);        /*set page*/
-	ret = touch_i2c_read_block(chip_info->client, l_tmp, length, result);         /*read data*/
+	ret = touch_i2c_read_block_syna(chip_info->client, l_tmp, length, result);         /*read data*/
 }
 
 static int synaptics_get_usb_state(void)

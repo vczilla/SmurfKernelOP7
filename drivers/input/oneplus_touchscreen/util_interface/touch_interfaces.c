@@ -327,7 +327,7 @@ int touch_i2c_read_byte_syna(struct i2c_client* client, unsigned short addr)
     int retval = 0;
     unsigned char buf[2] = {0};
 
-    if (unlikely(!client))    {
+    if (!client)    {
         dump_stack();
         return -1;
     }
@@ -371,7 +371,7 @@ int touch_i2c_write_byte_syna(struct i2c_client* client, unsigned short addr, un
     int length_trans = 1;
     unsigned char data_send = data;
 
-    if (unlikely(!client))    {
+     if (!client)    {
         dump_stack();
         return -EINVAL;
     }
@@ -412,7 +412,7 @@ int touch_i2c_read_word_syna(struct i2c_client* client, unsigned short addr)
     int retval;
     unsigned char buf[2] = {0};
 
-    if (unlikely(!client))    {
+     if (!client)    {
         dump_stack();
         return -EINVAL;
     }
@@ -456,7 +456,7 @@ int touch_i2c_write_word_syna(struct i2c_client* client, unsigned short addr, un
     int length_trans = 2;
     unsigned char buf[2] = {data & 0xff, (data >> 8) & 0xff};
 
-    if (unlikely(!client))    {
+    if (!client)    {
         dump_stack();
         return -EINVAL;
     }
@@ -589,6 +589,24 @@ int touch_i2c_write(struct i2c_client *client, char *writebuf, int writelen)
     return retval;
 }
 
+
+/**
+ * init_touch_interfaces - Using for Register IIC interface
+ * @dev: i2c_client->dev using to alloc memory for dma transfer
+ * @flag_register_16bit: bool param to detect whether this device using 16bit IIC address or 8bit address
+ *
+ * Actully, This function don't have many operation, we just detect device address length && alloc DMA memory for MTK platform
+ * Returning zero(sucess) or -ENOMEM(memory alloc failed)
+ */
+int init_touch_interfaces(struct device *dev, bool flag_register_16bit)
+{
+	register_is_16bit = flag_register_16bit;
+	rb_buffer = (unsigned char *)kzalloc(2, GFP_KERNEL | GFP_DMA);
+	wb_buffer = (unsigned char *)kzalloc(4,GFP_KERNEL | GFP_DMA);
+
+	return 0;
+}
+
 /*******************************************************
 Description:
 	Novatek touchscreen spi read/write core function.
@@ -677,13 +695,5 @@ int32_t CTP_SPI_WRITE(struct spi_device *client, uint8_t *buf, uint16_t len)
 	}
 
 	return ret;
-}
-
-int init_touch_interfaces(void)
-{
-	rb_buffer = (unsigned char *)kzalloc(2, GFP_KERNEL | GFP_DMA);
-	wb_buffer = (unsigned char *)kzalloc(4,GFP_KERNEL | GFP_DMA);
-
-	return 0;
 }
 

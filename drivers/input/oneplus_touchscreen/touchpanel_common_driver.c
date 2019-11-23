@@ -75,8 +75,8 @@ static int lcd_id = 0;
 static int gesture_switch_value = 0;
 char *raw_tmp_data = NULL;
 char *self_tmp_data = NULL;
-struct point_info *points;
-bool __read_mostly isPro = true;
+struct point_info *tp_points;
+bool __read_mostly isPro = false;
 
 /* add haptic audio tp mask */
 struct shake_point record_point[10];
@@ -644,11 +644,11 @@ static void tp_touch_handle(struct touchpanel_data *ts)
         return;
     }
 
-    if (unlikely(!points)) {
+    if (unlikely(!tp_points)) {
 	return;
-   }
+    }
 
-    memset(points, 0, sizeof(struct point_info)*ts->max_num);
+    memset(tp_points, 0, sizeof(struct point_info)*ts->max_num);
     memset(corner, 0, sizeof(corner));
 	if (ts->reject_point) {		//sensor will reject point when call mode.
 		if (ts->touch_count) {
@@ -667,17 +667,17 @@ static void tp_touch_handle(struct touchpanel_data *ts)
 		}
 		return;
 	}
-    obj_attention = ts->ts_ops->get_touch_points(ts->chip_data, points, ts->max_num);
+    obj_attention = ts->ts_ops->get_touch_points(ts->chip_data, tp_points, ts->max_num);
     if ((obj_attention & TOUCH_BIT_CHECK) != 0) {
         for (i = 0; i < ts->max_num; i++) {
-            if (((obj_attention & TOUCH_BIT_CHECK) >> i) & 0x01 && (points[i].status == 0)) // buf[0] == 0 is wrong point, no process
+            if (((obj_attention & TOUCH_BIT_CHECK) >> i) & 0x01 && (tp_points[i].status == 0)) // buf[0] == 0 is wrong point, no process
                 continue;
-            if (((obj_attention & TOUCH_BIT_CHECK) >> i) & 0x01 && (points[i].status != 0)) {
+            if (((obj_attention & TOUCH_BIT_CHECK) >> i) & 0x01 && (tp_points[i].status != 0)) {
                 //Edge process before report abs
                 if (ts->edge_limit_support) {
-                    if (ts->corner_delay_up < 1 && corner_point_process(ts, corner, points, i))
+                    if (ts->corner_delay_up < 1 && corner_point_process(ts, corner, tp_points, i))
                         continue;
-                    if (edge_point_process(ts, points[i]))
+                    if (edge_point_process(ts, tp_points[i]))
                         continue;
                 }
 #ifdef TYPE_B_PROTOCOL
@@ -685,26 +685,26 @@ static void tp_touch_handle(struct touchpanel_data *ts)
                 input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, 1);
 #endif
                 touch_report_num++;
-                tp_touch_down(ts, points[i], touch_report_num, i);
+                tp_touch_down(ts, tp_points[i], touch_report_num, i);
                 /* add haptic audio tp mask */
                 /*bank = points[i].status;*/
                 bank = i;
                 notifier_data.data = &bank;
                 record_point[i].status = 1;
-                record_point[i].x = points[i].x;
-                record_point[i].y = points[i].y;
+                record_point[i].x = tp_points[i].x;
+                record_point[i].y = tp_points[i].y;
                 record_flag[i] = 1;
                 msm_drm_notifier_call_chain(11, &notifier_data);	//down;
                 /* add haptic audio tp mask end */
                 SET_BIT(ts->irq_slot, (1<<i));
                 finger_num++;
-                if (points[i].x > ts->resolution_info.max_x / 100 && points[i].x < ts->resolution_info.max_x * 99 / 100) {
+                if (tp_points[i].x > ts->resolution_info.max_x / 100 && tp_points[i].x < ts->resolution_info.max_x * 99 / 100) {
                     ts->view_area_touched = finger_num;
                 } else {
                     touch_near_edge++;
                 }
                 /*strore  the last point data*/
-                memcpy(&last_point, &points[i], sizeof(struct point_info));
+                memcpy(&last_point, &tp_points[i], sizeof(struct point_info));
             }
 #ifdef TYPE_B_PROTOCOL
             else {
@@ -770,13 +770,11 @@ static void tp_touch_handle_syna(struct touchpanel_data *ts)
     /* add haptic audio tp mask end */
 
     if (!ts->ts_ops->get_touch_points) {
-        TPD_INFO("not support ts->ts_ops->get_touch_points callback\n");
         return;
     }
 
 	points= kzalloc(sizeof(struct point_info)*ts->max_num, GFP_KERNEL);
 	if (!points) {
-		TPD_INFO("points kzalloc failed\n");
 		return;
 	}
     memset(corner, 0, sizeof(corner));
@@ -851,9 +849,6 @@ static void tp_touch_handle_syna(struct touchpanel_data *ts)
 #endif
         }
 
-        if(ts->corner_delay_up > -1) {
-                TPD_DETAIL("corner_delay_up is %d\n", ts->corner_delay_up);
-        }
         ts->corner_delay_up = ts->corner_delay_up > 0 ? ts->corner_delay_up - 1 : ts->corner_delay_up;
         if (touch_near_edge == finger_num) {        //means all the touchpoint is near the edge
             ts->view_area_touched = 0;
@@ -881,8 +876,6 @@ static void tp_touch_handle_syna(struct touchpanel_data *ts)
         ts->view_area_touched = 0;
         ts->irq_slot = 0;
         ts->corner_delay_up = -1;
-        TPD_DETAIL("all touch up,view_area_touched=%d finger_num=%d\n",ts->view_area_touched, finger_num);
-        TPD_DETAIL("last point x:%d y:%d\n", last_point.x, last_point.y);
         if (ts->edge_limit_support)
             ts->edge_limit.in_which_area = AREA_NOTOUCH;
     }
@@ -1016,14 +1009,14 @@ static void tp_work_func(struct touchpanel_data *ts)
      *  1.IRQ_EXCEPTION /IRQ_GESTURE /IRQ_IGNORE /IRQ_FW_CONFIG --->should be only reported  individually
      *  2.IRQ_TOUCH && IRQ_BTN_KEY --->should depends on real situation && set correspond bit on trigger_reason
      */
-    pm_qos_update_request(&ts->pm_qos_req, 75);
+    pm_qos_update_request(&ts->pm_qos_req, 80);
     cur_event = ts->ts_ops->trigger_reason(ts->chip_data, ts->gesture_enable, ts->is_suspended);
     if (CHK_BIT(cur_event, IRQ_TOUCH) || CHK_BIT(cur_event, IRQ_BTN_KEY) || CHK_BIT(cur_event, IRQ_DATA_LOGGER) || CHK_BIT(cur_event, IRQ_FACE_STATE)) {
         if (CHK_BIT(cur_event, IRQ_BTN_KEY)) {
             tp_btnkey_handle(ts);
         }
         if (CHK_BIT(cur_event, IRQ_TOUCH)) {
-	    if (likely(isPro))
+	if (likely(isPro))
             	tp_touch_handle(ts);
 	    else
 		tp_touch_handle_syna(ts);
@@ -1043,7 +1036,7 @@ static void tp_work_func(struct touchpanel_data *ts)
     }  else if (CHK_BIT(cur_event, IRQ_FW_AUTO_RESET)) {
         tp_fw_auto_reset_handle(ts);
     }
-    pm_qos_update_request(&ts->pm_qos_req, PM_QOS_DEFAULT_VALUE);
+    pm_qos_update_request(&ts->pm_qos_req, 80);
 }
 
 static void tp_work_func_unlock(struct touchpanel_data *ts)
@@ -3827,6 +3820,7 @@ static void init_parse_dts(struct device *dev, struct touchpanel_data *ts)
 
     np = dev->of_node;
 
+    ts->register_is_16bit       = of_property_read_bool(np, "register-is-16bit");
     ts->edge_limit_support      = of_property_read_bool(np, "edge_limit_support");
     ts->glove_mode_support      = of_property_read_bool(np, "glove_mode_support");
     ts->esd_handle_support      = of_property_read_bool(np, "esd_handle_support");
@@ -4323,7 +4317,7 @@ int register_common_touch_device(struct touchpanel_data *pdata)
     init_parse_dts(ts->dev, ts);
 
     //step2 : IIC interfaces init
-    init_touch_interfaces();
+    init_touch_interfaces(ts->dev, ts->register_is_16bit);
 
     //step3 : mutex init
     mutex_init(&ts->mutex);
@@ -4408,15 +4402,6 @@ int register_common_touch_device(struct touchpanel_data *pdata)
 	if (ts->ts_ops->get_vendor) {
 		ts->ts_ops->get_vendor(ts->chip_data, &ts->panel_data);
 	}
-
-    if (strncmp(ts->panel_data.manufacture_info.manufacture,"SEC_SY761",9)) {
-	isPro = true;
-	raw_tmp_data = kzalloc(2 * ts->hw_res.EARSENSE_TX_NUM * ts->hw_res.EARSENSE_RX_NUM ,GFP_KERNEL | GFP_DMA);
-        self_tmp_data = kzalloc(2*(ts->hw_res.TX_NUM + ts->hw_res.RX_NUM),GFP_KERNEL | GFP_DMA);
-        points= kzalloc(sizeof(struct point_info)*ts->max_num, GFP_KERNEL | GFP_DMA);
-    } else {
-	isPro = false;
-    }
 
     //step10:get chip info
     if (!ts->ts_ops->get_chip_info) {
@@ -4590,12 +4575,18 @@ int register_common_touch_device(struct touchpanel_data *pdata)
         ts->irq = ts->client->irq;
     }
 
-    pm_qos_add_request(&ts->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
-		PM_QOS_DEFAULT_VALUE);
-
     tp_register_times++;
     g_tp = ts;
     complete(&ts->pm_complete);
+    if (strncmp(ts->panel_data.manufacture_info.manufacture,"SEC_SY761",9)) {
+	isPro = true;
+	pm_qos_add_request(&ts->pm_qos_req, PM_QOS_CPU_DMA_LATENCY, 80);
+	raw_tmp_data = kzalloc(2 * ts->hw_res.EARSENSE_TX_NUM * ts->hw_res.EARSENSE_RX_NUM ,GFP_KERNEL | GFP_DMA);
+        self_tmp_data = kzalloc(2*(ts->hw_res.TX_NUM + ts->hw_res.RX_NUM),GFP_KERNEL | GFP_DMA);
+        tp_points= kzalloc(sizeof(struct point_info)*ts->max_num, GFP_KERNEL | GFP_DMA);
+    } else {
+	isPro = false;
+    }
     return 0;
 
 earsense_alloc_free:
@@ -4660,7 +4651,6 @@ power_control_failed:
     }
 	msleep(200);
 	sec_ts_pinctrl_configure(&ts->hw_res, false);
-
     pm_qos_remove_request(&ts->pm_qos_req);
     return ret;
 }
