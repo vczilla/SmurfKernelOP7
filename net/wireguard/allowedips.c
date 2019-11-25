@@ -299,7 +299,6 @@ void wg_allowedips_free(struct allowedips *table, struct mutex *lock)
 	RCU_INIT_POINTER(table->root4, NULL);
 	RCU_INIT_POINTER(table->root6, NULL);
 	if (rcu_access_pointer(old4)) {
-		root_remove_peer_lists(old4);
 		struct allowedips_node *node = rcu_dereference_protected(old4,
 							lockdep_is_held(lock));
 
