@@ -24,9 +24,6 @@
 #endif
 
 #include "walt.h"
-#ifdef CONFIG_OPCHAIN
-#include <../drivers/oneplus/coretech/opchain/opchain_helper.h>
-#endif
 
 int sched_rr_timeslice = RR_TIMESLICE;
 int sysctl_sched_rr_timeslice = (MSEC_PER_SEC / HZ) * RR_TIMESLICE;
@@ -1875,14 +1872,6 @@ retry:
 						best_cpu_util_cum < util_cum)
 					continue;
 			}
-#ifdef CONFIG_OPCHAIN
-			if (opc_get_claim_on_cpu(cpu)) {
-				if (best_cpu != -1)
-					continue;
-				else
-					best_cpu_is_claimed = true;
-			}
-#endif
 			best_cpu_idle_idx = cpu_idle_idx;
 			best_cpu_util_cum = util_cum;
 			best_cpu_util = util;

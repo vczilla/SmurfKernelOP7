@@ -1,3 +1,5 @@
+/* Copyright for changes pappschlumpf@xda Erik Müller*/
+
 #define pr_fmt(fmt) "houston: " fmt
 
 #include <linux/init.h>
@@ -22,6 +24,17 @@
 #include <linux/clk.h>
 #include <linux/oem/houston.h>
 #include <linux/oneplus/houston.h>
+#include <linux/cpu_input_boost.h>
+#include <linux/devfreq_boost.h>
+#include <linux/devfreq_boost_ddr.h>
+#include <linux/devfreq_boost_gpu.h>
+
+static DECLARE_WAIT_QUEUE_HEAD(ht_poll_waitq);
+
+static dev_t ht_ctl_dev;
+static struct class *driver_class;
+static struct cdev cdev;
+static int perf_ready = -1;
 
 struct cpuload_info {
 	int cnt;
@@ -80,9 +93,6 @@ module_param(fps_boost_type, uint, 0664);
 static unsigned long fps_boost_filter_us = 8000;
 module_param(fps_boost_filter_us, ulong, 0664);
 
-static int perf_ready = -11;
-module_param(perf_ready, int, 0664);
-
 unsigned int ht_enable = 0;
 module_param(ht_enable, uint, 0664);
 
@@ -103,8 +113,10 @@ static long ht_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long __us
 	case HT_IOC_COLLECT:
 	{
 		memset (&parcel, 0, sizeof(parcel));
-		if (copy_to_user((struct ai_parcel __user *) arg, &parcel, sizeof(parcel)))
+		if (copy_to_user((struct ai_parcel __user *) arg, &parcel, sizeof(parcel))) {
+			wake_up_interruptible(&ht_poll_waitq);
 			return 0;
+		}
 		break;
 	}
 	case HT_IOC_SCHEDSTAT:
@@ -125,8 +137,10 @@ static long ht_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long __us
 		} else {
 			rcu_read_unlock();
 		}
-		if (copy_to_user((u64 *) arg, &exec_ns, sizeof(u64)))
+		if (copy_to_user((u64 *) arg, &exec_ns, sizeof(u64))) {
+			wake_up_interruptible(&ht_poll_waitq);
 			return 0;
+		}
 		break;
 	}
 	case HT_IOC_CPU_LOAD:
@@ -135,8 +149,10 @@ static long ht_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long __us
 		if (copy_from_user(&cl, (struct cpuload *) arg, sizeof(struct cpuload)))
 			return 0;
 		memset (&cl, 0, sizeof(struct cpuload));
-		if (copy_to_user((struct cpuload *) arg, &cl, sizeof(struct cpuload)))
+		if (copy_to_user((struct cpuload *) arg, &cl, sizeof(struct cpuload))) {
+			wake_up_interruptible(&ht_poll_waitq);
 			return 0;
+		}
 		break;
 	}
 	}
@@ -145,6 +161,7 @@ static long ht_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long __us
 
 static unsigned int ht_ctl_poll(struct file *fp, poll_table *wait)
 {
+	poll_wait(fp, &ht_poll_waitq, wait);
 	return POLLIN;
 }
 
@@ -155,8 +172,80 @@ static const struct file_operations ht_ctl_fops = {
 	.compat_ioctl = ht_ctl_ioctl,
 };
 
+static int perf_ready_store(const char *buf, const struct kernel_param *kp)
+{
+	int val;
+	if (sscanf(buf, "%d\n", &val) <= 0)
+		return 0;
+
+	perf_ready = val;
+	return 0;
+}
+
+static int perf_ready_show(char *buf, const struct kernel_param *kp)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", perf_ready);
+}
+
+static struct kernel_param_ops perf_ready_ops = {
+	.set = perf_ready_store,
+	.get = perf_ready_show,
+};
+module_param_cb(perf_ready, &perf_ready_ops, NULL, 0664);
+
+static int ht_fps_boost_store(const char *buf, const struct kernel_param *kp)
+{
+	cpu_input_boost_kick_flex();
+	devfreq_boost_gpu_kick_flex(DEVFREQ_MSM_GPUBW);
+	devfreq_boost_ddr_kick_flex(DEVFREQ_MSM_DDRBW);
+	devfreq_boost_kick_flex(DEVFREQ_MSM_CPUBW);
+	return 0;
+}
+
+static struct kernel_param_ops ht_fps_boost_ops = {
+	.set = ht_fps_boost_store,
+};
+module_param_cb(fps_boost, &ht_fps_boost_ops, NULL, 0220);
+
+static int fps_sync_init(void)
+{
+	int rc;
+	struct device *class_dev;
+
+	rc = alloc_chrdev_region(&ht_ctl_dev, 0, 1, HT_CTL_NODE);
+	if (rc < 0) {
+		return 0;
+	}
+
+	driver_class = class_create(THIS_MODULE, HT_CTL_NODE);
+	if (IS_ERR(driver_class)) {
+		rc = -ENOMEM;
+		goto exit_unreg_chrdev_region;
+	}
+	class_dev = device_create(driver_class, NULL, ht_ctl_dev, NULL, HT_CTL_NODE);
+	if (IS_ERR(class_dev)) {
+		rc = -ENOMEM;
+		goto exit_destroy_class;
+	}
+	cdev_init(&cdev, &ht_ctl_fops);
+	cdev.owner = THIS_MODULE;
+	rc = cdev_add(&cdev, MKDEV(MAJOR(ht_ctl_dev), 0), 1);
+	if (rc < 0) {
+		goto exit_destroy_device;
+	}
+	return 0;
+exit_destroy_device:
+	device_destroy(driver_class, ht_ctl_dev);
+exit_destroy_class:
+	class_destroy(driver_class);
+exit_unreg_chrdev_region:
+	unregister_chrdev_region(ht_ctl_dev, 1);
+	return 0;
+}
+
 static int ht_init(void)
 {
+	fps_sync_init();
 	return 0;
 }
 pure_initcall(ht_init);

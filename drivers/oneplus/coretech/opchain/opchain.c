@@ -27,38 +27,17 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <linux/stddef.h>
+#define pr_fmt(fmt) "opchain: " fmt
+
 #include <linux/module.h>
+#include <linux/types.h>
 
-#include "opchain_struct_offset_helper.h"
-#include "../kernel/sched/sched.h"
+unsigned int __read_mostly boost;
+unsigned int __read_mostly boost_tl = 1;
+unsigned int __read_mostly boost_sample_time = 1;
+unsigned int __read_mostly chain_on = 1;
 
-/* struct task_struct */
-unsigned int opchain_task_struct_offset[__TASK_OFFSET_MAX] = {
-	[TASK_OFFSET_WAKEE_FLIPS] = offsetof(struct task_struct, wakee_flips),
-	[TASK_OFFSET_CPUS_ALLOWED] = offsetof(struct task_struct, cpus_allowed),
-	[TASK_OFFSET_PID] = offsetof(struct task_struct, pid),
-	[TASK_OFFSET_TGID] = offsetof(struct task_struct, tgid),
-	[TASK_OFFSET_GROUP_LEADER] = offsetof(struct task_struct, group_leader),
-	[TASK_OFFSET_COMM] = offsetof(struct task_struct, comm),
-	[TASK_OFFSET_UTASK_TAG] = offsetof(struct task_struct, utask_tag),
-	[TASK_OFFSET_UTASK_TAG_BASE] = offsetof(struct task_struct, utask_tag_base),
-	[TASK_OFFSET_ETASK_CLAIM] = offsetof(struct task_struct, etask_claim),
-	[TASK_OFFSET_CLAIM_CPU] = offsetof(struct task_struct, claim_cpu),
-	[TASK_OFFSET_UTASK_SLAVE] = offsetof(struct task_struct, utask_slave),
-	[TASK_OFFSET_EXIT_STATE] = offsetof(struct task_struct, exit_state)
-};
-gen_type_offset_impl(task_struct);
-
-/* struct rq */
-unsigned int opchain_rq_offset[__RQ_OFFSET_MAX] = {
-#ifdef CONFIG_SMP
-	[RQ_OFFSET_CPU_CAPACITY_ORIG] = offsetof(struct rq, cpu_capacity_orig),
-	[RQ_OFFSET_CPU] = offsetof(struct rq, cpu),
-#endif
-#ifdef CONFIG_SCHED_HMP
-	[RQ_OFFSET_WINDOW_START] = offsetof(struct rq, window_start),
-#endif
-	[RQ_OFFSET_CLOCK] = offsetof(struct rq, clock)
-};
-gen_type_offset_impl(rq);
+module_param(boost, uint, 0644);
+module_param(boost_sample_time, uint, 0644);
+module_param(boost_tl, uint, 0644);
+module_param(chain_on, uint, 0644);
