@@ -2845,9 +2845,8 @@ void sec_ts_run_rawdata_all(void *chip_data, bool full_read)
 	sec_release_tmode(chip_info);
 
 out:
-
+	kfree(chip_info->pFrame);
 	tp_touch_btnkey_release();
-
 }
 
 
