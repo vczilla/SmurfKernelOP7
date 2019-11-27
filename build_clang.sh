@@ -21,7 +21,7 @@ export KBUILD_COMPILER_STRING=$(~/android/Toolchains/clang/clang10_4/bin/clang -
 DEFCONFIG="smurf_defconfig"
 
 # Kernel Details
-VER=".3.3.4.unified"
+VER=".3.4.0.unified"
 
 # Paths
 KERNEL_DIR=`pwd`
