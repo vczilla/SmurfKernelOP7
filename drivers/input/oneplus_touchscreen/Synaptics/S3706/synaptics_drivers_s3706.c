@@ -5079,7 +5079,7 @@ static int synaptics_tp_probe(struct i2c_client *client, const struct i2c_device
 	memset(ts, 0, sizeof(*ts));
 
 	if (tp_buf == NULL)
-		tp_buf = kzalloc(80, GFP_KERNEL || GFP_DMA);
+		tp_buf = kzalloc(80, GFP_KERNEL | GFP_DMA);
 
 	/*step3:binding client && dev for easy operate*/
 	chip_info->client = client;

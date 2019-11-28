@@ -2952,7 +2952,7 @@ static int sec_tp_probe(struct i2c_client *client, const struct i2c_device_id *i
     sec_raw_device_init(ts);
     sec_create_proc(ts, &sec_proc_ops);
 	schedule_delayed_work(&ts->work_read_info, msecs_to_jiffies(50));
-    event_buff = kzalloc(MAX_EVENT_COUNT*SEC_EVENT_BUFF_SIZE * (sizeof(uint8_t)), GFP_KERNEL || GFP_DMA);
+    event_buff = kzalloc(MAX_EVENT_COUNT*SEC_EVENT_BUFF_SIZE * (sizeof(uint8_t)), GFP_KERNEL | GFP_DMA);
     return 0;
 
 err_register_driver:
