@@ -2252,10 +2252,10 @@ int drm_mode_atomic_ioctl(struct drm_device *dev,
 		return -EINVAL;
 
 	if (!(arg->flags & DRM_MODE_ATOMIC_TEST_ONLY)) {
-		cpu_input_boost_kick_flex();
-		devfreq_boost_gpu_kick_flex(DEVFREQ_MSM_GPUBW);
-		devfreq_boost_ddr_kick_flex(DEVFREQ_MSM_DDRBW);
-		devfreq_boost_kick_flex(DEVFREQ_MSM_CPUBW);
+		cpu_input_boost_kick_flex(0);
+		devfreq_boost_gpu_kick_flex(DEVFREQ_MSM_GPUBW,0);
+		devfreq_boost_ddr_kick_flex(DEVFREQ_MSM_DDRBW,0);
+		devfreq_boost_kick_flex(DEVFREQ_MSM_CPUBW,0);
 	}
 
 	drm_modeset_acquire_init(&ctx, 0);

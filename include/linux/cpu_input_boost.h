@@ -6,14 +6,15 @@
 #define _CPU_INPUT_BOOST_H_
 
 #ifdef CONFIG_CPU_INPUT_BOOST
-void cpu_input_boost_kick_flex(void);
+void cpu_input_boost_kick_flex(unsigned int duration_ms);
 void cpu_input_boost_kick_core(unsigned int duration_ms, unsigned int cpu);
 void cpu_input_boost_kick_cluster1(unsigned int duration_ms);
 void cpu_input_boost_kick_cluster2(unsigned int duration_ms);
 void cpu_input_boost_kick_cluster1_wake(unsigned int duration_ms);
 void cpu_input_boost_kick_cluster2_wake(unsigned int duration_ms);
+void gpu_boost_flex(unsigned int duration_ms);
 #else
-static inline void cpu_input_boost_kick_flex(void)
+void cpu_input_boost_kick_flex(unsigned int duration_ms)
 {
 }
 void cpu_input_boost_kick_core(unsigned int duration_ms, unsigned int cpu)
@@ -29,6 +30,9 @@ void cpu_input_boost_kick_cluster1_wake(unsigned int duration_ms)
 {
 }
 void cpu_input_boost_kick_cluster2_wake(unsigned int duration_ms)
+{
+}
+void gpu_boost_flex(unsigned int duration_ms)
 {
 }
 #endif

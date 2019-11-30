@@ -99,23 +99,28 @@ static void __devfreq_boost_ddr_kick(struct boost_dev *b)
 	}
 }
 
-static void __devfreq_boost_kick_flex(struct boost_dev *b)
+static void __devfreq_boost_kick_flex(struct boost_dev *b, unsigned int duration_ms)
 {
-	if (!READ_ONCE(b->df) || !test_bit(SCREEN_ON, &b->state))
+	unsigned int act_duration_ms = flex_boost_ddr_duration;
+
+	if (!READ_ONCE(b->df) || !test_bit(SCREEN_ON, &b->state) || ((flex_boost_ddr_duration == 0) && (duration_ms == 0)))
 		return;
 
+	if (duration_ms > 0)
+		act_duration_ms = duration_ms;
+
 	if (!mod_delayed_work(b->wq_f, &b->flex_unboost,
-			msecs_to_jiffies(flex_boost_ddr_duration))) {
+			msecs_to_jiffies(act_duration_ms))) {
 		set_bit(FLEX_BOOST, &b->state);
 		wake_up(&b->boost_waitq);
 	}
 }
 
-void devfreq_boost_ddr_kick_flex(enum df_device_ddr device)
+void devfreq_boost_ddr_kick_flex(enum df_device_ddr device, unsigned int duration_ms)
 {
 	struct df_boost_drv *d = &df_boost_drv_g;
 
-	__devfreq_boost_kick_flex(d->devices + device);
+	__devfreq_boost_kick_flex(d->devices + device, duration_ms);
 }
 
 static void __devfreq_boost_kick_max(struct boost_dev *b,

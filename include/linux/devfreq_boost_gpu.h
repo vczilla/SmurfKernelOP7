@@ -13,13 +13,13 @@ enum df_device_gpu {
 };
 
 #ifdef CONFIG_DEVFREQ_BOOST_GPU
-void devfreq_boost_gpu_kick_flex(enum df_device_gpu device);
+void devfreq_boost_gpu_kick_flex(enum df_device_gpu device, unsigned int duration_ms);
 void devfreq_boost_gpu_kick_max(enum df_device_gpu device, unsigned int duration_ms);
 void devfreq_boost_gpu_kick_wake(enum df_device_gpu device, unsigned int duration_ms);
 void devfreq_register_boost_gpu_device(enum df_device_gpu device, struct devfreq *df);
 #else
 static inline
-void devfreq_boost_gpu_kick_flex(enum df_device_gpu device)
+void devfreq_boost_gpu_kick_flex(enum df_device_gpu device, unsigned int duration_ms)
 {
 }
 static inline

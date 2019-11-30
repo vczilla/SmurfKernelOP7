@@ -13,13 +13,13 @@ enum df_device_ddr {
 };
 
 #ifdef CONFIG_DEVFREQ_BOOST_DDR
-void devfreq_boost_ddr_kick_flex(enum df_device_ddr device);
+void devfreq_boost_ddr_kick_flex(enum df_device_ddr device, unsigned int duration_ms);
 void devfreq_boost_ddr_kick_max(enum df_device_ddr device, unsigned int duration_ms);
 void devfreq_boost_ddr_kick_wake(enum df_device_ddr device, unsigned int duration_ms);
 void devfreq_register_boost_ddr_device(enum df_device_ddr device, struct devfreq *df);
 #else
 static inline
-void devfreq_boost_ddr_kick_flex(enum df_device_ddr device)
+void devfreq_boost_ddr_kick_flex(enum df_device_ddr device, unsigned int duration_ms)
 {
 }
 static inline
