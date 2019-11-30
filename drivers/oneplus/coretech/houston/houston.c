@@ -34,7 +34,7 @@ static DECLARE_WAIT_QUEUE_HEAD(ht_poll_waitq);
 static dev_t ht_ctl_dev;
 static struct class *driver_class;
 static struct cdev cdev;
-static int perf_ready = -1;
+static int perf_ready = 1;
 
 struct cpuload_info {
 	int cnt;
@@ -195,10 +195,57 @@ module_param_cb(perf_ready, &perf_ready_ops, NULL, 0664);
 
 static int ht_fps_boost_store(const char *buf, const struct kernel_param *kp)
 {
-	cpu_input_boost_kick_flex();
-	devfreq_boost_gpu_kick_flex(DEVFREQ_MSM_GPUBW);
-	devfreq_boost_ddr_kick_flex(DEVFREQ_MSM_DDRBW);
-	devfreq_boost_kick_flex(DEVFREQ_MSM_CPUBW);
+	unsigned int vals[5] = {0};
+	
+	int ret;
+	int cpu1, cpu2;
+	struct task_struct *t1;
+	struct task_struct *t2;
+
+	if (!fps_boost_enable)
+		return 0;
+
+	ret = sscanf(buf, "%u,%u,%u,%u,%u\n", &vals[0], &vals[1], &vals[2], &vals[3], &vals[4]);
+	if (ret != 5) {
+		//pr_info("Vals wrong return");
+		/* instead of return -EINVAL, just return 0 to keep fd connection keep working */
+		return 0;
+	}
+
+	if (vals[0] != FRAME_BOOST && vals[0] != CPU_BOOST) {
+		return 0;
+	}
+
+	if (vals[4] == 0) {
+		//pr_info("Vals4: %d", vals[4]);
+		return 0;
+	}
+
+	rcu_read_lock();
+	t1 = find_task_by_vpid(vals[1]);	
+	t2 = find_task_by_vpid(vals[2]);
+	if (t1)
+		cpu1 = t1->cpu;
+	else
+		cpu1 = -1;
+	if (t2)
+		cpu2 = t2->cpu;
+	else
+		cpu2 = -1;
+	rcu_read_unlock();
+
+	if (vals[3]) {
+		cpu_input_boost_kick_flex(vals[4]);
+		if (cpu1 > -1)
+			cpu_input_boost_kick_core(vals[4], cpu1);
+		if (cpu2 > -1)
+			cpu_input_boost_kick_core(vals[4], cpu2);
+		devfreq_boost_gpu_kick_flex(DEVFREQ_MSM_GPUBW,vals[4]);
+		devfreq_boost_ddr_kick_flex(DEVFREQ_MSM_DDRBW,vals[4]);
+		devfreq_boost_kick_flex(DEVFREQ_MSM_CPUBW,vals[4]);
+		gpu_boost_flex(vals[4]);
+	}
+
 	return 0;
 }
 
