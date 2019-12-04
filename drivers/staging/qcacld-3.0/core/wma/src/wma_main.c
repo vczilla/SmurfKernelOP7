@@ -2991,6 +2991,7 @@ void wma_vdev_init(struct wma_txrx_node *vdev)
 	qdf_wake_lock_create(&vdev->vdev_start_wakelock, "vdev_start");
 	qdf_wake_lock_create(&vdev->vdev_stop_wakelock, "vdev_stop");
 	qdf_wake_lock_create(&vdev->vdev_set_key_wakelock, "vdev_set_key");
+	qdf_spinlock_create(&vdev->peer_lock);
 	vdev->is_waiting_for_key = false;
 }
 
@@ -3077,6 +3078,7 @@ void wma_vdev_deinit(struct wma_txrx_node *vdev)
 	qdf_wake_lock_destroy(&vdev->vdev_start_wakelock);
 	qdf_wake_lock_destroy(&vdev->vdev_stop_wakelock);
 	qdf_wake_lock_destroy(&vdev->vdev_set_key_wakelock);
+	qdf_spinlock_destroy(&vdev->peer_lock);
 	vdev->is_waiting_for_key = false;
 }
 
@@ -3301,6 +3303,9 @@ QDF_STATUS wma_open(struct wlan_objmgr_psoc *psoc,
 			cds_cfg->enable_peer_unmap_conf_support;
 	wma_handle->enable_tx_compl_tsf64 =
 			cds_cfg->enable_tx_compl_tsf64;
+
+	wma_handle->enable_three_way_coex_config_legacy =
+			cds_cfg->enable_three_way_coex_config_legacy;
 
 	/* Register Converged Event handlers */
 	init_deinit_register_tgt_psoc_ev_handlers(psoc);
@@ -6814,6 +6819,14 @@ int wma_rx_service_ready_ext_event(void *handle, uint8_t *event,
 		cdp_cfg_set_tx_compl_tsf64(soc, false);
 	}
 
+	if (wma_handle->enable_three_way_coex_config_legacy &&
+	    wmi_service_enabled(wmi_handle,
+				wmi_service_three_way_coex_config_legacy)) {
+		wlan_res_cfg->three_way_coex_config_legacy_en = true;
+	} else {
+		wlan_res_cfg->three_way_coex_config_legacy_en = false;
+	}
+
 	return 0;
 }
 
@@ -8290,6 +8303,11 @@ static QDF_STATUS wma_mc_process_msg(struct scheduler_msg *msg)
 				(tSirRoamOffloadScanReq *) msg->bodyptr);
 		break;
 
+	case WMA_ROAM_SYNC_TIMEOUT:
+		wma_handle_roam_sync_timeout(wma_handle, msg->bodyptr);
+		qdf_mem_free(msg->bodyptr);
+		break;
+
 	case WMA_RATE_UPDATE_IND:
 		wma_process_rate_update_indicate(wma_handle,
 				(tSirRateUpdateInd *) msg->bodyptr);
@@ -8773,6 +8791,10 @@ static QDF_STATUS wma_mc_process_msg(struct scheduler_msg *msg)
 		qdf_mem_free(msg->bodyptr);
 		break;
 #endif
+	case WMA_SET_ROAM_TRIGGERS:
+		wma_set_roam_triggers(wma_handle, msg->bodyptr);
+		qdf_mem_free(msg->bodyptr);
+		break;
 	default:
 		WMA_LOGD("Unhandled WMA message of type %d", msg->type);
 		if (msg->bodyptr)
