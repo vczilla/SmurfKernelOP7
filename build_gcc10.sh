@@ -23,7 +23,7 @@ export CROSS_COMPILE_ARM32=${HOME}/android/Toolchains/gcc9eabi_92/bin/arm-eabi-
 DEFCONFIG="smurf_defconfig"
 
 # Kernel Details
-VER=".3.4.0.unified"
+VER=".3.4.2.unified"
 
 # Paths
 KERNEL_DIR=`pwd`
@@ -75,6 +75,9 @@ function make_zip {
 		cd $KERNEL_DIR
 }
 
+function make_sep_dtb {
+	find ~/android/SmurfKernelOP7/out/arch/arm64/boot/dts -name '*.dtb' -exec cat {} + > ~/android/SmurfKernelOP7/out/arch/arm64/boot/dtb
+}
 
 DATE_START=$(date +"%s")
 
@@ -128,8 +131,8 @@ case "$dchoice" in
 		make_modules
 		make_boot
 		move_boot
-		make_zip
 		make_sep_dtb
+		make_zip
 		break
 		;;
 	n|N )
