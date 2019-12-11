@@ -976,38 +976,6 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int qmp_mbox_suspend(struct device *dev)
-{
-	return 0;
-}
-
-static int qmp_mbox_resume(struct device *dev)
-{
-	struct qmp_device *mdev = dev_get_drvdata(dev);
-	struct qmp_mbox *mbox;
-
-	list_for_each_entry(mbox, &mdev->mboxes, list) {
-		mbox->local_state = LINK_DISCONNECTED;
-		init_completion(&mbox->link_complete);
-		init_completion(&mbox->ch_complete);
-		mbox->tx_sent = false;
-		/*
-		 * set suspend flag to indicate self channel open is required
-		 * after restore operation
-		 */
-		mbox->suspend_flag = true;
-		/* Release rx packet buffer */
-		if (mbox->rx_pkt.data) {
-			devm_kfree(mdev->dev, mbox->rx_pkt.data);
-			mbox->rx_pkt.data = NULL;
-		}
-	}
-	if (mdev->early_boot)
-		qmp_irq_handler(0, mdev);
-
-	return 0;
-}
-
 static struct platform_driver qmp_mbox_driver = {
 	.probe = qmp_mbox_probe,
 	.remove = qmp_mbox_remove,
