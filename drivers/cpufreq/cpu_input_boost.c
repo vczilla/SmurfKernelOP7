@@ -217,22 +217,18 @@ static unsigned int get_min_freq(struct boost_drv *b, u32 cpu)
 
 static void update_online_cpu_policy(void)
 {
-	u32 cpu;
+	unsigned int cpu;
 	/* Only one CPU from each cluster needs to be updated */
 	get_online_cpus();
-	cpu = cpumask_first_and(cpu_lp_mask, cpu_online_mask);
-	cpufreq_update_policy(cpu);
-	cpu = cpumask_first_and(cpu_perf_mask, cpu_online_mask);
-	cpufreq_update_policy(cpu);
-	cpu = cpumask_first_and(cpu_gold_mask, cpu_online_mask);
-	cpufreq_update_policy(cpu);
+	for_each_online_cpu(cpu)
+		cpufreq_update_policy(cpu);
 	put_online_cpus();
 }
 	
 static void update_stune_boost(struct boost_drv *b) {
    	bool boost = false;
 	unsigned int stune_boost_level = default_level_stune_boost;
-	
+
 	if (unlikely(!test_bit(SCREEN_ON, &b->cpu_state))) {
 		set_stune_boost("top-app", sleep_level_stune_boost);
 		return;
@@ -777,8 +773,10 @@ static int msm_drm_notifier_cb(struct notifier_block *nb,
 		set_bit(SCREEN_ON, &b->cpu_state);
 	} else if (*blank == MSM_DRM_BLANK_POWERDOWN_CUST) {
 		clear_bit(SCREEN_ON, &b->cpu_state);
+		wake_up(&b->cpu_boost_waitq);
 		clear_bit(INPUT_BOOST, &b->cpu_state);
 		clear_bit(FLEX_BOOST, &b->cpu_state);
+		clear_bit(CORE_BOOST, &b->cpu_state);
 		clear_bit(CLUSTER1_BOOST, &b->cpu_state);
 		clear_bit(CLUSTER2_BOOST, &b->cpu_state);
 		clear_bit(CLUSTER1_WAKE_BOOST, &b->cpu_state);
@@ -787,12 +785,11 @@ static int msm_drm_notifier_cb(struct notifier_block *nb,
 		clear_bit(MAX_STUNE_BOOST, &b->stune_state);
 		clear_bit(FLEX_STUNE_BOOST, &b->stune_state);
 		clear_bit(GPU_INPUT_BOOST, &b->gpu_state);
+		set_gpu_boost(b, gpu_sleep_freq);
+		set_stune_boost("top-app", default_level_stune_boost);
 		pr_info("Screen off, boosts turned off\n");
 		pr_info("Screen off, GPU frequency sleep\n");
 		pr_info("Screen off, CPU frequency sleep\n");
-		wake_up(&b->cpu_boost_waitq);	
-		wake_up(&b->stune_boost_waitq);
-		wake_up(&b->gpu_boost_waitq);
 	}
 	return NOTIFY_OK;
 }
@@ -814,6 +811,7 @@ static int fb_notifier_cb(struct notifier_block *nb, unsigned long action,
 		set_bit(SCREEN_ON, &b->cpu_state);
 	} else {
 		clear_bit(SCREEN_ON, &b->cpu_state);
+		wake_up(&b->cpu_boost_waitq);
 		clear_bit(INPUT_BOOST, &b->cpu_state);
 		clear_bit(FLEX_BOOST, &b->cpu_state);
 		clear_bit(CORE_BOOST, &b->cpu_state);
@@ -825,13 +823,11 @@ static int fb_notifier_cb(struct notifier_block *nb, unsigned long action,
 		clear_bit(MAX_STUNE_BOOST, &b->stune_state);
 		clear_bit(FLEX_STUNE_BOOST, &b->stune_state);
 		clear_bit(GPU_INPUT_BOOST, &b->gpu_state);
+		set_gpu_boost(b, gpu_sleep_freq);
+		set_stune_boost("top-app", default_level_stune_boost);
 		pr_info("Screen off, boosts turned off\n");
 		pr_info("Screen off, GPU frequency sleep\n");
 		pr_info("Screen off, CPU frequency sleep\n");
-		wake_up(&b->cpu_boost_waitq);	
-		wake_up(&b->stune_boost_waitq);
-		wake_up(&b->gpu_boost_waitq);
-		
 	}
 	return NOTIFY_OK;
 }
