@@ -17,7 +17,6 @@
 #include <linux/power_supply.h>
 #include <linux/interrupt.h>
 #include <linux/power/oem_external_fg.h>
-#include <linux/pm_qos.h>
 #include <linux/proc_fs.h>
 #include <linux/moduleparam.h>
 
@@ -1003,7 +1002,6 @@ static void adapter_update_work_func(struct work_struct *work)
 	}
 	pr_info("%s begin\n", __func__);
 	opchg_set_data_active(chip);
-	/*pm_qos_update_request(&big_cpu_update_freq, MAX_CPUFREQ);*/
 	op_bus_vote(false);
 	msleep(1000);
 	for (i = 0; i < 3; i++) {
