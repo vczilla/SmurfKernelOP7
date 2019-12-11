@@ -727,7 +727,6 @@ void qmi_rmnet_enable_all_flows(struct net_device *dev)
 {
 	struct qos_info *qos;
 	struct rmnet_bearer_map *bearer;
-
 	bool do_wake;
 
 	qos = (struct qos_info *)rmnet_get_qos_pt(dev);
@@ -939,6 +938,7 @@ EXPORT_SYMBOL(qmi_rmnet_qos_exit);
 #ifdef CONFIG_QCOM_QMI_POWER_COLLAPSE
 static struct workqueue_struct  *rmnet_ps_wq;
 static struct rmnet_powersave_work *rmnet_work;
+static bool rmnet_work_quit;
 static LIST_HEAD(ps_list);
 
 struct rmnet_powersave_work {
@@ -953,7 +953,7 @@ void qmi_rmnet_ps_on_notify(void *port)
 {
 	struct qmi_rmnet_ps_ind *tmp;
 
-	list_for_each_entry(tmp, &ps_list, list)
+	list_for_each_entry_rcu(tmp, &ps_list, list)
 		tmp->ps_on_handler(port);
 }
 EXPORT_SYMBOL(qmi_rmnet_ps_on_notify);
@@ -962,8 +962,9 @@ void qmi_rmnet_ps_off_notify(void *port)
 {
 	struct qmi_rmnet_ps_ind *tmp;
 
-	list_for_each_entry(tmp, &ps_list, list)
+	list_for_each_entry_rcu(tmp, &ps_list, list)
 		tmp->ps_off_handler(port);
+
 }
 EXPORT_SYMBOL(qmi_rmnet_ps_off_notify);
 
@@ -989,13 +990,12 @@ int qmi_rmnet_ps_ind_deregister(void *port,
 	if (!port || !ps_ind)
 		return -EINVAL;
 
-	list_for_each_entry(tmp, &ps_list, list) {
+	list_for_each_entry_rcu(tmp, &ps_list, list) {
 		if (tmp == ps_ind) {
 			list_del_rcu(&ps_ind->list);
 			goto done;
 		}
 	}
-
 done:
 	return 0;
 }
@@ -1022,9 +1022,10 @@ EXPORT_SYMBOL(qmi_rmnet_set_powersave_mode);
 
 static void qmi_rmnet_work_restart(void *port)
 {
-	if (!rmnet_ps_wq || !rmnet_work)
-		return;
-	queue_delayed_work(rmnet_ps_wq, &rmnet_work->work, NO_DELAY);
+	rcu_read_lock();
+	if (!rmnet_work_quit)
+		queue_delayed_work(rmnet_ps_wq, &rmnet_work->work, NO_DELAY);
+	rcu_read_unlock();
 }
 
 static enum alarmtimer_restart qmi_rmnet_work_alarm(struct alarm *atimer,
@@ -1062,13 +1063,9 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 		qmi->ps_ignore_grant = false;
 
 		/* Register to get QMI DFC and DL marker */
-		if (qmi_rmnet_set_powersave_mode(real_work->port, 0) < 0) {
-			/* If this failed need to retry quickly */
-			queue_delayed_work(rmnet_ps_wq,
-					   &real_work->work, HZ / 50);
-			return;
+		if (qmi_rmnet_set_powersave_mode(real_work->port, 0) < 0)
+			goto end;
 
-		}
 		qmi->ps_enabled = false;
 
 		/* Do a query when coming out of powersave */
@@ -1100,11 +1097,9 @@ static void qmi_rmnet_check_stats(struct work_struct *work)
 		}
 
 		/* Deregister to suppress QMI DFC and DL marker */
-		if (qmi_rmnet_set_powersave_mode(real_work->port, 1) < 0) {
-			queue_delayed_work(rmnet_ps_wq,
-					   &real_work->work, PS_INTERVAL);
-			return;
-		}
+		if (qmi_rmnet_set_powersave_mode(real_work->port, 1) < 0)
+			goto end;
+
 		qmi->ps_enabled = true;
 
 		/* Ignore grant after going into powersave */
@@ -1171,6 +1166,7 @@ void qmi_rmnet_work_init(void *port)
 	rmnet_get_packets(rmnet_work->port, &rmnet_work->old_rx_pkts,
 			  &rmnet_work->old_tx_pkts);
 
+	rmnet_work_quit = false;
 	qmi_rmnet_work_set_active(rmnet_work->port, 1);
 	queue_delayed_work(rmnet_ps_wq, &rmnet_work->work, PS_INTERVAL);
 }
