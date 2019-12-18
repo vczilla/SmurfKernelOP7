@@ -1009,7 +1009,6 @@ static void tp_work_func(struct touchpanel_data *ts)
      *  1.IRQ_EXCEPTION /IRQ_GESTURE /IRQ_IGNORE /IRQ_FW_CONFIG --->should be only reported  individually
      *  2.IRQ_TOUCH && IRQ_BTN_KEY --->should depends on real situation && set correspond bit on trigger_reason
      */
-    pm_qos_update_request(&ts->pm_qos_req, 80);
     cur_event = ts->ts_ops->trigger_reason(ts->chip_data, ts->gesture_enable, ts->is_suspended);
     if (CHK_BIT(cur_event, IRQ_TOUCH) || CHK_BIT(cur_event, IRQ_BTN_KEY) || CHK_BIT(cur_event, IRQ_DATA_LOGGER) || CHK_BIT(cur_event, IRQ_FACE_STATE)) {
         if (CHK_BIT(cur_event, IRQ_BTN_KEY)) {
@@ -1036,7 +1035,6 @@ static void tp_work_func(struct touchpanel_data *ts)
     }  else if (CHK_BIT(cur_event, IRQ_FW_AUTO_RESET)) {
         tp_fw_auto_reset_handle(ts);
     }
-    pm_qos_update_request(&ts->pm_qos_req, 80);
 }
 
 static void tp_work_func_unlock(struct touchpanel_data *ts)
@@ -4580,7 +4578,6 @@ int register_common_touch_device(struct touchpanel_data *pdata)
     complete(&ts->pm_complete);
     if (strncmp(ts->panel_data.manufacture_info.manufacture,"SEC_SY761",9)) {
 	isPro = true;
-	pm_qos_add_request(&ts->pm_qos_req, PM_QOS_CPU_DMA_LATENCY, 80);
 	raw_tmp_data = kzalloc(2 * ts->hw_res.EARSENSE_TX_NUM * ts->hw_res.EARSENSE_RX_NUM ,GFP_KERNEL | GFP_DMA);
         self_tmp_data = kzalloc(2*(ts->hw_res.TX_NUM + ts->hw_res.RX_NUM),GFP_KERNEL | GFP_DMA);
         tp_points= kzalloc(sizeof(struct point_info)*ts->max_num, GFP_KERNEL | GFP_DMA);
@@ -4651,7 +4648,6 @@ power_control_failed:
     }
 	msleep(200);
 	sec_ts_pinctrl_configure(&ts->hw_res, false);
-    pm_qos_remove_request(&ts->pm_qos_req);
     return ret;
 }
 
