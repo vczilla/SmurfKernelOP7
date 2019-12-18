@@ -1787,9 +1787,7 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 	bool boost_on_big = sched_boost() == FULL_THROTTLE_BOOST ?
 				  (sched_boost_policy() == SCHED_BOOST_ON_BIG) :
 				  false;
-#ifdef CONFIG_OPCHAIN
-	bool best_cpu_is_claimed = false;
-#endif
+
 	if (task->is_surfaceflinger && tutil > 85) {
 		cpu_input_boost_kick_core(1000, task->cpu);
 		devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
