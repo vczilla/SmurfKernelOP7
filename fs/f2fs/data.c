@@ -67,7 +67,7 @@ struct bio *f2fs_bio_alloc(struct f2fs_sb_info *sbi, int npages, bool no_fail)
 		return bio;
 	}
 	if (time_to_inject(sbi, FAULT_ALLOC_BIO)) {
-		f2fs_show_injection_info(sbi, FAULT_ALLOC_BIO);
+		f2fs_show_injection_info(FAULT_ALLOC_BIO);
 		return NULL;
 	}
 
@@ -712,7 +712,6 @@ int f2fs_merge_page_bio(struct f2fs_io_info *fio)
 	if (bio && !page_is_mergeable(fio->sbi, bio, *fio->last_block,
 						fio->new_blkaddr))
 		f2fs_submit_merged_ipu_write(fio->sbi, &bio, NULL);
-	}
 
 	/* ICE support */
 	if (!fscrypt_mergeable_bio(bio, dun, bio_encrypted, bi_crypt_skip)) {
@@ -727,7 +726,6 @@ alloc_new:
 		if (bio_encrypted)
 			fscrypt_set_ice_dun(inode, bio, dun);
 		fscrypt_set_ice_skip(bio, bi_crypt_skip);
-	}
 
 		add_bio_entry(fio->sbi, bio, page, fio->temp);
 	} else {
