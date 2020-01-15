@@ -48,11 +48,9 @@ void f2fs_set_inode_flags(struct inode *inode)
 		new_fl |= S_ENCRYPTED;
 	if (file_is_verity(inode))
 		new_fl |= S_VERITY;
-	if (flags & F2FS_CASEFOLD_FL)
-		new_fl |= S_CASEFOLD;
 	inode_set_flags(inode, new_fl,
 			S_SYNC|S_APPEND|S_IMMUTABLE|S_NOATIME|S_DIRSYNC|
-			S_ENCRYPTED|S_VERITY|S_CASEFOLD);
+			S_ENCRYPTED|S_VERITY);
 }
 
 static void __get_inode_rdev(struct inode *inode, struct f2fs_inode *ri)
@@ -708,11 +706,15 @@ no_delete:
 	stat_dec_inline_dir(inode);
 	stat_dec_inline_inode(inode);
 
-	if (likely(!f2fs_cp_error(sbi) &&
-				!is_sbi_flag_set(sbi, SBI_CP_DISABLED)))
-		f2fs_bug_on(sbi, is_inode_flag_set(inode, FI_DIRTY_INODE));
-	else
+	if (unlikely(is_inode_flag_set(inode, FI_DIRTY_INODE))) {
 		f2fs_inode_synced(inode);
+		f2fs_warn(sbi,
+			 "inconsistent dirty inode:%lu entry found during eviction\n",
+			 inode->i_ino);
+		if (!is_set_ckpt_flags(sbi, CP_ERROR_FLAG) &&
+		    !is_sbi_flag_set(sbi, SBI_CP_DISABLED))
+			f2fs_bug_on(sbi, 1);
+	}
 
 	/* ino == 0, if f2fs_new_inode() was failed t*/
 	if (inode->i_ino)
