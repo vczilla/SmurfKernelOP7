@@ -290,8 +290,7 @@ static bool wq_disable_numa;
 module_param_named(disable_numa, wq_disable_numa, bool, 0444);
 
 /* see the comment above the definition of WQ_POWER_EFFICIENT */
-static bool wq_power_efficient = IS_ENABLED(CONFIG_WQ_POWER_EFFICIENT_DEFAULT);
-module_param_named(power_efficient, wq_power_efficient, bool, 0644);
+static bool wq_power_efficient = false;
 
 static bool wq_online;			/* can kworkers be created yet? */
 
@@ -433,6 +432,13 @@ static void workqueue_sysfs_unregister(struct workqueue_struct *wq);
 #ifdef CONFIG_DEBUG_OBJECTS_WORK
 
 static struct debug_obj_descr work_debug_descr;
+
+static int __init set__wq_power_efficient(char *cmdline)
+{
+	wq_power_efficient = true;
+	return 0;
+}
+__setup("is_power_efficient", set__wq_power_efficient);
 
 static void *work_debug_hint(void *addr)
 {
