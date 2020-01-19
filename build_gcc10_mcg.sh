@@ -20,10 +20,10 @@ export SPL="2019-09"
 export CROSS_COMPILE=${HOME}/android/Toolchains/gcc10/aarch64-linux-elf/bin/aarch64-linux-elf-
 export CROSS_COMPILE_ARM32=${HOME}/android/Toolchains/gcc9eabi_92/bin/arm-eabi-
 #export KBUILD_COMPILER_STRING=$(~/android/Toolchains/clang/clang-r328903/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
-DEFCONFIG="smurfalmk_defconfig"
+DEFCONFIG="smurfmc_defconfig"
 
 # Kernel Details
-VER=".3.4.2.unified"
+VER=".3.4.3t8.unified"
 
 # Paths
 KERNEL_DIR=`pwd`
