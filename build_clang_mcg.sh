@@ -12,18 +12,16 @@ clear
 THREAD="-j$(grep -c ^processor /proc/cpuinfo)"
 KERNEL="Image"
 DTBIMAGE="dtb"
-
-#export CLANG_PATH=~/android/Toolchains/clang/clang-r328903/bin/
-#export PATH=${CLANG_PATH}:${PATH}
-#export CLANG_TRIPLE=aarch64-linux-gnu-
-export SPL="2019-09"
-export CROSS_COMPILE=${HOME}/android/Toolchains/gcc10/aarch64-linux-elf/bin/aarch64-linux-elf-
-export CROSS_COMPILE_ARM32=${HOME}/android/Toolchains/gcc9eabi_92/bin/arm-eabi-
-#export KBUILD_COMPILER_STRING=$(~/android/Toolchains/clang/clang-r328903/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
+export CLANG_PATH=~/android/Toolchains/clang/clang10_5/bin/
+export PATH=${CLANG_PATH}:${PATH}
+export CLANG_TRIPLE=aarch64-linux-gnu-
+#export CROSS_COMPILE=${HOME}/android/Toolchains/aarch64-linux-android-4.9/bin/aarch64-linux-android- CC=clang CXX=clang++
+export CROSS_COMPILE_ARM32=${HOME}/android/Toolchains/arm-linux-androideabi-4.9/bin/arm-linux-androideabi-
+export KBUILD_COMPILER_STRING=$(~/android/Toolchains/clang/clang10_5/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 DEFCONFIG="smurfmc_defconfig"
 
 # Kernel Details
-VER=".3.5.0.unified"
+VER=".3.4.3t10.unified"
 
 # Paths
 KERNEL_DIR=`pwd`
@@ -35,7 +33,6 @@ ZIMAGE_DIR="${HOME}/android/SmurfKernelOP7/arch/arm64/boot/"
 
 # Functions
 function clean_all {
-		#ccache -C
 		rm -rf $MODULES_DIR/*
 		rm -rf ~/android/SmurfKernelOP7/out/*
 		#git reset --hard > /dev/null 2>&1
@@ -46,10 +43,11 @@ function clean_all {
 }
 
 function make_kernel {
-	      cp ~/android/SmurfKernelOP7/Makefile.gcc10 ~/android/SmurfKernelOP7/Makefile
-	      echo
-              make ARCH=arm64 O=out $DEFCONFIG
-              make ARCH=arm64 O=out $THREAD
+		cp ~/android/SmurfKernelOP7/Makefile.clang ~/android/SmurfKernelOP7/Makefile
+		echo
+		make CC=clang CXX=clang++ O=out $DEFCONFIG
+		make CC=clang CXX=clang++ O=out $THREAD
+
 }
 
 function make_modules {
@@ -78,6 +76,8 @@ function make_zip {
 function make_sep_dtb {
 	find ~/android/SmurfKernelOP7/out/arch/arm64/boot/dts -name '*.dtb' -exec cat {} + > ~/android/SmurfKernelOP7/out/arch/arm64/boot/dtb
 }
+
+
 
 DATE_START=$(date +"%s")
 
@@ -131,8 +131,8 @@ case "$dchoice" in
 		make_modules
 		make_boot
 		move_boot
-		make_sep_dtb
 		make_zip
+	      	make_sep_dtb
 		break
 		;;
 	n|N )
