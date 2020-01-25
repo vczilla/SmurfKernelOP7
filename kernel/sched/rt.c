@@ -1834,16 +1834,7 @@ retry:
 
 			if (__cpu_overutilized(cpu, tutil))
 				continue;
-#ifdef CONFIG_OPCHAIN
-			if (best_cpu_is_claimed) {
-				best_cpu_idle_idx = cpu_idle_idx;
-				best_cpu_util_cum = util_cum;
-				best_cpu_util = util;
-				best_cpu = cpu;
-				best_cpu_is_claimed = false;
-				continue;
-			}
-#endif
+
 			/* Find the least loaded CPU */
 			if (util > best_cpu_util)
 				continue;
@@ -1874,6 +1865,7 @@ retry:
 						best_cpu_util_cum < util_cum)
 					continue;
 			}
+
 			best_cpu_idle_idx = cpu_idle_idx;
 			best_cpu_util_cum = util_cum;
 			best_cpu_util = util;
