@@ -722,7 +722,7 @@ static bool queue_empty(struct arm_smmu_queue *q)
 
 static void queue_sync_cons(struct arm_smmu_queue *q)
 {
-	q->cons = readl_relaxed(q->cons_reg);
+	q->cons = readl_relaxed_no_log(q->cons_reg);
 }
 
 static void queue_inc_cons(struct arm_smmu_queue *q)
@@ -736,13 +736,13 @@ static void queue_inc_cons(struct arm_smmu_queue *q)
 	 * are complete before we update the cons pointer.
 	 */
 	mb();
-	writel_relaxed(q->cons, q->cons_reg);
+	writel_relaxed_no_log(q->cons, q->cons_reg);
 }
 
 static int queue_sync_prod(struct arm_smmu_queue *q)
 {
 	int ret = 0;
-	u32 prod = readl_relaxed(q->prod_reg);
+	u32 prod = readl_relaxed_no_log(q->prod_reg);
 
 	if (Q_OVF(q, prod) != Q_OVF(q, q->prod))
 		ret = -EOVERFLOW;
@@ -904,7 +904,7 @@ static void arm_smmu_cmdq_skip_err(struct arm_smmu_device *smmu)
 	int i;
 	u64 cmd[CMDQ_ENT_DWORDS];
 	struct arm_smmu_queue *q = &smmu->cmdq.q;
-	u32 cons = readl_relaxed(q->cons_reg);
+	u32 cons = readl_relaxed_no_log(q->cons_reg);
 	u32 idx = cons >> CMDQ_ERR_SHIFT & CMDQ_ERR_MASK;
 	struct arm_smmu_cmdq_ent cmd_sync = {
 		.opcode = CMDQ_OP_CMD_SYNC,
@@ -1295,8 +1295,8 @@ static irqreturn_t arm_smmu_gerror_handler(int irq, void *dev)
 	u32 gerror, gerrorn, active;
 	struct arm_smmu_device *smmu = dev;
 
-	gerror = readl_relaxed(smmu->base + ARM_SMMU_GERROR);
-	gerrorn = readl_relaxed(smmu->base + ARM_SMMU_GERRORN);
+	gerror = readl_relaxed_no_log(smmu->base + ARM_SMMU_GERROR);
+	gerrorn = readl_relaxed_no_log(smmu->base + ARM_SMMU_GERRORN);
 
 	active = gerror ^ gerrorn;
 	if (!(active & GERROR_ERR_MASK))
@@ -2185,8 +2185,8 @@ static int arm_smmu_write_reg_sync(struct arm_smmu_device *smmu, u32 val,
 {
 	u32 reg;
 
-	writel_relaxed(val, smmu->base + reg_off);
-	return readl_relaxed_poll_timeout(smmu->base + ack_off, reg, reg == val,
+	writel_relaxed_no_log(val, smmu->base + reg_off);
+	return readl_relaxed_no_log_poll_timeout(smmu->base + ack_off, reg, reg == val,
 					  1, ARM_SMMU_POLL_TIMEOUT_US);
 }
 
@@ -2196,15 +2196,15 @@ static int arm_smmu_update_gbpa(struct arm_smmu_device *smmu, u32 set, u32 clr)
 	int ret;
 	u32 reg, __iomem *gbpa = smmu->base + ARM_SMMU_GBPA;
 
-	ret = readl_relaxed_poll_timeout(gbpa, reg, !(reg & GBPA_UPDATE),
+	ret = readl_relaxed_no_log_poll_timeout(gbpa, reg, !(reg & GBPA_UPDATE),
 					 1, ARM_SMMU_POLL_TIMEOUT_US);
 	if (ret)
 		return ret;
 
 	reg &= ~clr;
 	reg |= set;
-	writel_relaxed(reg | GBPA_UPDATE, gbpa);
-	return readl_relaxed_poll_timeout(gbpa, reg, !(reg & GBPA_UPDATE),
+	writel_relaxed_no_log(reg | GBPA_UPDATE, gbpa);
+	return readl_relaxed_no_log_poll_timeout(gbpa, reg, !(reg & GBPA_UPDATE),
 					  1, ARM_SMMU_POLL_TIMEOUT_US);
 }
 
@@ -2225,8 +2225,8 @@ static void arm_smmu_write_msi_msg(struct msi_desc *desc, struct msi_msg *msg)
 	doorbell &= MSI_CFG0_ADDR_MASK << MSI_CFG0_ADDR_SHIFT;
 
 	writeq_relaxed(doorbell, smmu->base + cfg[0]);
-	writel_relaxed(msg->data, smmu->base + cfg[1]);
-	writel_relaxed(MSI_CFG2_MEMATTR_DEVICE_nGnRE, smmu->base + cfg[2]);
+	writel_relaxed_no_log(msg->data, smmu->base + cfg[1]);
+	writel_relaxed_no_log(MSI_CFG2_MEMATTR_DEVICE_nGnRE, smmu->base + cfg[2]);
 }
 
 static void arm_smmu_setup_msis(struct arm_smmu_device *smmu)
@@ -2382,7 +2382,7 @@ static int arm_smmu_device_reset(struct arm_smmu_device *smmu, bool bypass)
 	struct arm_smmu_cmdq_ent cmd;
 
 	/* Clear CR0 and sync (disables SMMU and queue processing) */
-	reg = readl_relaxed(smmu->base + ARM_SMMU_CR0);
+	reg = readl_relaxed_no_log(smmu->base + ARM_SMMU_CR0);
 	if (reg & CR0_SMMUEN)
 		dev_warn(smmu->dev, "SMMU currently enabled! Resetting...\n");
 
@@ -2397,22 +2397,22 @@ static int arm_smmu_device_reset(struct arm_smmu_device *smmu, bool bypass)
 	      (CR1_SH_ISH << CR1_QUEUE_SH_SHIFT) |
 	      (CR1_CACHE_WB << CR1_QUEUE_OC_SHIFT) |
 	      (CR1_CACHE_WB << CR1_QUEUE_IC_SHIFT);
-	writel_relaxed(reg, smmu->base + ARM_SMMU_CR1);
+	writel_relaxed_no_log(reg, smmu->base + ARM_SMMU_CR1);
 
 	/* CR2 (random crap) */
 	reg = CR2_PTM | CR2_RECINVSID | CR2_E2H;
-	writel_relaxed(reg, smmu->base + ARM_SMMU_CR2);
+	writel_relaxed_no_log(reg, smmu->base + ARM_SMMU_CR2);
 
 	/* Stream table */
 	writeq_relaxed(smmu->strtab_cfg.strtab_base,
 		       smmu->base + ARM_SMMU_STRTAB_BASE);
-	writel_relaxed(smmu->strtab_cfg.strtab_base_cfg,
+	writel_relaxed_no_log(smmu->strtab_cfg.strtab_base_cfg,
 		       smmu->base + ARM_SMMU_STRTAB_BASE_CFG);
 
 	/* Command queue */
 	writeq_relaxed(smmu->cmdq.q.q_base, smmu->base + ARM_SMMU_CMDQ_BASE);
-	writel_relaxed(smmu->cmdq.q.prod, smmu->base + ARM_SMMU_CMDQ_PROD);
-	writel_relaxed(smmu->cmdq.q.cons, smmu->base + ARM_SMMU_CMDQ_CONS);
+	writel_relaxed_no_log(smmu->cmdq.q.prod, smmu->base + ARM_SMMU_CMDQ_PROD);
+	writel_relaxed_no_log(smmu->cmdq.q.cons, smmu->base + ARM_SMMU_CMDQ_CONS);
 
 	enables = CR0_CMDQEN;
 	ret = arm_smmu_write_reg_sync(smmu, enables, ARM_SMMU_CR0,
@@ -2441,9 +2441,9 @@ static int arm_smmu_device_reset(struct arm_smmu_device *smmu, bool bypass)
 
 	/* Event queue */
 	writeq_relaxed(smmu->evtq.q.q_base, smmu->base + ARM_SMMU_EVTQ_BASE);
-	writel_relaxed(smmu->evtq.q.prod,
+	writel_relaxed_no_log(smmu->evtq.q.prod,
 		       arm_smmu_page1_fixup(ARM_SMMU_EVTQ_PROD, smmu));
-	writel_relaxed(smmu->evtq.q.cons,
+	writel_relaxed_no_log(smmu->evtq.q.cons,
 		       arm_smmu_page1_fixup(ARM_SMMU_EVTQ_CONS, smmu));
 
 	enables |= CR0_EVTQEN;
@@ -2458,9 +2458,9 @@ static int arm_smmu_device_reset(struct arm_smmu_device *smmu, bool bypass)
 	if (smmu->features & ARM_SMMU_FEAT_PRI) {
 		writeq_relaxed(smmu->priq.q.q_base,
 			       smmu->base + ARM_SMMU_PRIQ_BASE);
-		writel_relaxed(smmu->priq.q.prod,
+		writel_relaxed_no_log(smmu->priq.q.prod,
 			       arm_smmu_page1_fixup(ARM_SMMU_PRIQ_PROD, smmu));
-		writel_relaxed(smmu->priq.q.cons,
+		writel_relaxed_no_log(smmu->priq.q.cons,
 			       arm_smmu_page1_fixup(ARM_SMMU_PRIQ_CONS, smmu));
 
 		enables |= CR0_PRIQEN;
@@ -2505,7 +2505,7 @@ static int arm_smmu_device_hw_probe(struct arm_smmu_device *smmu)
 	bool coherent = smmu->features & ARM_SMMU_FEAT_COHERENCY;
 
 	/* IDR0 */
-	reg = readl_relaxed(smmu->base + ARM_SMMU_IDR0);
+	reg = readl_relaxed_no_log(smmu->base + ARM_SMMU_IDR0);
 
 	/* 2-level structures */
 	if ((reg & IDR0_ST_LVL_MASK << IDR0_ST_LVL_SHIFT) == IDR0_ST_LVL_2LVL)
@@ -2596,7 +2596,7 @@ static int arm_smmu_device_hw_probe(struct arm_smmu_device *smmu)
 	smmu->vmid_bits = reg & IDR0_VMID16 ? 16 : 8;
 
 	/* IDR1 */
-	reg = readl_relaxed(smmu->base + ARM_SMMU_IDR1);
+	reg = readl_relaxed_no_log(smmu->base + ARM_SMMU_IDR1);
 	if (reg & (IDR1_TABLES_PRESET | IDR1_QUEUES_PRESET | IDR1_REL)) {
 		dev_err(smmu->dev, "embedded implementation not supported\n");
 		return -ENXIO;
@@ -2628,7 +2628,7 @@ static int arm_smmu_device_hw_probe(struct arm_smmu_device *smmu)
 		smmu->features &= ~ARM_SMMU_FEAT_2_LVL_STRTAB;
 
 	/* IDR5 */
-	reg = readl_relaxed(smmu->base + ARM_SMMU_IDR5);
+	reg = readl_relaxed_no_log(smmu->base + ARM_SMMU_IDR5);
 
 	/* Maximum number of outstanding stalls */
 	smmu->evtq.max_stalls = reg >> IDR5_STALL_MAX_SHIFT
