@@ -101,7 +101,7 @@ static struct qcom_iommu_ctx * to_ctx(struct iommu_fwspec *fwspec, unsigned asid
 static inline void
 iommu_writel(struct qcom_iommu_ctx *ctx, unsigned reg, u32 val)
 {
-	writel_relaxed(val, ctx->base + reg);
+	writel_relaxed_no_log(val, ctx->base + reg);
 }
 
 static inline void
@@ -113,7 +113,7 @@ iommu_writeq(struct qcom_iommu_ctx *ctx, unsigned reg, u64 val)
 static inline u32
 iommu_readl(struct qcom_iommu_ctx *ctx, unsigned reg)
 {
-	return readl_relaxed(ctx->base + reg);
+	return readl_relaxed_no_log(ctx->base + reg);
 }
 
 static inline u64
@@ -839,7 +839,7 @@ static int qcom_iommu_device_probe(struct platform_device *pdev)
 
 	if (qcom_iommu->local_base) {
 		pm_runtime_get_sync(dev);
-		writel_relaxed(0xffffffff, qcom_iommu->local_base + SMMU_INTR_SEL_NS);
+		writel_relaxed_no_log(0xffffffff, qcom_iommu->local_base + SMMU_INTR_SEL_NS);
 		pm_runtime_put_sync(dev);
 	}
 
