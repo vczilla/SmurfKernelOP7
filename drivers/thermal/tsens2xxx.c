@@ -112,7 +112,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 
 	tmdev->trdy_fail_ctr = 0;
 
-	code = readl_relaxed(sensor_addr +
+	code = readl_relaxed_no_log(sensor_addr +
 			(sensor->hw_id << TSENS_STATUS_ADDR_OFFSET));
 	last_temp = code & TSENS_TM_SN_LAST_TEMP_MASK;
 
@@ -121,7 +121,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 		goto dbg;
 	}
 
-	code = readl_relaxed(sensor_addr +
+	code = readl_relaxed_no_log(sensor_addr +
 		(sensor->hw_id << TSENS_STATUS_ADDR_OFFSET));
 	last_temp2 = code & TSENS_TM_SN_LAST_TEMP_MASK;
 	if (code & TSENS_TM_SN_STATUS_VALID_BIT) {
@@ -130,7 +130,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 		goto dbg;
 	}
 
-	code = readl_relaxed(sensor_addr +
+	code = readl_relaxed_no_log(sensor_addr +
 			(sensor->hw_id <<
 			TSENS_STATUS_ADDR_OFFSET));
 	last_temp3 = code & TSENS_TM_SN_LAST_TEMP_MASK;
@@ -175,42 +175,42 @@ static int tsens_tm_activate_trip_type(struct tsens_sensor *tm_sensor,
 	switch (trip) {
 	case THERMAL_TRIP_CRITICAL:
 		tmdev->sensor[tm_sensor->hw_id].thr_state.crit_th_state = mode;
-		reg_cntl = readl_relaxed(TSENS_TM_CRITICAL_INT_MASK
+		reg_cntl = readl_relaxed_no_log(TSENS_TM_CRITICAL_INT_MASK
 						(tmdev->tsens_tm_addr));
 		if (mode == THERMAL_DEVICE_DISABLED)
-			writel_relaxed(reg_cntl | (1 << mask),
+			writel_relaxed_no_log(reg_cntl | (1 << mask),
 				(TSENS_TM_CRITICAL_INT_MASK
 				(tmdev->tsens_tm_addr)));
 		else
-			writel_relaxed(reg_cntl & ~(1 << mask),
+			writel_relaxed_no_log(reg_cntl & ~(1 << mask),
 				(TSENS_TM_CRITICAL_INT_MASK
 				(tmdev->tsens_tm_addr)));
 		break;
 	case THERMAL_TRIP_CONFIGURABLE_HI:
 		tmdev->sensor[tm_sensor->hw_id].thr_state.high_th_state = mode;
-		reg_cntl = readl_relaxed(TSENS_TM_UPPER_LOWER_INT_MASK
+		reg_cntl = readl_relaxed_no_log(TSENS_TM_UPPER_LOWER_INT_MASK
 						(tmdev->tsens_tm_addr));
 		if (mode == THERMAL_DEVICE_DISABLED)
-			writel_relaxed(reg_cntl |
+			writel_relaxed_no_log(reg_cntl |
 				(TSENS_TM_UPPER_INT_SET(mask)),
 				(TSENS_TM_UPPER_LOWER_INT_MASK
 				(tmdev->tsens_tm_addr)));
 		else
-			writel_relaxed(reg_cntl &
+			writel_relaxed_no_log(reg_cntl &
 				~(TSENS_TM_UPPER_INT_SET(mask)),
 				(TSENS_TM_UPPER_LOWER_INT_MASK
 				(tmdev->tsens_tm_addr)));
 		break;
 	case THERMAL_TRIP_CONFIGURABLE_LOW:
 		tmdev->sensor[tm_sensor->hw_id].thr_state.low_th_state = mode;
-		reg_cntl = readl_relaxed(TSENS_TM_UPPER_LOWER_INT_MASK
+		reg_cntl = readl_relaxed_no_log(TSENS_TM_UPPER_LOWER_INT_MASK
 						(tmdev->tsens_tm_addr));
 		if (mode == THERMAL_DEVICE_DISABLED)
-			writel_relaxed(reg_cntl | (1 << mask),
+			writel_relaxed_no_log(reg_cntl | (1 << mask),
 			(TSENS_TM_UPPER_LOWER_INT_MASK
 						(tmdev->tsens_tm_addr)));
 		else
-			writel_relaxed(reg_cntl & ~(1 << mask),
+			writel_relaxed_no_log(reg_cntl & ~(1 << mask),
 			(TSENS_TM_UPPER_LOWER_INT_MASK
 						(tmdev->tsens_tm_addr)));
 		break;
@@ -246,7 +246,7 @@ static int tsens2xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 
 	if (high_temp != INT_MAX) {
 		tmdev->sensor[tm_sensor->hw_id].thr_state.high_temp = high_temp;
-		reg_cntl = readl_relaxed((TSENS_TM_SN_UPPER_LOWER_THRESHOLD
+		reg_cntl = readl_relaxed_no_log((TSENS_TM_SN_UPPER_LOWER_THRESHOLD
 				(tmdev->tsens_tm_addr)) +
 				(tm_sensor->hw_id *
 				TSENS_TM_SN_ADDR_OFFSET));
@@ -254,7 +254,7 @@ static int tsens2xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 		high_temp = TSENS_TM_UPPER_THRESHOLD_SET(high_temp);
 		high_temp &= TSENS_TM_UPPER_THRESHOLD_MASK;
 		reg_cntl &= ~TSENS_TM_UPPER_THRESHOLD_MASK;
-		writel_relaxed(reg_cntl | high_temp,
+		writel_relaxed_no_log(reg_cntl | high_temp,
 			(TSENS_TM_SN_UPPER_LOWER_THRESHOLD
 				(tmdev->tsens_tm_addr) +
 			(tm_sensor->hw_id * TSENS_TM_SN_ADDR_OFFSET)));
@@ -262,14 +262,14 @@ static int tsens2xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 
 	if (low_temp != INT_MIN) {
 		tmdev->sensor[tm_sensor->hw_id].thr_state.low_temp = low_temp;
-		reg_cntl = readl_relaxed((TSENS_TM_SN_UPPER_LOWER_THRESHOLD
+		reg_cntl = readl_relaxed_no_log((TSENS_TM_SN_UPPER_LOWER_THRESHOLD
 				(tmdev->tsens_tm_addr)) +
 				(tm_sensor->hw_id *
 				TSENS_TM_SN_ADDR_OFFSET));
 		low_temp /= TSENS_TM_SCALE_DECI_MILLIDEG;
 		low_temp &= TSENS_TM_LOWER_THRESHOLD_MASK;
 		reg_cntl &= ~TSENS_TM_LOWER_THRESHOLD_MASK;
-		writel_relaxed(reg_cntl | low_temp,
+		writel_relaxed_no_log(reg_cntl | low_temp,
 			(TSENS_TM_SN_UPPER_LOWER_THRESHOLD
 				(tmdev->tsens_tm_addr) +
 			(tm_sensor->hw_id * TSENS_TM_SN_ADDR_OFFSET)));
@@ -341,19 +341,19 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 		wd_log_addr = TSENS_TM_WATCHDOG_LOG(tm->tsens_tm_addr);
 
 	if (tm->ctrl_data->wd_bark) {
-		wd_mask = readl_relaxed(wd_critical_addr);
+		wd_mask = readl_relaxed_no_log(wd_critical_addr);
 		if (wd_mask & TSENS_TM_CRITICAL_WD_BARK) {
 			/*
 			 * Clear watchdog interrupt and
 			 * increment global wd count
 			 */
-			writel_relaxed(wd_mask | TSENS_TM_CRITICAL_WD_BARK,
+			writel_relaxed_no_log(wd_mask | TSENS_TM_CRITICAL_WD_BARK,
 				(TSENS_TM_CRITICAL_INT_CLEAR
 				(tm->tsens_tm_addr)));
-			writel_relaxed(wd_mask & ~(TSENS_TM_CRITICAL_WD_BARK),
+			writel_relaxed_no_log(wd_mask & ~(TSENS_TM_CRITICAL_WD_BARK),
 				(TSENS_TM_CRITICAL_INT_CLEAR
 				(tm->tsens_tm_addr)));
-			wd_log = readl_relaxed(wd_log_addr);
+			wd_log = readl_relaxed_no_log(wd_log_addr);
 			if (wd_log >= TSENS_DEBUG_WDOG_TRIGGER_COUNT) {
 				pr_err("Watchdog count:%d\n", wd_log);
 				if (tm->ops->dbg)
@@ -376,22 +376,22 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 		spin_lock_irqsave(&tm->tsens_crit_lock, flags);
 		addr_offset = tm->sensor[i].hw_id *
 						TSENS_TM_SN_ADDR_OFFSET;
-		status = readl_relaxed(sensor_status_addr + addr_offset);
-		int_mask = readl_relaxed(sensor_int_mask_addr);
+		status = readl_relaxed_no_log(sensor_status_addr + addr_offset);
+		int_mask = readl_relaxed_no_log(sensor_int_mask_addr);
 
 		if ((status & TSENS_TM_SN_STATUS_CRITICAL_STATUS) &&
 			!(int_mask & (1 << tm->sensor[i].hw_id))) {
-			int_mask = readl_relaxed(sensor_int_mask_addr);
+			int_mask = readl_relaxed_no_log(sensor_int_mask_addr);
 			int_mask_val = (1 << tm->sensor[i].hw_id);
 			/* Mask the corresponding interrupt for the sensors */
-			writel_relaxed(int_mask | int_mask_val,
+			writel_relaxed_no_log(int_mask | int_mask_val,
 				TSENS_TM_CRITICAL_INT_MASK(
 					tm->tsens_tm_addr));
 			/* Clear the corresponding sensors interrupt */
-			writel_relaxed(int_mask_val,
+			writel_relaxed_no_log(int_mask_val,
 				TSENS_TM_CRITICAL_INT_CLEAR
 					(tm->tsens_tm_addr));
-			writel_relaxed(0,
+			writel_relaxed_no_log(0,
 				TSENS_TM_CRITICAL_INT_CLEAR(
 					tm->tsens_tm_addr));
 			tm->sensor[i].thr_state.crit_th_state =
@@ -438,26 +438,26 @@ static irqreturn_t tsens_tm_irq_thread(int irq, void *data)
 		spin_lock_irqsave(&tm->tsens_upp_low_lock, flags);
 		addr_offset = tm->sensor[i].hw_id *
 						TSENS_TM_SN_ADDR_OFFSET;
-		status = readl_relaxed(sensor_status_addr + addr_offset);
-		threshold = readl_relaxed(sensor_upper_lower_addr +
+		status = readl_relaxed_no_log(sensor_status_addr + addr_offset);
+		threshold = readl_relaxed_no_log(sensor_upper_lower_addr +
 								addr_offset);
-		int_mask = readl_relaxed(sensor_int_mask_addr);
+		int_mask = readl_relaxed_no_log(sensor_int_mask_addr);
 
 		if ((status & TSENS_TM_SN_STATUS_UPPER_STATUS) &&
 			!(int_mask &
 				(1 << (tm->sensor[i].hw_id + 16)))) {
-			int_mask = readl_relaxed(sensor_int_mask_addr);
+			int_mask = readl_relaxed_no_log(sensor_int_mask_addr);
 			int_mask_val = TSENS_TM_UPPER_INT_SET(
 					tm->sensor[i].hw_id);
 			/* Mask the corresponding interrupt for the sensors */
-			writel_relaxed(int_mask | int_mask_val,
+			writel_relaxed_no_log(int_mask | int_mask_val,
 					TSENS_TM_UPPER_LOWER_INT_MASK(
 						tm->tsens_tm_addr));
 			/* Clear the corresponding sensors interrupt */
-			writel_relaxed(int_mask_val,
+			writel_relaxed_no_log(int_mask_val,
 				TSENS_TM_UPPER_LOWER_INT_CLEAR(
 					tm->tsens_tm_addr));
-			writel_relaxed(0,
+			writel_relaxed_no_log(0,
 				TSENS_TM_UPPER_LOWER_INT_CLEAR(
 					tm->tsens_tm_addr));
 			if (TSENS_TM_UPPER_THRESHOLD_VALUE(threshold) >
@@ -479,17 +479,17 @@ static irqreturn_t tsens_tm_irq_thread(int irq, void *data)
 		if ((status & TSENS_TM_SN_STATUS_LOWER_STATUS) &&
 			!(int_mask &
 				(1 << tm->sensor[i].hw_id))) {
-			int_mask = readl_relaxed(sensor_int_mask_addr);
+			int_mask = readl_relaxed_no_log(sensor_int_mask_addr);
 			int_mask_val = (1 << tm->sensor[i].hw_id);
 			/* Mask the corresponding interrupt for the sensors */
-			writel_relaxed(int_mask | int_mask_val,
+			writel_relaxed_no_log(int_mask | int_mask_val,
 					TSENS_TM_UPPER_LOWER_INT_MASK(
 						tm->tsens_tm_addr));
 			/* Clear the corresponding sensors interrupt */
-			writel_relaxed(int_mask_val,
+			writel_relaxed_no_log(int_mask_val,
 				TSENS_TM_UPPER_LOWER_INT_CLEAR(
 					tm->tsens_tm_addr));
-			writel_relaxed(0,
+			writel_relaxed_no_log(0,
 				TSENS_TM_UPPER_LOWER_INT_CLEAR(
 					tm->tsens_tm_addr));
 			if (TSENS_TM_LOWER_THRESHOLD_VALUE(threshold)
@@ -533,7 +533,7 @@ static int tsens2xxx_hw_sensor_en(struct tsens_device *tmdev,
 	unsigned int srot_val, sensor_en;
 
 	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
-	srot_val = readl_relaxed(srot_addr);
+	srot_val = readl_relaxed_no_log(srot_addr);
 	srot_val = TSENS_CTRL_SENSOR_EN_MASK(srot_val);
 
 	sensor_en = ((1 << sensor_id) & srot_val);
@@ -549,7 +549,7 @@ static int tsens2xxx_hw_init(struct tsens_device *tmdev)
 	void __iomem *int_mask_addr;
 
 	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
-	srot_val = readl_relaxed(srot_addr);
+	srot_val = readl_relaxed_no_log(srot_addr);
 	if (!(srot_val & TSENS_EN)) {
 		pr_err("TSENS device is not enabled\n");
 		return -ENODEV;
@@ -558,14 +558,14 @@ static int tsens2xxx_hw_init(struct tsens_device *tmdev)
 	if (tmdev->ctrl_data->cycle_monitor) {
 		sensor_int_mask_addr =
 			TSENS_TM_CRITICAL_INT_MASK(tmdev->tsens_tm_addr);
-		crit_mask = readl_relaxed(sensor_int_mask_addr);
+		crit_mask = readl_relaxed_no_log(sensor_int_mask_addr);
 		crit_val = TSENS_TM_CRITICAL_CYCLE_MONITOR;
 		if (tmdev->ctrl_data->cycle_compltn_monitor_mask)
-			writel_relaxed((crit_mask | crit_val),
+			writel_relaxed_no_log((crit_mask | crit_val),
 				(TSENS_TM_CRITICAL_INT_MASK
 				(tmdev->tsens_tm_addr)));
 		else
-			writel_relaxed((crit_mask & ~crit_val),
+			writel_relaxed_no_log((crit_mask & ~crit_val),
 				(TSENS_TM_CRITICAL_INT_MASK
 				(tmdev->tsens_tm_addr)));
 		/*Update critical cycle monitoring*/
@@ -575,14 +575,14 @@ static int tsens2xxx_hw_init(struct tsens_device *tmdev)
 	if (tmdev->ctrl_data->wd_bark) {
 		sensor_int_mask_addr =
 			TSENS_TM_CRITICAL_INT_MASK(tmdev->tsens_tm_addr);
-		crit_mask = readl_relaxed(sensor_int_mask_addr);
+		crit_mask = readl_relaxed_no_log(sensor_int_mask_addr);
 		crit_val = TSENS_TM_CRITICAL_WD_BARK;
 		if (tmdev->ctrl_data->wd_bark_mask)
-			writel_relaxed((crit_mask | crit_val),
+			writel_relaxed_no_log((crit_mask | crit_val),
 			(TSENS_TM_CRITICAL_INT_MASK
 			(tmdev->tsens_tm_addr)));
 		else
-			writel_relaxed((crit_mask & ~crit_val),
+			writel_relaxed_no_log((crit_mask & ~crit_val),
 			(TSENS_TM_CRITICAL_INT_MASK
 			(tmdev->tsens_tm_addr)));
 		/*Update watchdog monitoring*/
@@ -590,9 +590,9 @@ static int tsens2xxx_hw_init(struct tsens_device *tmdev)
 	}
 
 	int_mask_addr = TSENS_TM_UPPER_LOWER_INT_MASK(tmdev->tsens_tm_addr);
-	writel_relaxed(TSENS_TM_UPPER_LOWER_INT_DISABLE, int_mask_addr);
+	writel_relaxed_no_log(TSENS_TM_UPPER_LOWER_INT_DISABLE, int_mask_addr);
 
-	writel_relaxed(TSENS_TM_CRITICAL_INT_EN |
+	writel_relaxed_no_log(TSENS_TM_CRITICAL_INT_EN |
 		TSENS_TM_UPPER_INT_EN | TSENS_TM_LOWER_INT_EN,
 		TSENS_TM_INT_EN(tmdev->tsens_tm_addr));
 
