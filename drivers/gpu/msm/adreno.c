@@ -265,7 +265,7 @@ int adreno_efuse_read_u32(struct adreno_device *adreno_dev, unsigned int offset,
 		return -ERANGE;
 
 	if (val != NULL) {
-		*val = readl_relaxed(efuse_base + offset);
+		*val = readl_relaxed_no_log(efuse_base + offset);
 		/* Make sure memory is updated before returning */
 		rmb();
 	}
