@@ -1688,26 +1688,43 @@ static int gmu_start(struct kgsl_device *device)
 		break;
 
 	case KGSL_STATE_RESET:
-		gmu_suspend(device);
+		if (test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv) ||
+			test_bit(GMU_FAULT, &device->gmu_core.flags)) {
+			gmu_suspend(device);
 
-		gmu_aop_send_acd_state(device);
+			gmu_aop_send_acd_state(device);
 
-		gmu_enable_gdsc(gmu);
-		gmu_enable_clks(device);
-		gmu_dev_ops->irq_enable(device);
+			gmu_enable_gdsc(gmu);
+			gmu_enable_clks(device);
+			gmu_dev_ops->irq_enable(device);
 
-		ret = gmu_dev_ops->rpmh_gpu_pwrctrl(
+			ret = gmu_dev_ops->rpmh_gpu_pwrctrl(
 				adreno_dev, GMU_FW_START, GMU_COLD_BOOT, 0);
-		if (ret)
-			goto error_gmu;
+			if (ret)
+				goto error_gmu;
 
 
-		ret = hfi_start(device, gmu, GMU_COLD_BOOT);
-		if (ret)
-			goto error_gmu;
+			ret = hfi_start(device, gmu, GMU_COLD_BOOT);
+			if (ret)
+				goto error_gmu;
 
-		/* Send DCVS level prior to reset*/
-		kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
+			/* Send DCVS level prior to reset*/
+			kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
+		} else {
+			/* GMU fast boot */
+			hfi_stop(gmu);
+
+			gmu_aop_send_acd_state(device);
+
+			ret = gmu_dev_ops->rpmh_gpu_pwrctrl(adreno_dev,
+					GMU_FW_START, GMU_COLD_BOOT, 0);
+			if (ret)
+				goto error_gmu;
+
+			ret = hfi_start(device, gmu, GMU_COLD_BOOT);
+			if (ret)
+				goto error_gmu;
+		}
 		break;
 	default:
 		break;
@@ -1850,6 +1867,24 @@ static bool gmu_regulator_isenabled(struct kgsl_device *device)
 	return (gmu->gx_gdsc &&	regulator_is_enabled(gmu->gx_gdsc));
 }
 
+static bool gmu_is_initialized(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	bool ret;
+
+	gmu_enable_gdsc(gmu);
+	gmu_enable_clks(device);
+
+	ret = gmu_dev_ops->is_initialized(adreno_dev);
+
+	gmu_disable_clks(device);
+	gmu_disable_gdsc(gmu);
+
+	return ret;
+}
+
 struct gmu_core_ops gmu_ops = {
 	.probe = gmu_probe,
 	.remove = gmu_remove,
@@ -1860,4 +1895,5 @@ struct gmu_core_ops gmu_ops = {
 	.regulator_isenabled = gmu_regulator_isenabled,
 	.suspend = gmu_suspend,
 	.acd_set = gmu_acd_set,
+	.is_initialized = gmu_is_initialized,
 };

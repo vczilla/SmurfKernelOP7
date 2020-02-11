@@ -306,7 +306,7 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 	 * rptr scratch out address. At this point GPU clocks turned off.
 	 * So avoid reading GPU register directly for A3xx.
 	 */
-	if (adreno_is_a3xx(ADRENO_DEVICE(device))) {
+	if (unlikely(adreno_is_a3xx(ADRENO_DEVICE(device)))) {
 		trace_adreno_cmdbatch_retired(drawobj, -1, 0, 0, drawctxt->rb,
 				0, 0);
 	} else {
@@ -2211,15 +2211,6 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 				adreno_dev->cur_rb = hung_rb;
 			}
 		}
-
-		/*
-		 * Make sure to unhalt the dispatcher in case if it is halted
-		 * because of starved ringbuffer.
-		 */
-		if (rb->starve_state == ADRENO_STARVE_EXPIRED) {
-			adreno_put_gpu_halt(adreno_dev);
-			rb->starve_state = ADRENO_STARVE_OFF;
-		}
 	}
 
 	if (dispatch_q && !adreno_drawqueue_is_empty(dispatch_q)) {
@@ -2361,7 +2352,7 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 	 * rptr scratch out address. At this point GPU clocks turned off.
 	 * So avoid reading GPU register directly for A3xx.
 	 */
-	if (adreno_is_a3xx(adreno_dev)) {
+	if (unlikely(adreno_is_a3xx(adreno_dev))) {
 		trace_adreno_cmdbatch_retired(drawobj,
 			(int) dispatcher->inflight, start, end,
 			ADRENO_DRAWOBJ_RB(drawobj), 0, cmdobj->fault_recovery);

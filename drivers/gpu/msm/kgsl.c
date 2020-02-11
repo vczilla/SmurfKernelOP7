@@ -341,6 +341,8 @@ static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)
 {
 	if (meta != NULL) {
 		remove_dmabuf_list(meta);
+		dma_buf_unmap_attachment(meta->attach, meta->table,
+			DMA_FROM_DEVICE);
 		dma_buf_detach(meta->dmabuf, meta->attach);
 		dma_buf_put(meta->dmabuf);
 		kfree(meta);
@@ -514,6 +516,8 @@ static int kgsl_mem_entry_attach_process(struct kgsl_device *device,
 /* Detach a memory entry from a process and unmap it from the MMU */
 static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 {
+	unsigned int type;
+
 	if (entry == NULL)
 		return;
 
@@ -526,8 +530,10 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 		idr_remove(&entry->priv->mem_idr, entry->id);
 	entry->id = 0;
 
-	atomic64_sub(atomic64_read(&entry->memdesc.mapsize),
-			&entry->priv->gpumem_mapped);
+	type = kgsl_memdesc_usermem_type(&entry->memdesc);
+
+	if (type != KGSL_MEM_ENTRY_ION)
+		entry->priv->gpumem_mapped -= entry->memdesc.mapsize;
 
 	spin_unlock(&entry->priv->mem_lock);
 
@@ -2800,8 +2806,6 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 		goto out;
 	}
 
-	dma_buf_unmap_attachment(attach, sg_table, DMA_FROM_DEVICE);
-
 	meta->table = sg_table;
 	entry->priv_data = meta;
 	entry->memdesc.sgt = sg_table;
@@ -4388,7 +4392,7 @@ kgsl_gpumem_vm_fault(struct vm_fault *vmf)
 
 	ret = entry->memdesc.ops->vmfault(&entry->memdesc, vmf->vma, vmf);
 	if ((ret == 0) || (ret == VM_FAULT_NOPAGE))
-		atomic64_add(PAGE_SIZE, &entry->priv->gpumem_mapped);
+		entry->priv->gpumem_mapped += PAGE_SIZE;
 
 	return ret;
 }
@@ -4768,8 +4772,6 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 			vm_insert_page(vma, addr, page);
 			addr += PAGE_SIZE;
 		}
-		atomic64_add(m->size, &m->mapsize);
-		atomic64_add(m->size, &entry->priv->gpumem_mapped);
 	}
 
 	vma->vm_file = file;
@@ -5040,7 +5042,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	}
 
 	device->events_wq = alloc_workqueue("kgsl-events",
-		WQ_HIGHPRI | WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
+		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
 
 	/* Initialize the snapshot engine */
 	kgsl_device_snapshot_init(device);

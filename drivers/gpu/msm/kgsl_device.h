@@ -68,7 +68,6 @@ enum kgsl_event_results {
 	KGSL_EVENT_CANCELLED = 2,
 };
 
-#define KGSL_FLAG_WAKE_ON_TOUCH BIT(0)
 #define KGSL_FLAG_SPARSE        BIT(1)
 
 /*
@@ -474,10 +473,10 @@ struct kgsl_process_private {
 	struct kobject kobj;
 	struct dentry *debug_root;
 	struct {
-		atomic64_t cur;
-		atomic64_t max;
+		uint64_t cur;
+		uint64_t max;
 	} stats[KGSL_MEM_ENTRY_MAX];
-	atomic64_t gpumem_mapped;
+	uint64_t gpumem_mapped;
 	struct idr syncsource_idr;
 	spinlock_t syncsource_lock;
 	int fd_count;
@@ -571,10 +570,9 @@ struct kgsl_device *kgsl_get_device(int dev_idx);
 static inline void kgsl_process_add_stats(struct kgsl_process_private *priv,
 	unsigned int type, uint64_t size)
 {
-	u64 ret = atomic64_add_return(size, &priv->stats[type].cur);
-
-	if (ret > atomic64_read(&priv->stats[type].max))
-		atomic64_set(&priv->stats[type].max, ret);
+	priv->stats[type].cur += size;
+	if (priv->stats[type].max < priv->stats[type].cur)
+		priv->stats[type].max = priv->stats[type].cur;
 	add_mm_counter(current->mm, MM_UNRECLAIMABLE, (size >> PAGE_SHIFT));
 }
 
@@ -585,7 +583,7 @@ static inline void kgsl_process_sub_stats(struct kgsl_process_private *priv,
 	struct task_struct *task;
 	struct mm_struct *mm;
 
-	atomic64_sub(size, &priv->stats[type].cur);
+	priv->stats[type].cur -= size;
 	pid_struct = find_get_pid(priv->pid);
 	if (pid_struct) {
 		task = get_pid_task(pid_struct, PIDTYPE_PID);
@@ -692,7 +690,7 @@ static inline int kgsl_state_is_awake(struct kgsl_device *device)
 	if (device->state == KGSL_STATE_ACTIVE ||
 		device->state == KGSL_STATE_AWARE)
 		return true;
-	else if (gmu_core_isenabled(device) &&
+	else if (gmu_core_gpmu_isenabled(device) &&
 			test_bit(GMU_CLK_ON, &device->gmu_core.flags))
 		return true;
 	else
