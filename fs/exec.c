@@ -62,6 +62,18 @@
 #include <linux/oom.h>
 #include <linux/compat.h>
 #include <linux/vmalloc.h>
+#ifdef CONFIG_CPU_INPUT_BOOST
+#include <linux/cpu_input_boost.h>
+#endif
+#ifdef CONFIG_DEVFREQ_BOOST
+#include <linux/devfreq_boost.h>
+#endif
+#ifdef CONFIG_DEVFREQ_BOOST_DDR
+#include <linux/devfreq_boost_ddr.h>
+#endif
+#ifdef CONFIG_DEVFREQ_BOOST_GPU
+#include <linux/devfreq_boost_gpu.h>
+#endif
 
 #include <linux/uaccess.h>
 #include <asm/mmu_context.h>
@@ -71,9 +83,6 @@
 #include "internal.h"
 
 #include <trace/events/sched.h>
-#ifdef CONFIG_ADJ_CHAIN
-#include <linux/adj_chain.h>
-#endif
 
 int suid_dumpable = 0;
 
@@ -1167,25 +1176,10 @@ static int de_thread(struct task_struct *tsk)
 		list_replace_rcu(&leader->tasks, &tsk->tasks);
 		list_replace_init(&leader->sibling, &tsk->sibling);
 
-#ifdef CONFIG_ADJ_CHAIN
-		tsk->adj_chain_status |= 1 << AC_PROM_LEADER;
-		adj_chain_detach(tsk);
-		adj_chain_attach(tsk);
-		tsk->adj_chain_status &= ~(1 << AC_PROM_LEADER);
-#endif
 		tsk->group_leader = tsk;
 		leader->group_leader = tsk;
 
 		tsk->exit_signal = SIGCHLD;
-		/*
-		 * need to delete leader from adj tree, because it will not be
-		 * group leader (exit_signal = -1) soon. release_task(leader)
-		 * can't delete it.
-		 */
-		spin_lock_irq(lock);
-		delete_from_adj_tree(leader);
-		add_2_adj_tree(tsk);
-		spin_unlock_irq(lock);
 		leader->exit_signal = -1;
 
 		BUG_ON(leader->exit_state != EXIT_ZOMBIE);
@@ -1725,6 +1719,18 @@ static int exec_binprm(struct linux_binprm *bprm)
 	return ret;
 }
 
+
+void run_boost(void) {
+#ifdef CONFIG_CPU_INPUT_BOOST
+	/* Boost CPU to the max for 50 ms when userspace launches an app */
+	cpu_input_boost_kick_cluster1(1000);
+	cpu_input_boost_kick_cluster2(1000);
+	devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
+	devfreq_boost_ddr_kick_max(DEVFREQ_MSM_DDRBW, 1000);
+	devfreq_boost_gpu_kick_max(DEVFREQ_MSM_GPUBW, 1000);
+#endif
+}
+
 /*
  * sys_execve() executes a new program.
  */
@@ -1773,6 +1779,11 @@ static int do_execveat_common(int fd, struct filename *filename,
 
 	check_unsafe_exec(bprm);
 	current->in_execve = 1;
+	
+	if (strnstr(filename->name, "/app", strlen(filename->name)) != NULL)
+		run_boost();
+	if (strnstr(filename->name, "/priv-app", strlen(filename->name)) != NULL)
+		run_boost();
 
 	file = do_open_execat(fd, filename, flags);
 	retval = PTR_ERR(file);
