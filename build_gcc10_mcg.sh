@@ -16,14 +16,14 @@ DTBIMAGE="dtb"
 #export CLANG_PATH=~/android/Toolchains/clang/clang-r328903/bin/
 #export PATH=${CLANG_PATH}:${PATH}
 #export CLANG_TRIPLE=aarch64-linux-gnu-
-export SPL="2019-09"
+export SPL="2020-01"
 export CROSS_COMPILE=${HOME}/android/Toolchains/gcc10/aarch64-linux-elf/bin/aarch64-linux-elf-
 export CROSS_COMPILE_ARM32=${HOME}/android/Toolchains/gcc9eabi_92/bin/arm-eabi-
 #export KBUILD_COMPILER_STRING=$(~/android/Toolchains/clang/clang-r328903/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 DEFCONFIG="smurfmc_defconfig"
 
 # Kernel Details
-VER=".3.5.0.unified"
+VER=".3.5.1.unified"
 
 # Paths
 KERNEL_DIR=`pwd`

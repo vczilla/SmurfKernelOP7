@@ -609,7 +609,7 @@ scripts: scripts_basic include/config/auto.conf include/config/tristate.conf \
 
 # Objects we will link into vmlinux / subdirs we need to visit
 init-y		:= init/
-drivers-y	:= drivers/ sound/ firmware/ opslalib/ techpack/ techpack/data/drivers/
+drivers-y	:= drivers/ sound/ firmware/ opslalib/ techpack/
 net-y		:= net/
 libs-y		:= lib/
 core-y		:= usr/
@@ -1085,7 +1085,6 @@ ifdef CONFIG_STACK_VALIDATION
   endif
 endif
 
-PHONY += prepare0
 
 ifeq ($(KBUILD_EXTMOD),)
 core-y		+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/ block/
@@ -1180,7 +1179,8 @@ include/config/kernel.release: include/config/auto.conf FORCE
 # archprepare is used in arch Makefiles and when processed asm symlink,
 # version.h and scripts_basic is processed / created.
 
-PHONY += prepare archprepare prepare1 prepare2 prepare3
+# Listed in dependency order
+PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3
 
 # prepare3 is used to check if we are building in a separate output directory,
 # and if so do:
