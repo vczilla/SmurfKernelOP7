@@ -261,8 +261,9 @@ static int simple_lmk_reclaim_thread(void *data)
 	sched_setscheduler_nocheck(current, SCHED_FIFO, &sched_max_rt_prio);
 
 	while (1) {
-		wait_event(oom_waitq, atomic_add_unless(&needs_reclaim, -1, 0));
+		wait_event(oom_waitq, atomic_read_acquire(&needs_reclaim));
 		scan_and_kill(MIN_FREE_PAGES);
+		atomic_set_release(&needs_reclaim, 0);
 	}
 
 	return 0;
@@ -270,18 +271,9 @@ static int simple_lmk_reclaim_thread(void *data)
 
 void simple_lmk_decide_reclaim(int kswapd_priority)
 {
-	if (kswapd_priority == lmk_aggression) {
-		int v, v1;
-
-		for (v = 0;; v = v1) {
-			v1 = atomic_cmpxchg(&needs_reclaim, v, v + 1);
-			if (likely(v1 == v)) {
-				if (!v)
-					wake_up(&oom_waitq);
-				break;
-			}
-		}
-	}
+	if (kswapd_priority == lmk_aggression &&
+	    !atomic_cmpxchg(&needs_reclaim, 0, 1))
+		wake_up(&oom_waitq);
 }
 
 void simple_lmk_mm_freed(struct mm_struct *mm)
@@ -323,7 +315,7 @@ static int simple_lmk_init_set(const char *val, const struct kernel_param *kp)
 	}
 
 	if (!atomic_cmpxchg(&init_done, 0, 1)) {
-		thread = kthread_run_perf_critical(simple_lmk_reclaim_thread, NULL,
+		thread = kthread_run_low_power(simple_lmk_reclaim_thread, NULL,
 				     "simple_lmkd");
 		BUG_ON(IS_ERR(thread));
 	}
