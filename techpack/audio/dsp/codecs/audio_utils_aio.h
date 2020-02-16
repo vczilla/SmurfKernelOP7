@@ -174,9 +174,7 @@ struct q6audio_aio {
 	uint32_t wakelock_voted;
 	struct ws_mgr *audio_ws_mgr;
 
-#ifdef CONFIG_DEBUG_FS
 	struct dentry *dentry;
-#endif
 	struct list_head out_queue;     /* queue to retain output buffers */
 	struct list_head in_queue;      /* queue to retain input buffers */
 	struct list_head free_event_queue;
