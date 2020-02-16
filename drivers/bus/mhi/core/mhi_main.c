@@ -1139,10 +1139,6 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 		complete(&mhi_tsync->completion);
 	} else {
 		chan = MHI_TRE_GET_CMD_CHID(cmd_pkt);
-		if (chan >= mhi_cntrl->max_chan) {
-			MHI_ERR("invalid channel id %u\n", chan);
-			break;
-		}
 		mhi_chan = &mhi_cntrl->mhi_chan[chan];
 		write_lock_bh(&mhi_chan->lock);
 		mhi_chan->ccs = MHI_TRE_GET_EV_CODE(tre);
