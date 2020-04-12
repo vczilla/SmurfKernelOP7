@@ -1509,10 +1509,10 @@ int main(int ac, char **av)
 	curs_set(0);
 
 	getmaxyx(stdscr, lines, columns);
-	if (columns < 75 || lines < 20) {
+	if (columns < 40 || lines < 20) {
 		endwin();
 		printf("Your terminal should have at "
-			"least 20 lines and 75 columns\n");
+			"least 20 lines and 40 columns\n");
 		return 1;
 	}
 
