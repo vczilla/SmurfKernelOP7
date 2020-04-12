@@ -65,26 +65,6 @@
 #include <linux/dynamic_debug.h>
 #include <linux/audit.h>
 #include <uapi/linux/module.h>
-
-#ifndef CONFIG_MODULES
-SYSCALL_DEFINE2(delete_module, const char __user *, name_user,
-		unsigned int, flags)
-{
-	return 0;
-}
-
-SYSCALL_DEFINE3(init_module, void __user *, umod,
-		unsigned long, len, const char __user *, uargs)
-{
-	return 0;
-}
-
-SYSCALL_DEFINE3(finit_module, int, fd, const char __user *, uargs, int, flags)
-{
-	return 0;
-}
-#else
-
 #include "module-internal.h"
 
 #define CREATE_TRACE_POINTS
@@ -1040,6 +1020,8 @@ SYSCALL_DEFINE2(delete_module, const char __user *, name_user,
 	strlcpy(last_unloaded_module, mod->name, sizeof(last_unloaded_module));
 
 	free_module(mod);
+	/* someone could wait for the module in add_unformed_module() */
+	wake_up_all(&module_wq);
 	return 0;
 out:
 	mutex_unlock(&module_mutex);
@@ -1280,12 +1262,10 @@ static const char vermagic[] = VERMAGIC_STRING;
 static int try_to_force_load(struct module *mod, const char *reason)
 {
 #ifdef CONFIG_MODULE_FORCE_LOAD
-	if (!is_oos()) {
-		if (!test_taint(TAINT_FORCED_MODULE))
-			pr_warn("%s: %s: kernel tainted.\n", mod->name, reason);
-		add_taint_module(mod, TAINT_FORCED_MODULE, LOCKDEP_NOW_UNRELIABLE);
-		return 0;
-	}
+	if (!test_taint(TAINT_FORCED_MODULE))
+		pr_warn("%s: %s: kernel tainted.\n", mod->name, reason);
+	add_taint_module(mod, TAINT_FORCED_MODULE, LOCKDEP_NOW_UNRELIABLE);
+	return 0;
 #else
 	return -ENOEXEC;
 #endif
@@ -1307,10 +1287,6 @@ static int check_version(const struct load_info *info,
 	unsigned int versindex = info->index.vers;
 	unsigned int i, num_versions;
 	struct modversion_info *versions;
-
-	/* Force wlan to load */
-	if (!strncmp("wlan", mod->name, 4))
-		return 1;
 
 	/* Exporting module didn't supply crcs?  OK, we're already tainted. */
 	if (!crc)
@@ -1754,6 +1730,8 @@ static int module_add_modinfo_attrs(struct module *mod)
 error_out:
 	if (i > 0)
 		module_remove_modinfo_attrs(mod, --i);
+	else
+		kfree(mod->modinfo_attrs);
 	return error;
 }
 
@@ -2814,9 +2792,6 @@ static int module_sig_check(struct load_info *info, int flags)
 	const unsigned long markerlen = sizeof(MODULE_SIG_STRING) - 1;
 	const void *mod = info->hdr;
 
-	if (!is_oos())
-		return 0;
-
 	/*
 	 * Require flags == 0, as a module with version information
 	 * removed is no longer the module that was signed
@@ -3063,9 +3038,6 @@ static int check_modinfo(struct module *mod, struct load_info *info, int flags)
 	const char *modmagic = get_modinfo(info, "vermagic");
 	int err;
 
-	if(!strncmp("wlan", mod->name, 4))
-		goto end;
-
 	if (flags & MODULE_INIT_IGNORE_VERMAGIC)
 		modmagic = NULL;
 
@@ -3080,7 +3052,6 @@ static int check_modinfo(struct module *mod, struct load_info *info, int flags)
 		return -ENOEXEC;
 	}
 
-end:
 	if (!get_modinfo(info, "intree")) {
 		if (!test_taint(TAINT_OOT_MODULE))
 			pr_warn("%s: loading out-of-tree module taints kernel.\n",
@@ -3720,11 +3691,6 @@ static int load_module(struct load_info *info, const char __user *uargs,
 	struct module *mod;
 	long err;
 	char *after_dashes;
-
-	if (!is_oos()) {
-		flags |= MODULE_INIT_IGNORE_MODVERSIONS;
-		flags |= MODULE_INIT_IGNORE_VERMAGIC;
-	}
 
 	err = module_sig_check(info, flags);
 	if (err)
@@ -4456,5 +4422,3 @@ void module_layout(struct module *mod,
 }
 EXPORT_SYMBOL(module_layout);
 #endif
-
-#endif // CONFIG_MODULES

@@ -19,7 +19,7 @@
 .pushsection    .idmap.text, "awx"
 
 /*
- * __cpu_soft_restart(el2_switch, entry, arg0, arg1, arg2) - Helper for
+ * __kexec_cpu_soft_restart(el2_switch, entry, arg0, arg1, arg2) - Helper for
  * cpu_soft_restart.
  *
  * @el2_switch: Flag to indicate a swich to EL2 is needed.
@@ -32,7 +32,7 @@
  * branch to what would be the reset vector. It must be executed with the
  * flat identity mapping.
  */
-ENTRY(__cpu_soft_restart)
+ENTRY(__kexec_cpu_soft_restart)
 	/* Clear sctlr_el1 flags. */
 	mrs	x12, sctlr_el1
 	ldr	x13, =SCTLR_ELx_FLAGS
@@ -50,6 +50,6 @@ ENTRY(__cpu_soft_restart)
 	mov	x1, x3				// arg1
 	mov	x2, x4				// arg2
 	br	x18
-ENDPROC(__cpu_soft_restart)
+ENDPROC(__kexec_cpu_soft_restart)
 
 .popsection

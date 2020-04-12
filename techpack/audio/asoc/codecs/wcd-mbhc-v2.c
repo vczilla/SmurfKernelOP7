@@ -560,13 +560,13 @@ bool headset_imp_enable = false;
 EXPORT_SYMBOL_GPL(headset_imp_enable);
 
 static enum {
-    LOW_Z = 0,
-    HIGH_Z,
-    NONE_Z,
+	LOW_Z = 0,
+	HIGH_Z,
+	NONE_Z,
 }current_imp = NONE_Z;
-static int hp_volume_gain[3] ={80 ,/* LOW_Z_gain */
-                               85 ,/* HIGH_Z_gain */
-                               80 ,/* NONE_Z_gain */};
+static int hp_volume_gain[3] ={ 80 ,/* LOW_Z_gain */
+								85 ,/* HIGH_Z_gain */
+								80 ,/* NONE_Z_gain */};
 static int original_imp = NONE_Z;
 #define HIGH_Z_THR	50 //The actual threshold impedance is 45, phone own impedance ~5
 #define HIGH_Z_MIN_THR	(HIGH_Z_THR - 3)
@@ -695,7 +695,7 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		for (i = EXTCON_PLUG_TYPE_NONE; i <= EXTCON_PLUG_TYPE_GND_MIC_SWAP; i++)
 			extcon_set_state(mbhc->wcd934x_edev, i, 0); //clean state, not uevent
 
-        extcon_set_state_sync(mbhc->wcd934x_edev, EXTCON_PLUG_TYPE_NONE, 1);
+		extcon_set_state_sync(mbhc->wcd934x_edev, EXTCON_PLUG_TYPE_NONE, 1);
 		pr_info("%s: remove: "  \
 		        "no connect = %d, headset = %d, headphone = %d, G_M_SWAP = %d\n",
 		        __func__,
@@ -843,7 +843,7 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				break;
 			default:
 				extcon_set_state_sync(mbhc->wcd934x_edev, EXTCON_PLUG_TYPE_NONE, 1);
-                break;
+				break;
 		}
 
 		pr_info("%s: insert: "  \
