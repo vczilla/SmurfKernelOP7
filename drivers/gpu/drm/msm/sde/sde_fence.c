@@ -18,7 +18,7 @@
 #include "sde_fence.h"
 
 #define TIMELINE_VAL_LENGTH		128
-static struct kmem_cache *sde_fence_cache;
+static struct kmem_cache *kmem_fence_pool;
 
 void *sde_sync_get(uint64_t fd)
 {
@@ -162,7 +162,7 @@ static void sde_fence_release(struct dma_fence *fence)
 	if (fence) {
 		f = to_sde_fence(fence);
 		kref_put(&f->ctx->kref, sde_fence_destroy);
-		kmem_cache_free(sde_fence_cache, f);
+		kmem_cache_free(kmem_fence_pool, f);
 	}
 }
 
@@ -215,7 +215,7 @@ static int _sde_fence_create_fd(void *fence_ctx, uint32_t val)
 		goto exit;
 	}
 
-	sde_fence = kmem_cache_zalloc(sde_fence_cache, GFP_KERNEL);
+	sde_fence = kmem_cache_zalloc(kmem_fence_pool, GFP_KERNEL);
 	if (unlikely(!sde_fence))
 		return -ENOMEM;
 
@@ -265,9 +265,6 @@ exit:
 struct sde_fence_context *sde_fence_init(const char *name, uint32_t drm_id)
 {
 	struct sde_fence_context *ctx;
-
-	sde_fence_cache = kmem_cache_create("sde_cache", sizeof(struct sde_fence),
-					0, SLAB_HWCACHE_ALIGN | SLAB_PANIC, NULL);
 
 	if (!name) {
 		SDE_ERROR("invalid argument(s)\n");
