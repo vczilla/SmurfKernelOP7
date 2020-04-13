@@ -84,6 +84,8 @@
 
 #include <trace/events/sched.h>
 
+#include <linux/power_hal.h>
+
 int suid_dumpable = 0;
 
 static LIST_HEAD(formats);
@@ -1723,6 +1725,7 @@ static int exec_binprm(struct linux_binprm *bprm)
 void run_boost(void) {
 #ifdef CONFIG_CPU_INPUT_BOOST
 	/* Boost CPU to the max for 50 ms when userspace launches an app */
+	cpu_input_boost_kick_ufs (1000);
 	cpu_input_boost_kick_cluster1(1000);
 	cpu_input_boost_kick_cluster2(1000);
 	devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
