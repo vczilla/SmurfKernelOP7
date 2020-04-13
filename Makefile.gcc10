@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 4
 PATCHLEVEL = 14
-SUBLEVEL = 170
+SUBLEVEL = 175
 EXTRAVERSION =
 NAME = Petit Gorille
 
@@ -723,6 +723,7 @@ KBUILD_CFLAGS   += $(call cc-disable-warning, misleading-indentation)
 KBUILD_CFLAGS   += $(call cc-disable-warning, designated-init)
 KBUILD_CFLAGS   += $(call cc-disable-warning, maybe-uninitialized)
 KBUILD_CFLAGS   += $(call cc-disable-warning, restrict)
+KBUILD_CFLAGS += $(call cc-disable-warning, stringop-overflow)
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Ofast $(call cc-disable-warning,maybe-uninitialized,)
