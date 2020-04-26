@@ -1233,7 +1233,7 @@ static irqreturn_t svass_exception_irq(int irq, void *data)
  */
 static void wcd_cpe_cmi_afe_cb(const struct cmi_api_notification *param)
 {
-	struct cmi_hdr *hdr;
+	struct cmi_hdr *hdr=NULL;
 	struct wcd_cmi_afe_port_data *afe_port_d;
 	u8 port_id;
 
@@ -2085,7 +2085,7 @@ EXPORT_SYMBOL(wcd_cpe_init);
  */
 static void wcd_cpe_cmi_lsm_callback(const struct cmi_api_notification *param)
 {
-	struct cmi_hdr *hdr;
+	struct cmi_hdr *hdr=NULL;
 	struct cpe_lsm_session *lsm_session;
 	u8 session_id;
 
@@ -2256,6 +2256,8 @@ static int fill_cmi_header(struct cmi_hdr *hdr,
 		pr_err("Invalid header creation request\n");
 		return -EINVAL;
 	}
+	// Explicitly initialize hdr
+	memset(hdr, 0, sizeof(struct cmi_hdr));
 
 	CMI_HDR_SET_SESSION(hdr, session_id);
 	CMI_HDR_SET_SERVICE(hdr, service_id);
