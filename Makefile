@@ -506,6 +506,11 @@ KBUILD_CPPFLAGS	+= -Qunused-arguments
 KBUILD_CFLAGS	+= $(CLANG_FLAGS)
 KBUILD_AFLAGS	+= $(CLANG_FLAGS) -no-integrated-as
 export CLANG_FLAGS
+else ifeq ($(ld-name),lld)
+ifeq ($(call cc-option-yn, -fuse-ld=lld),y)
+KBUILD_CFLAGS	+= -fuse-ld=lld
+KBUILD_AFLAGS	+= -fuse-ld=lld
+endif
 endif
 
 RETPOLINE_CFLAGS_GCC := -mindirect-branch=thunk-extern -mindirect-branch-register
