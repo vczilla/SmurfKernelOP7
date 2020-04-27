@@ -231,10 +231,6 @@ source "drivers/tri_state_key/Kconfig"
 
 source "drivers/vibrator/Kconfig"
 
-source "techpack/data/drivers/Kconfig"
-
 source "drivers/set_os/Kconfig"
-
-source "drivers/set_os_v2/Kconfig"
 
 endmenu

@@ -101,7 +101,7 @@ static struct qcom_iommu_ctx * to_ctx(struct iommu_fwspec *fwspec, unsigned asid
 static inline void
 iommu_writel(struct qcom_iommu_ctx *ctx, unsigned reg, u32 val)
 {
-	writel_relaxed(val, ctx->base + reg);
+	writel_relaxed_no_log(val, ctx->base + reg);
 }
 
 static inline void
@@ -113,7 +113,7 @@ iommu_writeq(struct qcom_iommu_ctx *ctx, unsigned reg, u64 val)
 static inline u32
 iommu_readl(struct qcom_iommu_ctx *ctx, unsigned reg)
 {
-	return readl_relaxed(ctx->base + reg);
+	return readl_relaxed_no_log(ctx->base + reg);
 }
 
 static inline u64
@@ -327,21 +327,19 @@ static void qcom_iommu_domain_free(struct iommu_domain *domain)
 {
 	struct qcom_iommu_domain *qcom_domain = to_qcom_iommu_domain(domain);
 
-	if (WARN_ON(qcom_domain->iommu))    /* forgot to detach? */
-		return;
-
 	iommu_put_dma_cookie(domain);
 
-	/* NOTE: unmap can be called after client device is powered off,
-	 * for example, with GPUs or anything involving dma-buf.  So we
-	 * cannot rely on the device_link.  Make sure the IOMMU is on to
-	 * avoid unclocked accesses in the TLB inv path:
-	 */
-	pm_runtime_get_sync(qcom_domain->iommu->dev);
-
-	free_io_pgtable_ops(qcom_domain->pgtbl_ops);
-
-	pm_runtime_put_sync(qcom_domain->iommu->dev);
+	if (qcom_domain->iommu) {
+		/*
+		 * NOTE: unmap can be called after client device is powered
+		 * off, for example, with GPUs or anything involving dma-buf.
+		 * So we cannot rely on the device_link.  Make sure the IOMMU
+		 * is on to avoid unclocked accesses in the TLB inv path:
+		 */
+		pm_runtime_get_sync(qcom_domain->iommu->dev);
+		free_io_pgtable_ops(qcom_domain->pgtbl_ops);
+		pm_runtime_put_sync(qcom_domain->iommu->dev);
+	}
 
 	kfree(qcom_domain);
 }
@@ -386,7 +384,7 @@ static void qcom_iommu_detach_dev(struct iommu_domain *domain, struct device *de
 	struct qcom_iommu_domain *qcom_domain = to_qcom_iommu_domain(domain);
 	unsigned i;
 
-	if (!qcom_domain->iommu)
+	if (WARN_ON(!qcom_domain->iommu))
 		return;
 
 	pm_runtime_get_sync(qcom_iommu->dev);
@@ -397,8 +395,6 @@ static void qcom_iommu_detach_dev(struct iommu_domain *domain, struct device *de
 		iommu_writel(ctx, ARM_SMMU_CB_SCTLR, 0);
 	}
 	pm_runtime_put_sync(qcom_iommu->dev);
-
-	qcom_domain->iommu = NULL;
 }
 
 static int qcom_iommu_map(struct iommu_domain *domain, unsigned long iova,
@@ -839,7 +835,7 @@ static int qcom_iommu_device_probe(struct platform_device *pdev)
 
 	if (qcom_iommu->local_base) {
 		pm_runtime_get_sync(dev);
-		writel_relaxed(0xffffffff, qcom_iommu->local_base + SMMU_INTR_SEL_NS);
+		writel_relaxed_no_log(0xffffffff, qcom_iommu->local_base + SMMU_INTR_SEL_NS);
 		pm_runtime_put_sync(dev);
 	}
 

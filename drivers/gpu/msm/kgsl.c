@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -341,6 +341,8 @@ static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)
 {
 	if (meta != NULL) {
 		remove_dmabuf_list(meta);
+		dma_buf_unmap_attachment(meta->attach, meta->table,
+			DMA_FROM_DEVICE);
 		dma_buf_detach(meta->dmabuf, meta->attach);
 		dma_buf_put(meta->dmabuf);
 		kfree(meta);
@@ -514,6 +516,8 @@ static int kgsl_mem_entry_attach_process(struct kgsl_device *device,
 /* Detach a memory entry from a process and unmap it from the MMU */
 static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 {
+	unsigned int type;
+
 	if (entry == NULL)
 		return;
 
@@ -526,7 +530,10 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 		idr_remove(&entry->priv->mem_idr, entry->id);
 	entry->id = 0;
 
-	entry->priv->gpumem_mapped -= entry->memdesc.mapsize;
+	type = kgsl_memdesc_usermem_type(&entry->memdesc);
+
+	if (type != KGSL_MEM_ENTRY_ION)
+		entry->priv->gpumem_mapped -= entry->memdesc.mapsize;
 
 	spin_unlock(&entry->priv->mem_lock);
 
@@ -2799,8 +2806,6 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 		goto out;
 	}
 
-	dma_buf_unmap_attachment(attach, sg_table, DMA_FROM_DEVICE);
-
 	meta->table = sg_table;
 	entry->priv_data = meta;
 	entry->memdesc.sgt = sg_table;
@@ -3339,7 +3344,8 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 	/* Cap the alignment bits to the highest number we can handle */
 	align = MEMFLAGS(flags, KGSL_MEMALIGN_MASK, KGSL_MEMALIGN_SHIFT);
 	if (align >= ilog2(KGSL_MAX_ALIGN)) {
-		KGSL_CORE_ERR("Alignment too large; restricting to %dK\n",
+		dev_info(dev_priv->device->dev,
+			"Alignment too large; restricting to %dK\n",
 			KGSL_MAX_ALIGN >> 10);
 
 		flags &= ~((uint64_t) KGSL_MEMALIGN_MASK);
@@ -4767,8 +4773,6 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 			vm_insert_page(vma, addr, page);
 			addr += PAGE_SIZE;
 		}
-		m->mapsize = m->size;
-		entry->priv->gpumem_mapped += m->mapsize;
 	}
 
 	vma->vm_file = file;
@@ -5039,7 +5043,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	}
 
 	device->events_wq = alloc_workqueue("kgsl-events",
-		WQ_HIGHPRI | WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
+		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
 
 	/* Initialize the snapshot engine */
 	kgsl_device_snapshot_init(device);
@@ -5117,7 +5121,7 @@ static void kgsl_core_exit(void)
 static int __init kgsl_core_init(void)
 {
 	int result = 0;
-	struct sched_param param = { .sched_priority = 25 };
+	struct sched_param param = { .sched_priority = 16 };
 
 	/* alloc major and minor device numbers */
 	result = alloc_chrdev_region(&kgsl_driver.major, 0, KGSL_DEVICE_MAX,
@@ -5187,7 +5191,7 @@ static int __init kgsl_core_init(void)
 
 	kthread_init_worker(&kgsl_driver.worker);
 
-	kgsl_driver.worker_thread = kthread_run_perf_critical(kthread_worker_fn,
+	kgsl_driver.worker_thread = kthread_run_low_power(kthread_worker_fn,
 		&kgsl_driver.worker, "kgsl_worker_thread");
 
 	if (IS_ERR(kgsl_driver.worker_thread)) {

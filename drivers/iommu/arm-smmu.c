@@ -80,7 +80,7 @@
 #define ARM_MMU500_ACR_SMTNMB_TLBEN	(1 << 8)
 
 #define TLB_LOOP_TIMEOUT		500000	/* 500ms */
-#define TLB_SPIN_COUNT			10
+#define TLB_LOOP_INC_MAX		1000      /*1ms*/
 
 #define ARM_SMMU_IMPL_DEF0(smmu) \
 	((smmu)->base + (2 * (1 << (smmu)->pgshift)))
@@ -112,7 +112,7 @@
 #ifdef CONFIG_64BIT
 #define smmu_write_atomic_lq		writeq_relaxed
 #else
-#define smmu_write_atomic_lq		writel_relaxed
+#define smmu_write_atomic_lq		writel_relaxed_no_log
 #endif
 
 /* Translation context bank */
@@ -546,7 +546,7 @@ static irqreturn_t arm_smmu_cf_selftest(int irq, void *cb_base)
 	struct irq_data *irq_data = irq_get_irq_data(irq);
 	unsigned long hwirq = ULONG_MAX;
 
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	fsr = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_FSR);
 
 	irq_count++;
 	if (irq_data)
@@ -554,7 +554,7 @@ static irqreturn_t arm_smmu_cf_selftest(int irq, void *cb_base)
 	pr_info("Interrupt (irq:%d hwirq:%ld) received, fsr:0x%x\n",
 				irq, hwirq, fsr);
 
-	writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+	writel_relaxed_no_log(fsr, cb_base + ARM_SMMU_CB_FSR);
 
 	wake_up(&wait_int);
 	return IRQ_HANDLED;
@@ -602,22 +602,22 @@ static void arm_smmu_interrupt_selftest(struct arm_smmu_device *smmu)
 		cb_count++;
 		irq_cnt = irq_count;
 
-		reg_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+		reg_orig = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_SCTLR);
 		reg = reg_orig | SCTLR_CFIE | SCTLR_CFRE;
 
-		writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
+		writel_relaxed_no_log(reg, cb_base + ARM_SMMU_CB_SCTLR);
 		dev_info(smmu->dev, "Testing cntx %d irq %d\n", cb, irq);
 
 		/* Make sure ARM_SMMU_CB_SCTLR is configured */
 		wmb();
-		writel_relaxed(FSR_TF, cb_base + ARM_SMMU_CB_FSRRESTORE);
+		writel_relaxed_no_log(FSR_TF, cb_base + ARM_SMMU_CB_FSRRESTORE);
 
 		wait_event_timeout(wait_int, (irq_count > irq_cnt),
 			msecs_to_jiffies(1000));
 
 		/* Make sure ARM_SMMU_CB_FSRRESTORE is written to */
 		wmb();
-		writel_relaxed(reg_orig, cb_base + ARM_SMMU_CB_SCTLR);
+		writel_relaxed_no_log(reg_orig, cb_base + ARM_SMMU_CB_SCTLR);
 		devm_free_irq(smmu->dev, irq, cb_base);
 	}
 
@@ -713,7 +713,7 @@ static void arm_smmu_arch_write_sync(struct arm_smmu_device *smmu)
 		return;
 
 	/* Read to complete prior write transcations */
-	id = readl_relaxed(ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_ID0);
+	id = readl_relaxed_no_log(ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_ID0);
 
 	/* Wait for read to complete before off */
 	rmb();
@@ -1108,17 +1108,18 @@ static void arm_smmu_domain_power_off(struct iommu_domain *domain,
 static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 				void __iomem *sync, void __iomem *status)
 {
-	unsigned int spin_cnt, delay;
+	unsigned int inc, delay;
 	u32 sync_inv_ack, tbu_pwr_status, sync_inv_progress;
 
-	writel_relaxed(QCOM_DUMMY_VAL, sync);
-	for (delay = 1; delay < TLB_LOOP_TIMEOUT; delay *= 2) {
-		for (spin_cnt = TLB_SPIN_COUNT; spin_cnt > 0; spin_cnt--) {
-			if (!(readl_relaxed(status) & sTLBGSTATUS_GSACTIVE))
-				return 0;
-			cpu_relax();
-		}
-		udelay(delay);
+	writel_relaxed_no_log(QCOM_DUMMY_VAL, sync);
+	for (delay = 1, inc = 1; delay < TLB_LOOP_TIMEOUT; delay += inc) {
+		if (!(readl_relaxed_no_log(status) & sTLBGSTATUS_GSACTIVE))
+			return 0;
+
+		cpu_relax();
+		udelay(inc);
+		if (inc < TLB_LOOP_INC_MAX)
+			inc *= 2;
 	}
 	sync_inv_ack = scm_io_read((unsigned long)(smmu->phys_addr +
 				     ARM_SMMU_STATS_SYNC_INV_TBU_ACK));
@@ -1169,9 +1170,9 @@ static void arm_smmu_tlb_sync_context(void *cookie)
 	trace_tlbi_start(dev, 0);
 
 	if (!use_tlbiall)
-		writel_relaxed(cfg->asid, base + ARM_SMMU_CB_S1_TLBIASID);
+		writel_relaxed_no_log(cfg->asid, base + ARM_SMMU_CB_S1_TLBIASID);
 	else
-		writel_relaxed(0, base + ARM_SMMU_CB_S1_TLBIALL);
+		writel_relaxed_no_log(0, base + ARM_SMMU_CB_S1_TLBIALL);
 
 	spin_lock_irqsave(&smmu_domain->sync_lock, flags);
 	if (__arm_smmu_tlb_sync(smmu, base + ARM_SMMU_CB_TLBSYNC,
@@ -1205,7 +1206,7 @@ static void arm_smmu_tlb_inv_context_s2(void *cookie)
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	void __iomem *base = ARM_SMMU_GR0(smmu);
 
-	writel_relaxed(smmu_domain->cfg.vmid, base + ARM_SMMU_GR0_TLBIVMID);
+	writel_relaxed_no_log(smmu_domain->cfg.vmid, base + ARM_SMMU_GR0_TLBIVMID);
 	arm_smmu_tlb_sync_global(smmu);
 }
 
@@ -1229,7 +1230,7 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 			iova &= ~12UL;
 			iova |= cfg->asid;
 			do {
-				writel_relaxed(iova, reg);
+				writel_relaxed_no_log(iova, reg);
 				iova += granule;
 			} while (size -= granule);
 		} else {
@@ -1242,7 +1243,7 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 		}
 	} else if (stage1 && use_tlbiall) {
 		reg += ARM_SMMU_CB_S1_TLBIALL;
-		writel_relaxed(0, reg);
+		writel_relaxed_no_log(0, reg);
 	} else {
 		reg += leaf ? ARM_SMMU_CB_S2_TLBIIPAS2L :
 			      ARM_SMMU_CB_S2_TLBIIPAS2;
@@ -1269,7 +1270,7 @@ static void arm_smmu_tlb_inv_vmid_nosync(unsigned long iova, size_t size,
 	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
 		wmb();
 
-	writel_relaxed(smmu_domain->cfg.vmid, base + ARM_SMMU_GR0_TLBIVMID);
+	writel_relaxed_no_log(smmu_domain->cfg.vmid, base + ARM_SMMU_GR0_TLBIVMID);
 }
 
 struct arm_smmu_secure_pool_chunk {
@@ -1429,7 +1430,7 @@ static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
 	void __iomem *gr1_base = ARM_SMMU_GR1(smmu);
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 
-	fsynr0 = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR0);
+	fsynr0 = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_FSYNR0);
 
 	dev_err(smmu->dev, "FAR    = 0x%016llx\n",
 		readq_relaxed(cb_base + ARM_SMMU_CB_FAR));
@@ -1454,9 +1455,9 @@ static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
 
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH32_S) {
 		dev_err(smmu->dev, "TTBR0  = 0x%pK\n",
-			readl_relaxed(cb_base + ARM_SMMU_CB_TTBR0));
+			readl_relaxed_no_log(cb_base + ARM_SMMU_CB_TTBR0));
 		dev_err(smmu->dev, "TTBR1  = 0x%pK\n",
-			readl_relaxed(cb_base + ARM_SMMU_CB_TTBR1));
+			readl_relaxed_no_log(cb_base + ARM_SMMU_CB_TTBR1));
 	} else {
 		dev_err(smmu->dev, "TTBR0  = 0x%pK\n",
 			readq_relaxed(cb_base + ARM_SMMU_CB_TTBR0));
@@ -1467,13 +1468,13 @@ static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
 
 
 	dev_err(smmu->dev, "SCTLR  = 0x%08x ACTLR  = 0x%08x\n",
-	       readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR),
-	       readl_relaxed(cb_base + ARM_SMMU_CB_ACTLR));
+	       readl_relaxed_no_log(cb_base + ARM_SMMU_CB_SCTLR),
+	       readl_relaxed_no_log(cb_base + ARM_SMMU_CB_ACTLR));
 	dev_err(smmu->dev, "CBAR  = 0x%08x\n",
-	       readl_relaxed(gr1_base + ARM_SMMU_GR1_CBAR(cfg->cbndx)));
+	       readl_relaxed_no_log(gr1_base + ARM_SMMU_GR1_CBAR(cfg->cbndx)));
 	dev_err(smmu->dev, "MAIR0   = 0x%08x MAIR1   = 0x%08x\n",
-	       readl_relaxed(cb_base + ARM_SMMU_CB_S1_MAIR0),
-	       readl_relaxed(cb_base + ARM_SMMU_CB_S1_MAIR1));
+	       readl_relaxed_no_log(cb_base + ARM_SMMU_CB_S1_MAIR0),
+	       readl_relaxed_no_log(cb_base + ARM_SMMU_CB_S1_MAIR1));
 
 }
 
@@ -1526,7 +1527,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 
 	gr1_base = ARM_SMMU_GR1(smmu);
 	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	fsr = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_FSR);
 
 	if (!(fsr & FSR_FAULT)) {
 		ret = IRQ_NONE;
@@ -1539,8 +1540,8 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		BUG();
 	}
 
-	fsynr0 = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR0);
-	fsynr1 = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR1);
+	fsynr0 = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_FSYNR0);
+	fsynr1 = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_FSYNR1);
 	flags = fsynr0 & FSYNR0_WNR ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ;
 	if (fsr & FSR_TF)
 		flags |= IOMMU_FAULT_TRANSLATION;
@@ -1553,7 +1554,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 
 	iova = readq_relaxed(cb_base + ARM_SMMU_CB_FAR);
 	phys_soft = arm_smmu_iova_to_phys(domain, iova);
-	frsynra = readl_relaxed(gr1_base + ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
+	frsynra = readl_relaxed_no_log(gr1_base + ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
 	frsynra &= CBFRSYNRA_SID_MASK;
 	tmp = report_iommu_fault(domain, smmu->dev, iova, flags);
 	if (!tmp || (tmp == -EBUSY)) {
@@ -1617,7 +1618,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	 */
 	if (tmp != -EBUSY) {
 		/* Clear the faulting FSR */
-		writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+		writel_relaxed_no_log(fsr, cb_base + ARM_SMMU_CB_FSR);
 
 		/*
 		 * Barrier required to ensure that the FSR is cleared
@@ -1627,7 +1628,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 
 		/* Retry or terminate any stalled transactions */
 		if (fsr & FSR_SS)
-			writel_relaxed(resume, cb_base + ARM_SMMU_CB_RESUME);
+			writel_relaxed_no_log(resume, cb_base + ARM_SMMU_CB_RESUME);
 	}
 
 out_power_off:
@@ -1645,10 +1646,10 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 	if (arm_smmu_power_on(smmu->pwr))
 		return IRQ_NONE;
 
-	gfsr = readl_relaxed(gr0_base + ARM_SMMU_GR0_sGFSR);
-	gfsynr0 = readl_relaxed(gr0_base + ARM_SMMU_GR0_sGFSYNR0);
-	gfsynr1 = readl_relaxed(gr0_base + ARM_SMMU_GR0_sGFSYNR1);
-	gfsynr2 = readl_relaxed(gr0_base + ARM_SMMU_GR0_sGFSYNR2);
+	gfsr = readl_relaxed_no_log(gr0_base + ARM_SMMU_GR0_sGFSR);
+	gfsynr0 = readl_relaxed_no_log(gr0_base + ARM_SMMU_GR0_sGFSYNR0);
+	gfsynr1 = readl_relaxed_no_log(gr0_base + ARM_SMMU_GR0_sGFSYNR1);
+	gfsynr2 = readl_relaxed_no_log(gr0_base + ARM_SMMU_GR0_sGFSYNR2);
 
 	if (!gfsr) {
 		arm_smmu_power_off(smmu->pwr);
@@ -1759,7 +1760,7 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 
 	/* Unassigned context banks only need disabling */
 	if (!cfg) {
-		writel_relaxed(0, cb_base + ARM_SMMU_CB_SCTLR);
+		writel_relaxed_no_log(0, cb_base + ARM_SMMU_CB_SCTLR);
 		return;
 	}
 
@@ -1776,7 +1777,7 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		if (smmu->features & ARM_SMMU_FEAT_VMID16)
 			reg |= cfg->vmid << CBA2R_VMID_SHIFT;
 
-		writel_relaxed(reg, gr1_base + ARM_SMMU_GR1_CBA2R(idx));
+		writel_relaxed_no_log(reg, gr1_base + ARM_SMMU_GR1_CBA2R(idx));
 	}
 
 	/* CBAR */
@@ -1795,7 +1796,7 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 		/* 8-bit VMIDs live in CBAR */
 		reg |= cfg->vmid << CBAR_VMID_SHIFT;
 	}
-	writel_relaxed(reg, gr1_base + ARM_SMMU_GR1_CBAR(idx));
+	writel_relaxed_no_log(reg, gr1_base + ARM_SMMU_GR1_CBAR(idx));
 
 	/*
 	 * TTBCR
@@ -1803,14 +1804,14 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	 * access behaviour of some fields (in particular, ASID[15:8]).
 	 */
 	if (stage1 && smmu->version > ARM_SMMU_V1)
-		writel_relaxed(cb->tcr[1], cb_base + ARM_SMMU_CB_TTBCR2);
-	writel_relaxed(cb->tcr[0], cb_base + ARM_SMMU_CB_TTBCR);
+		writel_relaxed_no_log(cb->tcr[1], cb_base + ARM_SMMU_CB_TTBCR2);
+	writel_relaxed_no_log(cb->tcr[0], cb_base + ARM_SMMU_CB_TTBCR);
 
 	/* TTBRs */
 	if (cfg->fmt == ARM_SMMU_CTX_FMT_AARCH32_S) {
-		writel_relaxed(cfg->asid, cb_base + ARM_SMMU_CB_CONTEXTIDR);
-		writel_relaxed(cb->ttbr[0], cb_base + ARM_SMMU_CB_TTBR0);
-		writel_relaxed(cb->ttbr[1], cb_base + ARM_SMMU_CB_TTBR1);
+		writel_relaxed_no_log(cfg->asid, cb_base + ARM_SMMU_CB_CONTEXTIDR);
+		writel_relaxed_no_log(cb->ttbr[0], cb_base + ARM_SMMU_CB_TTBR0);
+		writel_relaxed_no_log(cb->ttbr[1], cb_base + ARM_SMMU_CB_TTBR1);
 	} else {
 		writeq_relaxed(cb->ttbr[0], cb_base + ARM_SMMU_CB_TTBR0);
 		if (stage1)
@@ -1819,12 +1820,12 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 
 	/* MAIRs (stage-1 only) */
 	if (stage1) {
-		writel_relaxed(cb->mair[0], cb_base + ARM_SMMU_CB_S1_MAIR0);
-		writel_relaxed(cb->mair[1], cb_base + ARM_SMMU_CB_S1_MAIR1);
+		writel_relaxed_no_log(cb->mair[0], cb_base + ARM_SMMU_CB_S1_MAIR0);
+		writel_relaxed_no_log(cb->mair[1], cb_base + ARM_SMMU_CB_S1_MAIR1);
 	}
 
 	/* ACTLR (implementation defined) */
-	writel_relaxed(cb->actlr, cb_base + ARM_SMMU_CB_ACTLR);
+	writel_relaxed_no_log(cb->actlr, cb_base + ARM_SMMU_CB_ACTLR);
 
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE;
@@ -1848,7 +1849,7 @@ static void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx,
 	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
 		reg |= SCTLR_E;
 
-	writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
+	writel_relaxed_no_log(reg, cb_base + ARM_SMMU_CB_SCTLR);
 }
 
 static int arm_smmu_init_asid(struct iommu_domain *domain,
@@ -2199,7 +2200,7 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	 */
 	smmu->cbs[cfg->cbndx].cfg = NULL;
 	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
-	writel_relaxed(0, cb_base + ARM_SMMU_CB_SCTLR);
+	writel_relaxed_no_log(0, cb_base + ARM_SMMU_CB_SCTLR);
 
 	if (cfg->irptndx != INVALID_IRPTNDX) {
 		irq = smmu->irqs[smmu->num_global_irqs + cfg->irptndx];
@@ -2273,7 +2274,7 @@ static void arm_smmu_write_smr(struct arm_smmu_device *smmu, int idx)
 
 	if (!(smmu->features & ARM_SMMU_FEAT_EXIDS) && smr->valid)
 		reg |= SMR_VALID;
-	writel_relaxed(reg, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_SMR(idx));
+	writel_relaxed_no_log(reg, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_SMR(idx));
 }
 
 static void arm_smmu_write_s2cr(struct arm_smmu_device *smmu, int idx)
@@ -2287,7 +2288,7 @@ static void arm_smmu_write_s2cr(struct arm_smmu_device *smmu, int idx)
 	if (smmu->features & ARM_SMMU_FEAT_EXIDS && smmu->smrs &&
 	    smmu->smrs[idx].valid)
 		reg |= S2CR_EXIDVALID;
-	writel_relaxed(reg, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_S2CR(idx));
+	writel_relaxed_no_log(reg, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_S2CR(idx));
 }
 
 static void arm_smmu_write_sme(struct arm_smmu_device *smmu, int idx)
@@ -2322,7 +2323,7 @@ static void arm_smmu_test_smr_masks(struct arm_smmu_device *smmu)
 	}
 
 	/* ID0 */
-	id = readl_relaxed(gr0_base + ARM_SMMU_GR0_ID0);
+	id = readl_relaxed_no_log(gr0_base + ARM_SMMU_GR0_ID0);
 	size = (id >> ID0_NUMSMRG_SHIFT) & ID0_NUMSMRG_MASK;
 
 	/*
@@ -2331,7 +2332,7 @@ static void arm_smmu_test_smr_masks(struct arm_smmu_device *smmu)
 	 * which is not inuse.
 	 */
 	for (idx = 0; idx < size; idx++) {
-		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(idx));
+		smr = readl_relaxed_no_log(gr0_base + ARM_SMMU_GR0_SMR(idx));
 		if (!(smr & SMR_VALID))
 			break;
 	}
@@ -2347,13 +2348,13 @@ static void arm_smmu_test_smr_masks(struct arm_smmu_device *smmu)
 	 * masters later if they try to claim IDs outside these masks.
 	 */
 	smr = smmu->streamid_mask << SMR_ID_SHIFT;
-	writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(idx));
-	smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(idx));
+	writel_relaxed_no_log(smr, gr0_base + ARM_SMMU_GR0_SMR(idx));
+	smr = readl_relaxed_no_log(gr0_base + ARM_SMMU_GR0_SMR(idx));
 	smmu->streamid_mask = smr >> SMR_ID_SHIFT;
 
 	smr = smmu->streamid_mask << SMR_MASK_SHIFT;
-	writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(idx));
-	smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(idx));
+	writel_relaxed_no_log(smr, gr0_base + ARM_SMMU_GR0_SMR(idx));
+	smr = readl_relaxed_no_log(gr0_base + ARM_SMMU_GR0_SMR(idx));
 	smmu->smr_mask_mask = smr >> SMR_MASK_SHIFT;
 }
 
@@ -2512,8 +2513,8 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 		if (s2cr[idx].attach_count > 0)
 			continue;
 
-		writel_relaxed(0, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_SMR(idx));
-		writel_relaxed(0, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_S2CR(idx));
+		writel_relaxed_no_log(0, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_SMR(idx));
+		writel_relaxed_no_log(0, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_S2CR(idx));
 	}
 	mutex_unlock(&smmu->stream_map_mutex);
 
@@ -2969,7 +2970,7 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	if (smmu->version == ARM_SMMU_V2)
 		smmu_write_atomic_lq(va, cb_base + ARM_SMMU_CB_ATS1PR);
 	else /* Register is only 32-bit in v1 */
-		writel_relaxed(va, cb_base + ARM_SMMU_CB_ATS1PR);
+		writel_relaxed_no_log(va, cb_base + ARM_SMMU_CB_ATS1PR);
 
 	if (readl_poll_timeout_atomic(cb_base + ARM_SMMU_CB_ATSR, tmp,
 				      !(tmp & ATSR_ACTIVE), 5, 50)) {
@@ -3692,10 +3693,10 @@ static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain)
 	if (ret)
 		return ret;
 
-	reg = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	reg = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_SCTLR);
 	reg |= SCTLR_M;
 
-	writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
+	writel_relaxed_no_log(reg, cb_base + ARM_SMMU_CB_SCTLR);
 	arm_smmu_power_off(smmu->pwr);
 	return ret;
 }
@@ -3737,7 +3738,7 @@ static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
 	dev_err(smmu->dev, "Writing 0x%lx to FSRRESTORE on cb %d\n",
 		flags, cfg->cbndx);
-	writel_relaxed(flags, cb_base + ARM_SMMU_CB_FSRRESTORE);
+	writel_relaxed_no_log(flags, cb_base + ARM_SMMU_CB_FSRRESTORE);
 	/* give the interrupt time to fire... */
 	msleep(1000);
 
@@ -3769,7 +3770,7 @@ static unsigned long arm_smmu_reg_read(struct iommu_domain *domain,
 		return 0;
 
 	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
-	val = readl_relaxed(cb_base + offset);
+	val = readl_relaxed_no_log(cb_base + offset);
 
 	arm_smmu_power_off(smmu->pwr);
 	return val;
@@ -3798,7 +3799,7 @@ static void arm_smmu_reg_write(struct iommu_domain *domain,
 		return;
 
 	cb_base = ARM_SMMU_CB(smmu, cfg->cbndx);
-	writel_relaxed(val, cb_base + offset);
+	writel_relaxed_no_log(val, cb_base + offset);
 
 	arm_smmu_power_off(smmu->pwr);
 }
@@ -3888,7 +3889,7 @@ static int __qsmmuv2_halt(struct arm_smmu_device *smmu, bool wait)
 	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
 	u32 reg;
 
-	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+	reg = readl_relaxed_no_log(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
 	reg |= MICRO_MMU_CTRL_LOCAL_HALT_REQ;
 
 	if (arm_smmu_is_static_cb(smmu)) {
@@ -3902,7 +3903,7 @@ static int __qsmmuv2_halt(struct arm_smmu_device *smmu, bool wait)
 			return -EINVAL;
 		}
 	} else {
-		writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+		writel_relaxed_no_log(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
 	}
 
 	return wait ? qsmmuv2_wait_for_halt(smmu) : 0;
@@ -3923,7 +3924,7 @@ static void qsmmuv2_resume(struct arm_smmu_device *smmu)
 	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
 	u32 reg;
 
-	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+	reg = readl_relaxed_no_log(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
 	reg &= ~MICRO_MMU_CTRL_LOCAL_HALT_REQ;
 
 	if (arm_smmu_is_static_cb(smmu)) {
@@ -3935,7 +3936,7 @@ static void qsmmuv2_resume(struct arm_smmu_device *smmu)
 			dev_err(smmu->dev,
 				"scm_io_write fail. SMMU might not be resumed");
 	} else {
-		writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+		writel_relaxed_no_log(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
 	}
 }
 
@@ -3960,7 +3961,7 @@ static void qsmmuv2_device_reset(struct arm_smmu_device *smmu)
 	/* Program implementation defined registers */
 	qsmmuv2_halt(smmu);
 	for (i = 0; i < smmu->num_impl_def_attach_registers; ++i)
-		writel_relaxed(regs[i].value,
+		writel_relaxed_no_log(regs[i].value,
 			ARM_SMMU_GR0(smmu) + regs[i].offset);
 	qsmmuv2_resume(smmu);
 }
@@ -3984,22 +3985,22 @@ static phys_addr_t qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
 	cb_base = ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
 
 	qsmmuv2_halt_nowait(smmu);
-	writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
+	writel_relaxed_no_log(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
 	qsmmuv2_wait_for_halt(smmu);
 
 	/* clear FSR to allow ATOS to log any faults */
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
-	writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+	fsr = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_FSR);
+	writel_relaxed_no_log(fsr, cb_base + ARM_SMMU_CB_FSR);
 
 	/* disable stall mode momentarily */
-	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	sctlr_orig = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_SCTLR);
 	sctlr = sctlr_orig & ~SCTLR_CFCFG;
-	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
+	writel_relaxed_no_log(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
 
 	phys = __arm_smmu_iova_to_phys_hard(domain, iova);
 
 	/* restore SCTLR */
-	writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+	writel_relaxed_no_log(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
 
 	qsmmuv2_resume(smmu);
 	spin_unlock_irqrestore(&smmu->atos_lock, flags);
@@ -4026,9 +4027,9 @@ static void arm_smmu_context_bank_reset(struct arm_smmu_device *smmu)
 		 * clear CACHE_LOCK bit of ACR first. And, CACHE_LOCK
 		 * bit is only present in MMU-500r2 onwards.
 		 */
-		reg = readl_relaxed(gr0_base + ARM_SMMU_GR0_ID7);
+		reg = readl_relaxed_no_log(gr0_base + ARM_SMMU_GR0_ID7);
 		major = (reg >> ID7_MAJOR_SHIFT) & ID7_MAJOR_MASK;
-		reg = readl_relaxed(gr0_base + ARM_SMMU_GR0_sACR);
+		reg = readl_relaxed_no_log(gr0_base + ARM_SMMU_GR0_sACR);
 		if (major >= 2)
 			reg &= ~ARM_MMU500_ACR_CACHE_LOCK;
 		/*
@@ -4036,7 +4037,7 @@ static void arm_smmu_context_bank_reset(struct arm_smmu_device *smmu)
 		 * TLB entries for reduced latency.
 		 */
 		reg |= ARM_MMU500_ACR_SMTNMB_TLBEN;
-		writel_relaxed(reg, gr0_base + ARM_SMMU_GR0_sACR);
+		writel_relaxed_no_log(reg, gr0_base + ARM_SMMU_GR0_sACR);
 	}
 
 	/* Make sure all context banks are disabled and clear CB_FSR  */
@@ -4044,15 +4045,15 @@ static void arm_smmu_context_bank_reset(struct arm_smmu_device *smmu)
 		cb_base = ARM_SMMU_CB(smmu, i);
 
 		arm_smmu_write_context_bank(smmu, i, 0);
-		writel_relaxed(FSR_FAULT, cb_base + ARM_SMMU_CB_FSR);
+		writel_relaxed_no_log(FSR_FAULT, cb_base + ARM_SMMU_CB_FSR);
 		/*
 		 * Disable MMU-500's not-particularly-beneficial next-page
 		 * prefetcher for the sake of errata #841119 and #826419.
 		 */
 		if (smmu->model == ARM_MMU500) {
-			reg = readl_relaxed(cb_base + ARM_SMMU_CB_ACTLR);
+			reg = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_ACTLR);
 			reg &= ~ARM_MMU500_ACTLR_CPRE;
-			writel_relaxed(reg, cb_base + ARM_SMMU_CB_ACTLR);
+			writel_relaxed_no_log(reg, cb_base + ARM_SMMU_CB_ACTLR);
 		}
 	}
 }
@@ -4066,15 +4067,15 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	u32 fsr;
 
 	/* clear global FSR */
-	reg = readl_relaxed(ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
-	writel_relaxed(reg, ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
+	reg = readl_relaxed_no_log(ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
+	writel_relaxed_no_log(reg, ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
 
 	for (i = 0; i < smmu->num_context_banks; ++i) {
 		cb_base = ARM_SMMU_CB(smmu, i);
 
-		fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+		fsr = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_FSR);
 		if (fsr & FSR_FAULT) {
-			writel_relaxed(fsr & FSR_FAULT, cb_base +
+			writel_relaxed_no_log(fsr & FSR_FAULT, cb_base +
 				       ARM_SMMU_CB_FSR);
 			pr_err("CB %d, FSR 0x%x reset\n", i, fsr);
 		}
@@ -4097,10 +4098,10 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	}
 
 	/* Invalidate the TLB, just in case */
-	writel_relaxed(QCOM_DUMMY_VAL, gr0_base + ARM_SMMU_GR0_TLBIALLH);
-	writel_relaxed(QCOM_DUMMY_VAL, gr0_base + ARM_SMMU_GR0_TLBIALLNSNH);
+	writel_relaxed_no_log(QCOM_DUMMY_VAL, gr0_base + ARM_SMMU_GR0_TLBIALLH);
+	writel_relaxed_no_log(QCOM_DUMMY_VAL, gr0_base + ARM_SMMU_GR0_TLBIALLNSNH);
 
-	reg = readl_relaxed(ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sCR0);
+	reg = readl_relaxed_no_log(ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sCR0);
 
 	/* Enable fault reporting */
 	reg |= (sCR0_GFRE | sCR0_GFIE | sCR0_GCFGFRE | sCR0_GCFGFIE);
@@ -4224,7 +4225,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 	struct arm_smmu_s2cr s2cr;
 
 	for (i = 0; i < smmu->num_mapping_groups; i++) {
-		raw_smr = readl_relaxed(ARM_SMMU_GR0(smmu) +
+		raw_smr = readl_relaxed_no_log(ARM_SMMU_GR0(smmu) +
 					ARM_SMMU_GR0_SMR(i));
 		if (!(raw_smr & SMR_VALID))
 			continue;
@@ -4233,7 +4234,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 		smr.id = (u16)raw_smr;
 		smr.valid = true;
 
-		raw_s2cr = readl_relaxed(ARM_SMMU_GR0(smmu) +
+		raw_s2cr = readl_relaxed_no_log(ARM_SMMU_GR0(smmu) +
 					ARM_SMMU_GR0_S2CR(i));
 		memset(&s2cr, 0, sizeof(s2cr));
 		s2cr.group = NULL;
@@ -4468,7 +4469,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 			smmu->version == ARM_SMMU_V2 ? 2 : 1);
 
 	/* ID0 */
-	id = readl_relaxed(gr0_base + ARM_SMMU_GR0_ID0);
+	id = readl_relaxed_no_log(gr0_base + ARM_SMMU_GR0_ID0);
 
 	/* Restrict available stages based on module parameter */
 	if (force_stage == 1)
@@ -4564,7 +4565,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	}
 
 	/* ID1 */
-	id = readl_relaxed(gr0_base + ARM_SMMU_GR0_ID1);
+	id = readl_relaxed_no_log(gr0_base + ARM_SMMU_GR0_ID1);
 	smmu->pgshift = (id & ID1_PAGESIZE) ? 16 : 12;
 
 	/* Check for size mismatch of SMMU address space from mapped region */
@@ -4599,15 +4600,9 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 				 sizeof(*smmu->cbs), GFP_KERNEL);
 	if (!smmu->cbs)
 		return -ENOMEM;
-	for (i = 0; i < smmu->num_context_banks; i++) {
-		void __iomem *cb_base;
-
-		cb_base = ARM_SMMU_CB(smmu, i);
-		smmu->cbs[i].actlr = readl_relaxed(cb_base + ARM_SMMU_CB_ACTLR);
-	}
 
 	/* ID2 */
-	id = readl_relaxed(gr0_base + ARM_SMMU_GR0_ID2);
+	id = readl_relaxed_no_log(gr0_base + ARM_SMMU_GR0_ID2);
 	size = arm_smmu_id_size_to_bits((id >> ID2_IAS_SHIFT) & ID2_IAS_MASK);
 	smmu->ipa_size = size;
 
@@ -5216,11 +5211,11 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 
 	cb_base = ARM_SMMU_CB(smmu_domain->smmu, smmu_domain->cfg.cbndx);
 	tbu_base = tbu->base;
-	halt = readl_relaxed(tbu_base + DEBUG_SID_HALT_REG);
+	halt = readl_relaxed_no_log(tbu_base + DEBUG_SID_HALT_REG);
 	halt |= DEBUG_SID_HALT_VAL;
-	writel_relaxed(halt, tbu_base + DEBUG_SID_HALT_REG);
+	writel_relaxed_no_log(halt, tbu_base + DEBUG_SID_HALT_REG);
 
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	fsr = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_FSR);
 	if ((fsr & FSR_FAULT) && (fsr & FSR_SS)) {
 		u32 sctlr_orig, sctlr;
 		/*
@@ -5229,20 +5224,20 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 		 * itself) have completed. Disable iommu faults and terminate
 		 * any existing transactions.
 		 */
-		sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+		sctlr_orig = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_SCTLR);
 		sctlr = sctlr_orig & ~(SCTLR_CFCFG | SCTLR_CFIE);
-		writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
+		writel_relaxed_no_log(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
 
-		writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+		writel_relaxed_no_log(fsr, cb_base + ARM_SMMU_CB_FSR);
 		/*
 		 * Barrier required to ensure that the FSR is cleared
 		 * before resuming SMMU operation
 		 */
 		wmb();
-		writel_relaxed(RESUME_TERMINATE, cb_base +
+		writel_relaxed_no_log(RESUME_TERMINATE, cb_base +
 			       ARM_SMMU_CB_RESUME);
 
-		writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+		writel_relaxed_no_log(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
 	}
 
 	if (readl_poll_timeout_atomic(tbu_base + DEBUG_SR_HALT_ACK_REG, status,
@@ -5250,9 +5245,9 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 					0, TBU_DBG_TIMEOUT_US)) {
 		dev_err(tbu->dev, "Couldn't halt TBU!\n");
 
-		halt = readl_relaxed(tbu_base + DEBUG_SID_HALT_REG);
+		halt = readl_relaxed_no_log(tbu_base + DEBUG_SID_HALT_REG);
 		halt &= ~DEBUG_SID_HALT_VAL;
-		writel_relaxed(halt, tbu_base + DEBUG_SID_HALT_REG);
+		writel_relaxed_no_log(halt, tbu_base + DEBUG_SID_HALT_REG);
 
 		spin_unlock_irqrestore(&tbu->halt_lock, flags);
 		return -ETIMEDOUT;
@@ -5282,9 +5277,9 @@ static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
 	}
 
 	base = tbu->base;
-	val = readl_relaxed(base + DEBUG_SID_HALT_REG);
+	val = readl_relaxed_no_log(base + DEBUG_SID_HALT_REG);
 	val &= ~DEBUG_SID_HALT_VAL;
-	writel_relaxed(val, base + DEBUG_SID_HALT_REG);
+	writel_relaxed_no_log(val, base + DEBUG_SID_HALT_REG);
 
 	tbu->halt_count = 0;
 	spin_unlock_irqrestore(&tbu->halt_lock, flags);
@@ -5337,7 +5332,7 @@ static void qsmmuv500_ecats_unlock(struct arm_smmu_domain *smmu_domain,
 
 	/* The status register is not accessible on version 1.0 */
 	if (data->version != 0x01000000)
-		writel_relaxed(0, tbu->status_reg);
+		writel_relaxed_no_log(0, tbu->status_reg);
 	spin_unlock_irqrestore(&smmu->atos_lock, *flags);
 }
 
@@ -5389,14 +5384,14 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 	 * ECATS can trigger the fault interrupt, so disable it temporarily
 	 * and check for an interrupt manually.
 	 */
-	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	sctlr_orig = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_SCTLR);
 	sctlr = sctlr_orig & ~(SCTLR_CFCFG | SCTLR_CFIE);
-	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
+	writel_relaxed_no_log(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
 
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	fsr = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_FSR);
 	if (fsr & FSR_FAULT) {
 		/* Clear pending interrupts */
-		writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+		writel_relaxed_no_log(fsr, cb_base + ARM_SMMU_CB_FSR);
 		/*
 		 * Barrier required to ensure that the FSR is cleared
 		 * before resuming SMMU operation.
@@ -5408,7 +5403,7 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 		 * Kept it here for completeness sake.
 		 */
 		if (fsr & FSR_SS)
-			writel_relaxed(RESUME_TERMINATE, cb_base +
+			writel_relaxed_no_log(RESUME_TERMINATE, cb_base +
 				       ARM_SMMU_CB_RESUME);
 	}
 
@@ -5436,10 +5431,10 @@ redo:
 	ret = 0;
 	timeout = ktime_add_us(ktime_get(), TBU_DBG_TIMEOUT_US);
 	for (;;) {
-		val = readl_relaxed(tbu->base + DEBUG_SR_HALT_ACK_REG);
+		val = readl_relaxed_no_log(tbu->base + DEBUG_SR_HALT_ACK_REG);
 		if (!(val & DEBUG_SR_ECATS_RUNNING_VAL))
 			break;
-		val = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+		val = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_FSR);
 		if (val & FSR_FAULT)
 			break;
 		if (ktime_compare(ktime_get(), timeout) > 0) {
@@ -5450,7 +5445,7 @@ redo:
 	}
 
 	val = readq_relaxed(tbu->base + DEBUG_PAR_REG);
-	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	fsr = readl_relaxed_no_log(cb_base + ARM_SMMU_CB_FSR);
 	if (val & DEBUG_PAR_FAULT_VAL) {
 		dev_err(tbu->dev, "ECATS generated a fault interrupt! FSR = %llx, SID=0x%x\n",
 			fsr, sid);
@@ -5458,7 +5453,7 @@ redo:
 		dev_err(tbu->dev, "ECATS translation failed! PAR = %llx\n",
 			val);
 		/* Clear pending interrupts */
-		writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+		writel_relaxed_no_log(fsr, cb_base + ARM_SMMU_CB_FSR);
 		/*
 		 * Barrier required to ensure that the FSR is cleared
 		 * before resuming SMMU operation.
@@ -5466,7 +5461,7 @@ redo:
 		wmb();
 
 		if (fsr & FSR_SS)
-			writel_relaxed(RESUME_TERMINATE, cb_base +
+			writel_relaxed_no_log(RESUME_TERMINATE, cb_base +
 				       ARM_SMMU_CB_RESUME);
 
 		ret = -EINVAL;
@@ -5479,9 +5474,9 @@ redo:
 	/* Reset hardware */
 	writeq_relaxed(0, tbu->base + DEBUG_TXN_TRIGG_REG);
 	writeq_relaxed(0, tbu->base + DEBUG_VA_ADDR_REG);
-	val = readl_relaxed(tbu->base + DEBUG_SID_HALT_REG);
+	val = readl_relaxed_no_log(tbu->base + DEBUG_SID_HALT_REG);
 	val &= ~DEBUG_SID_HALT_SID_MASK;
-	writel_relaxed(val, tbu->base + DEBUG_SID_HALT_REG);
+	writel_relaxed_no_log(val, tbu->base + DEBUG_SID_HALT_REG);
 
 	/*
 	 * After a failed translation, the next successful translation will
@@ -5490,7 +5485,7 @@ redo:
 	if (!phys && needs_redo++ < 2)
 		goto redo;
 
-	writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+	writel_relaxed_no_log(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
 	qsmmuv500_tbu_resume(tbu);
 
 out_ecats_unlock:
@@ -5498,7 +5493,7 @@ out_ecats_unlock:
 
 out_power_off:
 	/* Read to complete prior write transcations */
-	val = readl_relaxed(tbu->base + DEBUG_SR_HALT_ACK_REG);
+	val = readl_relaxed_no_log(tbu->base + DEBUG_SR_HALT_ACK_REG);
 
 	/* Wait for read to complete before off */
 	rmb();
@@ -5533,7 +5528,7 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 		 * SID from the corresponding frsynra register
 		 */
 		gr1_base = ARM_SMMU_GR1(smmu);
-		frsynra  = readl_relaxed(gr1_base +
+		frsynra  = readl_relaxed_no_log(gr1_base +
 				ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
 		frsynra &= CBFRSYNRA_SID_MASK;
 		sid      = frsynra;
@@ -5684,7 +5679,7 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 	if (IS_ERR(data->tcu_base))
 		return PTR_ERR(data->tcu_base);
 
-	data->version = readl_relaxed(data->tcu_base + TCU_HW_VERSION_HLOS1);
+	data->version = readl_relaxed_no_log(data->tcu_base + TCU_HW_VERSION_HLOS1);
 	smmu->archdata = data;
 
 	if (arm_smmu_is_static_cb(smmu))
@@ -5695,10 +5690,10 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 		return ret;
 
 	reg = ARM_SMMU_GR0(smmu);
-	val = readl_relaxed(reg + ARM_SMMU_GR0_sACR);
+	val = readl_relaxed_no_log(reg + ARM_SMMU_GR0_sACR);
 	val &= ~ARM_MMU500_ACR_CACHE_LOCK;
-	writel_relaxed(val, reg + ARM_SMMU_GR0_sACR);
-	val = readl_relaxed(reg + ARM_SMMU_GR0_sACR);
+	writel_relaxed_no_log(val, reg + ARM_SMMU_GR0_sACR);
+	val = readl_relaxed_no_log(reg + ARM_SMMU_GR0_sACR);
 	/*
 	 * Modifiying the nonsecure copy of the sACR register is only
 	 * allowed if permission is given in the secure sACR register.

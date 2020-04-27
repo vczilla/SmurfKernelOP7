@@ -53,6 +53,7 @@ void wg_noise_precompute_static_static(struct wg_peer *peer)
 			peer->handshake.remote_static))
 		memset(peer->handshake.precomputed_static_static, 0,
 		       NOISE_PUBLIC_KEY_LEN);
+	}
 	up_write(&peer->handshake.lock);
 }
 

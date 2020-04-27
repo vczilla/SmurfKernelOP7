@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 4
 PATCHLEVEL = 14
-SUBLEVEL = 154
+SUBLEVEL = 177
 EXTRAVERSION =
 NAME = Petit Gorille
 
@@ -395,6 +395,8 @@ CHECK		= sparse
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
+KBUILD_CFLAGS += -mcpu=kryo -stune=kryo -mtune=kryo -fmodulo-sched -fmodulo-sched-allow-regmoves -ftree-vectorize -ftree-slp-vectorize -fvect-cost-model -fgcse-after-reload -fgcse-sm -ffast-math -fsingle-precision-constant -fvectorize -fslp-vectorize -Wno-ignored-optimization-argument -funsafe-math-optimizations \
+-fasynchronous-unwind-tables -fno-signed-zeros -fno-trapping-math -frename-registers -funroll-loops $(POLLY_FLAGS
 NOSTDINC_FLAGS  =
 CFLAGS_MODULE   =
 AFLAGS_MODULE   =
@@ -426,6 +428,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -std=gnu89
+KBUILD_CFLAGS	+= -ffast-math -funsafe-math-optimizations -mcpu=kryo -mtune=kryo
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
@@ -762,7 +765,11 @@ KBUILD_CFLAGS += $(stackp-flag)
 ifeq ($(cc-name),clang)
 KBUILD_CFLAGS += $(call cc-disable-warning, format-invalid-specifier)
 KBUILD_CFLAGS += $(call cc-disable-warning, gnu)
+KBUILD_CFLAGS += $(call cc-disable-warning, address-of-packed-member)
 KBUILD_CFLAGS += $(call cc-disable-warning, duplicate-decl-specifier)
+
+KBUILD_CFLAGS += -Wno-asm-operand-widths
+KBUILD_CFLAGS += -Wno-initializer-overrides
 KBUILD_CFLAGS += -fno-builtin
 KBUILD_CFLAGS += $(call cc-option, -Wno-undefined-optimized)
 KBUILD_CFLAGS += $(call cc-option, -Wno-tautological-constant-out-of-range-compare)

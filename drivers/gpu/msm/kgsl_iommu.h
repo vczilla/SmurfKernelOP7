@@ -214,11 +214,11 @@ int kgsl_program_smmu_aperture(void);
 		readq_relaxed(kgsl_iommu_reg((_ctx), KGSL_IOMMU_CTX_##REG))
 
 #define KGSL_IOMMU_SET_CTX_REG(_ctx, REG, val) \
-		writel_relaxed((val), \
+		writel_relaxed_no_log((val), \
 			kgsl_iommu_reg((_ctx), KGSL_IOMMU_CTX_##REG))
 
 #define KGSL_IOMMU_GET_CTX_REG(_ctx, REG) \
-		readl_relaxed(kgsl_iommu_reg((_ctx), KGSL_IOMMU_CTX_##REG))
+		readl_relaxed_no_log(kgsl_iommu_reg((_ctx), KGSL_IOMMU_CTX_##REG))
 
 
 #endif

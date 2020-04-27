@@ -332,7 +332,7 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 	 * the floor_frequency, then adjust the policy->min.
 	 */
 	if (policy->max > clipped_freq || policy->min < floor_freq)
-		cpufreq_verify_within_limits(policy, floor_freq, clipped_freq);
+		cpufreq_verify_within_limits(policy, policy->min, policy->max);
 	mutex_unlock(&cooling_list_lock);
 
 	return NOTIFY_OK;
@@ -786,7 +786,7 @@ static int cpufreq_get_requested_power(struct thermal_cooling_device *cdev,
 			load = 0;
 
 		total_load += load;
-		if (trace_thermal_power_cpu_limit_enabled() && load_cpu)
+		if (load_cpu)
 			load_cpu[i] = load;
 
 		i++;

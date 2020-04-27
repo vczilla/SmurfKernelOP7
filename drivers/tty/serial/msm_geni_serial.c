@@ -1990,7 +1990,6 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 							__func__, ret);
 			return;
 		}
-		disable_irq(uport->irq);
 		msm_geni_serial_set_manual_flow(false, port);
 	}
 	/* Take a spinlock else stop_rx causes a race with an ISR due to Cancel
@@ -2099,10 +2098,8 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	IPC_LOG_MSG(port->ipc_log_misc, "BitsChar%d stop bit%d\n",
 				bits_per_char, stop_bit_len);
 exit_set_termios:
-	if (!uart_console(uport)) {
+	if (!uart_console(uport))
 		msm_geni_serial_set_manual_flow(true, port);
-		enable_irq(uport->irq);
-	}
 	msm_geni_serial_start_rx(uport);
 	if (!uart_console(uport))
 		msm_geni_serial_power_off(uport);
@@ -2255,7 +2252,7 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	u32 bits_per_char = 0;
 	u32 s_clk_cfg = 0;
 	u32 baud = 115200;
-	u32 clk_div;
+	int clk_div;
 	unsigned long clk_rate;
 	unsigned long cfg0, cfg1;
 

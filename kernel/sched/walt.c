@@ -882,7 +882,7 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	if (!same_freq_domain(new_cpu, task_cpu(p))) {
 		src_rq->notif_pending = true;
 		dest_rq->notif_pending = true;
-		irq_work_queue(&walt_migration_irq_work);
+		sched_irq_work_queue(&walt_migration_irq_work);
 	}
 
 	if (is_ed_enabled()) {
@@ -1961,7 +1961,7 @@ static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
 	result = atomic64_cmpxchg(&walt_irq_work_lastq_ws, old_window_start,
 				   rq->window_start);
 	if (result == old_window_start)
-		irq_work_queue(&walt_cpufreq_irq_work);
+		sched_irq_work_queue(&walt_cpufreq_irq_work);
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */
@@ -3184,13 +3184,19 @@ void walt_irq_work(struct irq_work *irq_work)
 	u64 wc;
 	bool is_migration = false;
 	u64 total_grp_load = 0;
+	int level = 0;
 
 	/* Am I the window rollover work or the migration work? */
 	if (irq_work == &walt_migration_irq_work)
 		is_migration = true;
 
-	for_each_cpu(cpu, cpu_possible_mask)
-		raw_spin_lock(&cpu_rq(cpu)->lock);
+	for_each_cpu(cpu, cpu_possible_mask) {
+		if (level == 0)
+			raw_spin_lock(&cpu_rq(cpu)->lock);
+		else
+			raw_spin_lock_nested(&cpu_rq(cpu)->lock, level);
+		level++;
+	}
 
 	wc = sched_ktime_clock();
 	walt_load_reported_window = atomic64_read(&walt_irq_work_lastq_ws);

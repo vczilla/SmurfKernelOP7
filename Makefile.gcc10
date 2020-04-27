@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 4
 PATCHLEVEL = 14
-SUBLEVEL = 159
+SUBLEVEL = 177
 EXTRAVERSION =
 NAME = Petit Gorille
 
@@ -365,9 +365,9 @@ HOST_LFS_LIBS := $(shell getconf LFS_LIBS 2>/dev/null)
 
 HOSTCC       = $(CCACHE) gcc
 HOSTCXX      = $(CCACHE) g++
-HOSTCFLAGS   := -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 \
+HOSTCFLAGS   := -Wall -Wmissing-prototypes -Wstrict-prototypes -Ofast \
 		-fomit-frame-pointer -std=gnu89 -pipe $(HOST_LFS_CFLAGS)
-HOSTCXXFLAGS := -O2 $(HOST_LFS_CFLAGS)
+HOSTCXXFLAGS := -Ofast $(HOST_LFS_CFLAGS)
 HOSTLDFLAGS  := $(HOST_LFS_LDFLAGS)
 HOST_LOADLIBES := $(HOST_LFS_LIBS)
 
@@ -609,7 +609,7 @@ scripts: scripts_basic include/config/auto.conf include/config/tristate.conf \
 
 # Objects we will link into vmlinux / subdirs we need to visit
 init-y		:= init/
-drivers-y	:= drivers/ sound/ firmware/ opslalib/ techpack/ techpack/data/drivers/
+drivers-y	:= drivers/ sound/ firmware/ opslalib/ techpack/
 net-y		:= net/
 libs-y		:= lib/
 core-y		:= usr/
@@ -723,6 +723,7 @@ KBUILD_CFLAGS   += $(call cc-disable-warning, misleading-indentation)
 KBUILD_CFLAGS   += $(call cc-disable-warning, designated-init)
 KBUILD_CFLAGS   += $(call cc-disable-warning, maybe-uninitialized)
 KBUILD_CFLAGS   += $(call cc-disable-warning, restrict)
+KBUILD_CFLAGS += $(call cc-disable-warning, stringop-overflow)
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Ofast $(call cc-disable-warning,maybe-uninitialized,)

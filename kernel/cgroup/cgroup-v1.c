@@ -513,6 +513,7 @@ static void *cgroup_pidlist_next(struct seq_file *s, void *v, loff_t *pos)
 	 */
 	p++;
 	if (p >= end) {
+		(*pos)++;
 		return NULL;
 	} else {
 		*pos = *p;
@@ -568,10 +569,10 @@ static ssize_t __cgroup1_procs_write(struct kernfs_open_file *of,
 	if (of && task) {
 		if (!ret && !threadgroup && !strcmp(of->kn->parent->name, "top-app") &&
 	    	(task_is_zygote(task->parent) || task_is_embryo(task->parent))) {
-			if (task->cpu < 4)
-				cpu_input_boost_kick_cluster1(1000);
-			else if ((task->cpu > 3) && (task->cpu < 7))
-				cpu_input_boost_kick_cluster2(1000);
+			//if (task->cpu < 4)
+			cpu_input_boost_kick_core(1000, task->cpu);
+			//else if ((task->cpu > 3) && (task->cpu < 7))
+			//cpu_input_boost_kick_cluster2(1000);
 #ifdef CONFIG_DEVFRQ_BOOST
 			devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
 			devfreq_boost_ddr_kick_max(DEVFREQ_MSM_DDRBW, 1000);
@@ -855,7 +856,7 @@ void cgroup1_release_agent(struct work_struct *work)
 
 	pathbuf = kmalloc(PATH_MAX, GFP_KERNEL);
 	agentbuf = kstrdup(cgrp->root->release_agent_path, GFP_KERNEL);
-	if (!pathbuf || !agentbuf)
+	if (!pathbuf || !agentbuf || !strlen(agentbuf))
 		goto out;
 
 	spin_lock_irq(&css_set_lock);

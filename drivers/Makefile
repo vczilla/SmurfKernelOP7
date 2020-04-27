@@ -197,4 +197,3 @@ obj-y += infrared_proximity/infrared_power_control.o
 # GNSS driver
 obj-$(CONFIG_GNSS_SIRF)		+= gnsssirf/
 obj-$(CONFIG_UNIFIED)		+= set_os/
-obj-$(CONFIG_UNIFIED_V2)	+= set_os_v2/

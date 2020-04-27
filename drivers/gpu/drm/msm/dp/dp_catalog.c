@@ -1666,7 +1666,7 @@ static int dp_catalog_reg_dump(struct dp_catalog *dp_catalog,
 		memset(buf, 0, len);
 
 		for (i = 0; i < len / rowsize; i++) {
-			data = readl_relaxed(addr);
+			data = readl_relaxed_no_log(addr);
 			memcpy(buf + (rowsize * i), &data, sizeof(u32));
 
 			addr += rowsize;

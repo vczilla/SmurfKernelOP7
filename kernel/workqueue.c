@@ -434,6 +434,13 @@ static void workqueue_sysfs_unregister(struct workqueue_struct *wq);
 
 static struct debug_obj_descr work_debug_descr;
 
+static int __init set__wq_power_efficient(char *cmdline)
+{
+	wq_power_efficient = true;
+	return 0;
+}
+__setup("is_power_efficient", set__wq_power_efficient);
+
 static void *work_debug_hint(void *addr)
 {
 	return ((struct work_struct *) addr)->func;
@@ -1414,14 +1421,16 @@ static void __queue_work(int cpu, struct workqueue_struct *wq,
 	    WARN_ON_ONCE(!is_chained_work(wq)))
 		return;
 retry:
-	if (req_cpu == WORK_CPU_UNBOUND)
-		cpu = wq_select_unbound_cpu(raw_smp_processor_id());
-
 	/* pwq which will be used unless @work is executing elsewhere */
-	if (!(wq->flags & WQ_UNBOUND))
-		pwq = per_cpu_ptr(wq->cpu_pwqs, cpu);
-	else
+	if (wq->flags & WQ_UNBOUND) {
+		if (req_cpu == WORK_CPU_UNBOUND)
+			cpu = wq_select_unbound_cpu(raw_smp_processor_id());
 		pwq = unbound_pwq_by_node(wq, cpu_to_node(cpu));
+	} else {
+		if (req_cpu == WORK_CPU_UNBOUND)
+			cpu = raw_smp_processor_id();
+		pwq = per_cpu_ptr(wq->cpu_pwqs, cpu);
+	}
 
 	/*
 	 * If @work was previously on a different pool, it might still be

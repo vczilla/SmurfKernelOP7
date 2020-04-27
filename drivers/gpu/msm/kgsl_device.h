@@ -68,7 +68,6 @@ enum kgsl_event_results {
 	KGSL_EVENT_CANCELLED = 2,
 };
 
-#define KGSL_FLAG_WAKE_ON_TOUCH BIT(0)
 #define KGSL_FLAG_SPARSE        BIT(1)
 
 /*
@@ -691,7 +690,7 @@ static inline int kgsl_state_is_awake(struct kgsl_device *device)
 	if (device->state == KGSL_STATE_ACTIVE ||
 		device->state == KGSL_STATE_AWARE)
 		return true;
-	else if (gmu_core_isenabled(device) &&
+	else if (gmu_core_gpmu_isenabled(device) &&
 			test_bit(GMU_CLK_ON, &device->gmu_core.flags))
 		return true;
 	else

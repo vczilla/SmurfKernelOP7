@@ -146,7 +146,6 @@ struct generic_get_data_ {
 };
 static struct generic_get_data_ *generic_get_data;
 
-#ifdef CONFIG_DEBUG_FS
 #define OUT_BUFFER_SIZE 56
 #define IN_BUFFER_SIZE 24
 
@@ -201,12 +200,6 @@ static inline void q6asm_set_flag_in_token(union asm_token_struct *asm_token,
 {
 	if (flag)
 		ASM_SET_BIT(asm_token->_token.flags, flag_offset);
-}
-
-static inline int q6asm_get_flag_from_token(union asm_token_struct *asm_token,
-					    int flag_offset)
-{
-	return ASM_TEST_BIT(asm_token->_token.flags, flag_offset);
 }
 
 static inline void q6asm_update_token(u32 *token, u8 session_id, u8 stream_id,
@@ -384,131 +377,7 @@ static ssize_t audio_input_latency_dbgfs_write(struct file *file,
 	}
 	return -EINVAL;
 }
-static const struct file_operations audio_input_latency_debug_fops = {
-	.open = audio_input_latency_dbgfs_open,
-	.read = audio_input_latency_dbgfs_read,
-	.write = audio_input_latency_dbgfs_write
-};
 
-static void config_debug_fs_write_cb(void)
-{
-	if (out_enable_flag) {
-		/* For first Write done log the time and reset
-		 * out_cold_index
-		 */
-		if (out_cold_index != 1) {
-			do_gettimeofday(&out_cold_tv);
-			pr_debug("COLD: apr_send_pkt at %ld sec %ld microsec\n",
-				out_cold_tv.tv_sec,
-				out_cold_tv.tv_usec);
-			out_cold_index = 1;
-		}
-		pr_debug("%s: out_enable_flag %ld\n",
-			__func__, out_enable_flag);
-	}
-}
-static void config_debug_fs_read_cb(void)
-{
-	if (in_enable_flag) {
-		/* when in_cont_index == 7, DSP would be
-		 * writing into the 8th 512 byte buffer and this
-		 * timestamp is tapped here.Once done it then writes
-		 * to 9th 512 byte buffer.These two buffers(8th, 9th)
-		 * reach the test application in 5th iteration and that
-		 * timestamp is tapped at user level. The difference
-		 * of these two timestamps gives us the time between
-		 * the time at which dsp started filling the sample
-		 * required and when it reached the test application.
-		 * Hence continuous input latency
-		 */
-		if (in_cont_index == 7) {
-			do_gettimeofday(&in_cont_tv);
-			pr_info("%s: read buffer at %ld sec %ld microsec\n",
-				__func__,
-				in_cont_tv.tv_sec, in_cont_tv.tv_usec);
-		}
-		in_cont_index++;
-	}
-}
-
-static void config_debug_fs_reset_index(void)
-{
-	in_cont_index = 0;
-}
-
-static void config_debug_fs_run(void)
-{
-	if (out_enable_flag) {
-		do_gettimeofday(&out_cold_tv);
-		pr_debug("%s: COLD apr_send_pkt at %ld sec %ld microsec\n",
-			__func__, out_cold_tv.tv_sec, out_cold_tv.tv_usec);
-	}
-}
-
-static void config_debug_fs_write(struct audio_buffer *ab)
-{
-	if (out_enable_flag) {
-		char zero_pattern[2] = {0x00, 0x00};
-		/* If First two byte is non zero and last two byte
-		 * is zero then it is warm output pattern
-		 */
-		if ((strcmp(((char *)ab->data), zero_pattern)) &&
-		(!strcmp(((char *)ab->data + 2), zero_pattern))) {
-			do_gettimeofday(&out_warm_tv);
-			pr_debug("%s: WARM:apr_send_pkt at %ld sec %ld microsec\n",
-			 __func__,
-			 out_warm_tv.tv_sec,
-			out_warm_tv.tv_usec);
-			pr_debug("%s: Warm Pattern Matched\n", __func__);
-		}
-		/* If First two byte is zero and last two byte is
-		 * non zero then it is cont output pattern
-		 */
-		else if ((!strcmp(((char *)ab->data), zero_pattern))
-		&& (strcmp(((char *)ab->data + 2), zero_pattern))) {
-			do_gettimeofday(&out_cont_tv);
-			pr_debug("%s: CONT:apr_send_pkt at %ld sec %ld microsec\n",
-			__func__,
-			out_cont_tv.tv_sec,
-			out_cont_tv.tv_usec);
-			pr_debug("%s: Cont Pattern Matched\n", __func__);
-		}
-	}
-}
-static void config_debug_fs_init(void)
-{
-	out_buffer = kzalloc(OUT_BUFFER_SIZE, GFP_KERNEL);
-	if (out_buffer == NULL)
-		goto outbuf_fail;
-
-	in_buffer = kzalloc(IN_BUFFER_SIZE, GFP_KERNEL);
-	if (in_buffer == NULL)
-		goto inbuf_fail;
-
-	out_dentry = debugfs_create_file("audio_out_latency_measurement_node",
-				0664,
-				NULL, NULL, &audio_output_latency_debug_fops);
-	if (IS_ERR(out_dentry)) {
-		pr_err("%s: debugfs_create_file failed\n", __func__);
-		goto file_fail;
-	}
-	in_dentry = debugfs_create_file("audio_in_latency_measurement_node",
-				0664,
-				NULL, NULL, &audio_input_latency_debug_fops);
-	if (IS_ERR(in_dentry)) {
-		pr_err("%s: debugfs_create_file failed\n", __func__);
-		goto file_fail;
-	}
-	return;
-file_fail:
-	kfree(in_buffer);
-inbuf_fail:
-	kfree(out_buffer);
-outbuf_fail:
-	in_buffer = NULL;
-	out_buffer = NULL;
-}
-#else
 static void config_debug_fs_write(struct audio_buffer *ab)
 {
 }
@@ -527,7 +396,12 @@ static void config_debug_fs_write_cb(void)
 static void config_debug_fs_init(void)
 {
 }
-#endif
+
+static inline int q6asm_get_flag_from_token(union asm_token_struct *asm_token,
+					    int flag_offset)
+{
+	return ASM_TEST_BIT(asm_token->_token.flags, flag_offset);
+}
 
 int q6asm_mmap_apr_dereg(void)
 {
@@ -1703,7 +1577,6 @@ static int32_t q6asm_srvc_callback(struct apr_client_data *data, void *priv)
 
 	ac = q6asm_get_audio_client(session_id);
 	dir = q6asm_get_flag_from_token(&asm_token, ASM_DIRECTION_OFFSET);
-
 	if (!ac) {
 		pr_debug("%s: session[%d] already freed\n",
 			 __func__, session_id);

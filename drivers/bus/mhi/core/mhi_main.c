@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -976,7 +976,8 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 				mhi_cntrl->unmap_single(mhi_cntrl, buf_info);
 
 			result.buf_addr = buf_info->cb_buf;
-			result.bytes_xferd = xfer_len;
+			result.bytes_xferd = min_t(u16, xfer_len,
+					buf_info->len);
 			mhi_del_ring_element(mhi_cntrl, buf_ring);
 			mhi_del_ring_element(mhi_cntrl, tre_ring);
 			local_rp = tre_ring->rp;
@@ -1138,11 +1139,15 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 		complete(&mhi_tsync->completion);
 	} else {
 		chan = MHI_TRE_GET_CMD_CHID(cmd_pkt);
-		mhi_chan = &mhi_cntrl->mhi_chan[chan];
-		write_lock_bh(&mhi_chan->lock);
-		mhi_chan->ccs = MHI_TRE_GET_EV_CODE(tre);
-		complete(&mhi_chan->completion);
-		write_unlock_bh(&mhi_chan->lock);
+		if (chan >= mhi_cntrl->max_chan) {
+			MHI_ERR("invalid channel id %u\n", chan);
+		} else {
+			mhi_chan = &mhi_cntrl->mhi_chan[chan];
+			write_lock_bh(&mhi_chan->lock);
+			mhi_chan->ccs = MHI_TRE_GET_EV_CODE(tre);
+			complete(&mhi_chan->completion);
+			write_unlock_bh(&mhi_chan->lock);
+		}
 	}
 
 	mhi_del_ring_element(mhi_cntrl, mhi_ring);
@@ -2038,6 +2043,11 @@ int mhi_debugfs_mhi_event_show(struct seq_file *m, void *d)
 
 	int i;
 
+	if (!mhi_cntrl->mhi_ctxt)
+		return -ENODEV;
+
+	seq_printf(m, "[%llu ns]:\n", sched_clock());
+
 	er_ctxt = mhi_cntrl->mhi_ctxt->er_ctxt;
 	mhi_event = mhi_cntrl->mhi_event;
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, er_ctxt++,
@@ -2068,6 +2078,11 @@ int mhi_debugfs_mhi_chan_show(struct seq_file *m, void *d)
 	struct mhi_chan *mhi_chan;
 	struct mhi_chan_ctxt *chan_ctxt;
 	int i;
+
+	if (!mhi_cntrl->mhi_ctxt)
+		return -ENODEV;
+
+	seq_printf(m, "[%llu ns]:\n", sched_clock());
 
 	mhi_chan = mhi_cntrl->mhi_chan;
 	chan_ctxt = mhi_cntrl->mhi_ctxt->chan_ctxt;

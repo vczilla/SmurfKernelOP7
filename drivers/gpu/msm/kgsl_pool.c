@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -106,7 +106,10 @@ _kgsl_pool_get_page(struct kgsl_page_pool *pool)
 		list_del(&p->lru);
 	}
 	spin_unlock(&pool->list_lock);
-	mod_node_page_state(page_pgdat(p), NR_KERNEL_MISC_RECLAIMABLE,
+
+	if (p != NULL)
+		mod_node_page_state(page_pgdat(p),
+				NR_KERNEL_MISC_RECLAIMABLE,
 				-(PAGE_SIZE << pool->pool_order));
 	return p;
 }
@@ -475,16 +478,12 @@ kgsl_pool_shrink_scan_objects(struct shrinker *shrinker,
 	/* nr represents number of pages to be removed*/
 	int nr = sc->nr_to_scan;
 	int total_pages = kgsl_pool_size_total();
-	unsigned long ret;
 
 	/* Target pages represents new  pool size */
 	int target_pages = (nr > total_pages) ? 0 : (total_pages - nr);
 
 	/* Reduce pool size to target_pages */
-	ret = kgsl_pool_reduce(target_pages, false);
-
-	/* If we are unable to shrink more, stop trying */
-	return (ret == 0) ? SHRINK_STOP : ret;
+	return kgsl_pool_reduce(target_pages, false);
 }
 
 static unsigned long

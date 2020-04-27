@@ -1784,9 +1784,13 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 	unsigned long tutil = task_util(task);
 	int best_cpu_idle_idx = INT_MAX;
 	int cpu_idle_idx = -1, start_cpu;
+#ifdef CONFIG_SCHED_WALT
 	bool boost_on_big = sched_boost() == FULL_THROTTLE_BOOST ?
 				  (sched_boost_policy() == SCHED_BOOST_ON_BIG) :
 				  false;
+#else
+	bool boost_on_big = false;
+#endif
 
 	if (task->is_surfaceflinger && tutil > 85) {
 		cpu_input_boost_kick_core(1000, task->cpu);
@@ -1830,16 +1834,7 @@ retry:
 
 			if (__cpu_overutilized(cpu, tutil))
 				continue;
-#ifdef CONFIG_OPCHAIN
-			if (best_cpu_is_claimed) {
-				best_cpu_idle_idx = cpu_idle_idx;
-				best_cpu_util_cum = util_cum;
-				best_cpu_util = util;
-				best_cpu = cpu;
-				best_cpu_is_claimed = false;
-				continue;
-			}
-#endif
+
 			/* Find the least loaded CPU */
 			if (util > best_cpu_util)
 				continue;
@@ -1870,6 +1865,7 @@ retry:
 						best_cpu_util_cum < util_cum)
 					continue;
 			}
+
 			best_cpu_idle_idx = cpu_idle_idx;
 			best_cpu_util_cum = util_cum;
 			best_cpu_util = util;

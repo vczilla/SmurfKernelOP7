@@ -80,7 +80,6 @@ static int _lm_limit_get(void *data, u64 *val)
 {
 	struct kgsl_device *device = data;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int ret;
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
 		*val = 0;

@@ -212,7 +212,7 @@ static const struct kgsl_hwcg_reg a615_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
 	{A6XX_RBBM_CLOCK_CNTL_RB0, 0x22222222},
 	{A6XX_RBBM_CLOCK_CNTL2_RB0, 0x00002222},
-	{A6XX_RBBM_CLOCK_CNTL_CCU0, 0x00002220},
+	{A6XX_RBBM_CLOCK_CNTL_CCU0, 0x00002020},
 	{A6XX_RBBM_CLOCK_CNTL_CCU1, 0x00002220},
 	{A6XX_RBBM_CLOCK_CNTL_CCU2, 0x00002220},
 	{A6XX_RBBM_CLOCK_CNTL_CCU3, 0x00002220},
@@ -296,8 +296,8 @@ static const struct kgsl_hwcg_reg a640_hwcg_regs[] = {
 static const struct kgsl_hwcg_reg a612_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_CNTL_SP0, 0x22222222},
 	{A6XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
-	{A6XX_RBBM_CLOCK_DELAY_SP0, 0x0000F3CF},
-	{A6XX_RBBM_CLOCK_HYST_SP0, 0x00000081},
+	{A6XX_RBBM_CLOCK_DELAY_SP0, 0x00000081},
+	{A6XX_RBBM_CLOCK_HYST_SP0, 0x0000F3CF},
 	{A6XX_RBBM_CLOCK_CNTL_TP0, 0x22222222},
 	{A6XX_RBBM_CLOCK_CNTL2_TP0, 0x22222222},
 	{A6XX_RBBM_CLOCK_CNTL3_TP0, 0x22222222},
@@ -1409,8 +1409,10 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	 * For the soft reset case with GMU enabled this part is done
 	 * by the GMU firmware
 	 */
-	if (gmu_core_gpmu_isenabled(device))
+	if (gmu_core_gpmu_isenabled(device) &&
+		!test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv))
 		return 0;
+
 
 	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 1);
 	/*
@@ -1436,9 +1438,6 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-
-	if (!gmu_core_isenabled(device))
-		return 0;
 
 	if (!gmu_core_isenabled(device))
 		return 0;
@@ -1507,17 +1506,23 @@ static int a6xx_reset(struct kgsl_device *device, int fault)
 	/* Transition from ACTIVE to RESET state */
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_RESET);
 
-	/* since device is officially off now clear start bit */
-	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
+	if (ret) {
+		/* If soft reset failed/skipped, then pull the power */
+		set_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv);
+		/* since device is officially off now clear start bit */
+		clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
-	/* Keep trying to start the device until it works */
-	for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
-		ret = adreno_start(device, 0);
-		if (!ret)
-			break;
+		/* Keep trying to start the device until it works */
+		for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
+			ret = adreno_start(device, 0);
+			if (!ret)
+				break;
 
-		msleep(20);
+			msleep(20);
+		}
 	}
+
+	clear_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv);
 
 	if (ret)
 		return ret;
@@ -1805,66 +1810,6 @@ static struct adreno_irq a6xx_irq = {
 	.funcs = a6xx_irq_funcs,
 	.mask = A6XX_INT_MASK,
 };
-
-static bool adreno_is_qdss_dbg_register(struct kgsl_device *device,
-		unsigned int offsetwords)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
-	return adreno_dev->qdss_gfx_virt &&
-		(offsetwords >= (adreno_dev->qdss_gfx_base >> 2)) &&
-		(offsetwords < (adreno_dev->qdss_gfx_base +
-				adreno_dev->qdss_gfx_len) >> 2);
-}
-
-
-static void adreno_qdss_gfx_dbg_regread(struct kgsl_device *device,
-	unsigned int offsetwords, unsigned int *value)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned int qdss_gfx_offset;
-
-	if (!adreno_is_qdss_dbg_register(device, offsetwords))
-		return;
-
-	qdss_gfx_offset = (offsetwords << 2) - adreno_dev->qdss_gfx_base;
-	*value = __raw_readl(adreno_dev->qdss_gfx_virt + qdss_gfx_offset);
-
-	/*
-	 * ensure this read finishes before the next one.
-	 * i.e. act like normal readl()
-	 */
-	rmb();
-}
-
-static void adreno_qdss_gfx_dbg_regwrite(struct kgsl_device *device,
-	unsigned int offsetwords, unsigned int value)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned int qdss_gfx_offset;
-
-	if (!adreno_is_qdss_dbg_register(device, offsetwords))
-		return;
-
-	qdss_gfx_offset = (offsetwords << 2) - adreno_dev->qdss_gfx_base;
-	trace_kgsl_regwrite(device, offsetwords, value);
-
-	/*
-	 * ensure previous writes post before this one,
-	 * i.e. act like normal writel()
-	 */
-	wmb();
-	__raw_writel(value, adreno_dev->qdss_gfx_virt + qdss_gfx_offset);
-}
-
-static void adreno_gx_regread(struct kgsl_device *device,
-	unsigned int offsetwords, unsigned int *value)
-{
-	if (adreno_is_qdss_dbg_register(device, offsetwords))
-		adreno_qdss_gfx_dbg_regread(device, offsetwords, value);
-	else
-		kgsl_regread(device, offsetwords, value);
-}
 
 static struct adreno_coresight_register a6xx_coresight_regs[] = {
 	{ A6XX_DBGC_CFG_DBGBUS_SEL_A },

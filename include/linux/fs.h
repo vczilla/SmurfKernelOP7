@@ -645,6 +645,7 @@ struct inode {
 		struct rcu_head		i_rcu;
 	};
 	u64			i_version;
+	atomic64_t		i_sequence; /* see futex */
 	atomic_t		i_count;
 	atomic_t		i_dio_count;
 	atomic_t		i_writecount;
@@ -1646,6 +1647,13 @@ extern int vfs_whiteout(struct inode *, struct dentry *);
 extern struct dentry *vfs_tmpfile(struct vfsmount *mnt,
 				  struct dentry *dentry, umode_t mode,
 				  int open_flag);
+
+#ifdef CONFIG_COMPAT
+extern long compat_ptr_ioctl(struct file *file, unsigned int cmd,
+					unsigned long arg);
+#else
+#define compat_ptr_ioctl NULL
+#endif
 
 /*
  * VFS file helper functions.

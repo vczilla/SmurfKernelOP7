@@ -62,8 +62,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.minor = 0,
 		.patchid = 0,
 		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_GPMU |
-			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
-			ADRENO_IFPC,
+			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT,
 		.sqefw_name = "a630_sqe.fw",
 		.zap_name = "a640_zap",
 		.gpudev = &adreno_a6xx_gpudev,
@@ -85,8 +84,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.patchid = ANY_ID,
 		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_GPMU |
 			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
-			ADRENO_IFPC | ADRENO_PREEMPTION | ADRENO_ACD |
-			ADRENO_LM,
+			ADRENO_PREEMPTION | ADRENO_ACD | ADRENO_LM,
 		.sqefw_name = "a630_sqe.fw",
 		.zap_name = "a640_zap",
 		.gpudev = &adreno_a6xx_gpudev,
@@ -117,21 +115,5 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmu_minor = 0x000,
 		.gpmu_tsens = 0x000C000D,
 		.max_power = 5448,
-	},
-	{
-		.gpurev = ADRENO_REV_A610,
-		.core = 6,
-		.major = 1,
-		.minor = 0,
-		.patchid = ANY_ID,
-		.features = ADRENO_64BIT | ADRENO_PREEMPTION |
-			ADRENO_CONTENT_PROTECTION,
-		.sqefw_name = "a630_sqe.fw",
-		.zap_name = "a610_zap",
-		.gpudev = &adreno_a6xx_gpudev,
-		.gmem_size = (SZ_128K + SZ_4K),
-		.num_protected_regs = 0x20,
-		.busy_mask = 0xFFFFFFFE,
-		.cx_ipeak_gpu_freq = 900000000,
 	},
 };

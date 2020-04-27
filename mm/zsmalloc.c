@@ -443,15 +443,16 @@ static u64 zs_zpool_total_size(void *pool)
 }
 
 static struct zpool_driver zs_zpool_driver = {
-	.type =		"zsmalloc",
-	.owner =	THIS_MODULE,
-	.create =	zs_zpool_create,
-	.destroy =	zs_zpool_destroy,
-	.malloc =	zs_zpool_malloc,
-	.free =		zs_zpool_free,
-	.map =		zs_zpool_map,
-	.unmap =	zs_zpool_unmap,
-	.total_size =	zs_zpool_total_size,
+	.type =			  "zsmalloc",
+	.owner =		  THIS_MODULE,
+	.create =		  zs_zpool_create,
+	.destroy =		  zs_zpool_destroy,
+	.malloc_support_movable = true,
+	.malloc =		  zs_zpool_malloc,
+	.free =			  zs_zpool_free,
+	.map =			  zs_zpool_map,
+	.unmap =		  zs_zpool_unmap,
+	.total_size =		  zs_zpool_total_size,
 };
 
 MODULE_ALIAS("zpool-zsmalloc");
@@ -1109,7 +1110,7 @@ static struct zspage *alloc_zspage(struct zs_pool *pool,
 	struct page *pages[ZS_MAX_PAGES_PER_ZSPAGE];
 	struct zspage *zspage = cache_alloc_zspage(pool, gfp);
 
-	if (!zspage)
+	if (unlikely(!zspage))
 		return NULL;
 
 	memset(zspage, 0, sizeof(struct zspage));
@@ -1507,7 +1508,7 @@ unsigned long zs_malloc(struct zs_pool *pool, size_t size, gfp_t gfp)
 		return 0;
 
 	handle = cache_alloc_handle(pool, gfp);
-	if (!handle)
+	if (unlikely(!handle))
 		return 0;
 
 	/* extra space in chunk to keep the handle */
@@ -1529,7 +1530,7 @@ unsigned long zs_malloc(struct zs_pool *pool, size_t size, gfp_t gfp)
 	spin_unlock(&class->lock);
 
 	zspage = alloc_zspage(pool, class, gfp);
-	if (!zspage) {
+	if (unlikely(!zspage)) {
 		cache_free_handle(pool, handle);
 		return 0;
 	}
@@ -2099,6 +2100,11 @@ int zs_page_migrate(struct address_space *mapping, struct page *newpage,
 		 */
 		putback_zspage_deferred(pool, class, zspage);
 		zs_pool_dec_isolated(pool);
+	}
+
+	if (page_zone(newpage) != page_zone(page)) {
+		dec_zone_page_state(page, NR_ZSPAGES);
+		inc_zone_page_state(newpage, NR_ZSPAGES);
 	}
 
 	reset_page(page);
