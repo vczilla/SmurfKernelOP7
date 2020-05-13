@@ -57,22 +57,20 @@ struct victim_info {
 
 /* Pulled from the Android framework. Lower adj means higher priority. */
 static const short adj_prio[] = {
-	906, /* CACHED_APP_MAX_ADJ */
-	905, /* Cached app */
-	904, /* Cached app */
-	903, /* Cached app */
-	902, /* Cached app */
-	901, /* Cached app */
-	900, /* CACHED_APP_MIN_ADJ */
-	800, /* SERVICE_B_ADJ */
-	700, /* PREVIOUS_APP_ADJ */
-	600, /* HOME_APP_ADJ */
-	500, /* SERVICE_ADJ */
-	400, /* HEAVY_WEIGHT_APP_ADJ */
-	300, /* BACKUP_APP_ADJ */
-	200, /* PERCEPTIBLE_APP_ADJ */
-	100, /* VISIBLE_APP_ADJ */
-	0    /* FOREGROUND_APP_ADJ */
+	1000, /* CACHED_APP_MAX_ADJ + 1 */
+	950,  /* CACHED_APP_LMK_FIRST_ADJ */
+	900,  /* CACHED_APP_MIN_ADJ */
+	800,  /* SERVICE_B_ADJ */
+	700,  /* PREVIOUS_APP_ADJ */
+	600,  /* HOME_APP_ADJ */
+	500,  /* SERVICE_ADJ */
+	400,  /* HEAVY_WEIGHT_APP_ADJ */
+	300,  /* BACKUP_APP_ADJ */
+	250,  /* PERCEPTIBLE_LOW_APP_ADJ */
+	200,  /* PERCEPTIBLE_APP_ADJ */
+	100,  /* VISIBLE_APP_ADJ */
+	50,   /* PERCEPTIBLE_RECENT_FOREGROUND_APP_ADJ */
+	0     /* FOREGROUND_APP_ADJ */
 };
 
 static struct victim_info victims[MAX_VICTIMS];
