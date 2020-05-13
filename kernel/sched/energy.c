@@ -63,7 +63,7 @@ void check_max_cap_vs_cpu_scale(int cpu, struct sched_group_energy *sge)
 	if (max_cap == cpu_scale)
 		return;
 
-	pr_warn("CPU%d max energy model capacity=%ld != cpu_scale=%ld\n", cpu,
+	pr_debug("CPU%d max energy model capacity=%ld != cpu_scale=%ld\n", cpu,
 		max_cap, cpu_scale);
 }
 
@@ -80,12 +80,12 @@ void init_sched_energy_costs(void)
 	for_each_possible_cpu(cpu) {
 		cn = of_get_cpu_node(cpu, NULL);
 		if (!cn) {
-			pr_warn("CPU device node missing for CPU %d\n", cpu);
+			pr_debug("CPU device node missing for CPU %d\n", cpu);
 			return;
 		}
 
 		if (!of_find_property(cn, "sched-energy-costs", NULL)) {
-			pr_warn("CPU device node has no sched-energy-costs\n");
+			pr_debug("CPU device node has no sched-energy-costs\n");
 			return;
 		}
 		/* Check if the energy model contains frequency/power values */
@@ -99,7 +99,7 @@ void init_sched_energy_costs(void)
 
 			prop = of_find_property(cp, "busy-cost-data", NULL);
 			if (!prop || !prop->value) {
-				pr_warn("No busy-cost data, skipping sched_energy init\n");
+				pr_debug("No busy-cost data, skipping sched_energy init\n");
 				goto out;
 			}
 
@@ -132,7 +132,7 @@ void init_sched_energy_costs(void)
 
 			prop = of_find_property(cp, "idle-cost-data", NULL);
 			if (!prop || !prop->value) {
-				pr_warn("No idle-cost data, skipping sched_energy init\n");
+				pr_debug("No idle-cost data, skipping sched_energy init\n");
 				goto out;
 			}
 
