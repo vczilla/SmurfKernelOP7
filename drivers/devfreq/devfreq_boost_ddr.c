@@ -68,7 +68,7 @@ static void devfreq_input_unboost(struct work_struct *work);
 static void devfreq_max_unboost(struct work_struct *work);
 static void devfreq_flex_unboost(struct work_struct *work);
 
-#define BOOST_DEV_INIT(b, dev, freq) .devices[dev] = {				\
+#define BOOST_DEV_INIT(b, dev) .devices[dev] = {				\
 	.input_unboost =							\
 		__DELAYED_WORK_INITIALIZER((b).devices[dev].input_unboost,	\
 					   devfreq_input_unboost, 0),		\
@@ -83,8 +83,7 @@ static void devfreq_flex_unboost(struct work_struct *work);
 }
 
 static struct df_boost_drv df_boost_drv_g __read_mostly = {
-	BOOST_DEV_INIT(df_boost_drv_g, DEVFREQ_MSM_DDRBW,
-		       CONFIG_DEVFREQ_MSM_DDRBW_BOOST_FREQ_LOW)
+	BOOST_DEV_INIT(df_boost_drv_g, DEVFREQ_MSM_DDRBW)
 };
 
 static void __devfreq_boost_ddr_kick(struct boost_dev *b)
