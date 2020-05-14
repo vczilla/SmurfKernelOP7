@@ -17,27 +17,27 @@ DTBIMAGE="dtb"
 #export PATH=${CLANG_PATH}:${PATH}
 #export CLANG_TRIPLE=aarch64-linux-gnu-
 export SPL="2020-02"
-export CROSS_COMPILE=${HOME}/android/Toolchains/gcc10/aarch64-linux-elf/bin/aarch64-linux-elf-
-export CROSS_COMPILE_ARM32=${HOME}/android/Toolchains/gcc9eabi_92/bin/arm-eabi-
+export CROSS_COMPILE=/media/${USER}/ExtremeExt4/Toolchains/gcc10/aarch64-linux-elf/bin/aarch64-linux-elf-
+export CROSS_COMPILE_ARM32=/media/${USER}/ExtremeExt4/Toolchains/gcc9eabi_92/bin/arm-eabi-
 #export KBUILD_COMPILER_STRING=$(~/android/Toolchains/clang/clang-r328903/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 DEFCONFIG="smurf_defconfig"
 
 # Kernel Details
-VER=".3.5.2.smk.unified"
+VER=".3.5.2.slmk.unified"
 
 # Paths
 KERNEL_DIR=`pwd`
-REPACK_DIR="${HOME}/android/AnyKernel2"
-PATCH_DIR="${HOME}/android/AnyKernel2/patch"
-MODULES_DIR="${HOME}/android/AnyKernel2/modules"
-ZIP_MOVE="${HOME}/android/AK-releases"
-ZIMAGE_DIR="${HOME}/android/SmurfKernelOP7/arch/arm64/boot/"
+REPACK_DIR="../AnyKernel2"
+PATCH_DIR="../AnyKernel2/patch"
+MODULES_DIR="../AnyKernel2/modules"
+ZIP_MOVE="../AK-releases"
+ZIMAGE_DIR="../SmurfKernelOP7/arch/arm64/boot/"
 
 # Functions
 function clean_all {
 		#ccache -C
 		rm -rf $MODULES_DIR/*
-		rm -rf ~/android/SmurfKernelOP7/out/*
+		rm -rf ../SmurfKernelOP7/out/*
 		#git reset --hard > /dev/null 2>&1
 		#git clean -f -d > /dev/null 2>&1
 		cd $KERNEL_DIR
@@ -46,7 +46,7 @@ function clean_all {
 }
 
 function make_kernel {
-	      cp ~/android/SmurfKernelOP7/Makefile.gcc10 ~/android/SmurfKernelOP7/Makefile
+	      cp ../SmurfKernelOP7/Makefile.gcc10 ../SmurfKernelOP7/Makefile
 	      echo
               make ARCH=arm64 O=out $DEFCONFIG
               make ARCH=arm64 O=out $THREAD
@@ -61,22 +61,22 @@ function make_dtb {
 }
 
 function make_boot {
-		cp -vr ~/android/SmurfKernelOP7/out/arch/arm64/boot/Image-dtb ~/android/AnyKernel2/Image-dtb
+		cp -vr ../SmurfKernelOP7/out/arch/arm64/boot/Image-dtb ../AnyKernel2/Image-dtb
 }
 
 function move_boot {
-		mv ~/android/AnyKernel2/Image-dtb ~/android/AnyKernel2/oos/
+		mv ../AnyKernel2/Image-dtb ../AnyKernel2/oos/
 }
 
 function make_zip {
-		cd ~/android/AnyKernel2
+		cd ../AnyKernel2
 		zip -r9 `echo $AK_VER`.zip *
 		mv  `echo $AK_VER`.zip $ZIP_MOVE
 		cd $KERNEL_DIR
 }
 
 function make_sep_dtb {
-	find ~/android/SmurfKernelOP7/out/arch/arm64/boot/dts -name '*.dtb' -exec cat {} + > ~/android/SmurfKernelOP7/out/arch/arm64/boot/dtb
+	find ../SmurfKernelOP7/out/arch/arm64/boot/dts -name '*.dtb' -exec cat {} + > ../SmurfKernelOP7/out/arch/arm64/boot/dtb
 }
 
 DATE_START=$(date +"%s")
@@ -130,9 +130,9 @@ case "$dchoice" in
 		make_kernel
 		make_modules
 		make_boot
-		move_boot
+		#move_boot
 		make_sep_dtb
-		make_zip
+		#make_zip
 		break
 		;;
 	n|N )
