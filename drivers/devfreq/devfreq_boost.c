@@ -68,7 +68,7 @@ static void devfreq_input_unboost(struct work_struct *work);
 static void devfreq_max_unboost(struct work_struct *work);
 static void devfreq_flex_unboost(struct work_struct *work);
 
-#define BOOST_DEV_INIT(b, dev, freq) .devices[dev] = {				\
+#define BOOST_DEV_INIT(b, dev) .devices[dev] = {				\
 	.input_unboost =							\
 		__DELAYED_WORK_INITIALIZER((b).devices[dev].input_unboost,	\
 					   devfreq_input_unboost, 0),		\
@@ -83,8 +83,7 @@ static void devfreq_flex_unboost(struct work_struct *work);
 }
 
 static struct df_boost_drv df_boost_drv_g __read_mostly = {
-	BOOST_DEV_INIT(df_boost_drv_g, DEVFREQ_MSM_CPUBW,
-		       CONFIG_DEVFREQ_MSM_CPUBW_BOOST_FREQ_LOW)
+	BOOST_DEV_INIT(df_boost_drv_g, DEVFREQ_MSM_CPUBW)
 };
 
 static void __devfreq_boost_kick(struct boost_dev *b)
@@ -214,23 +213,23 @@ static void devfreq_update_boosts(struct boost_dev *b, unsigned long state)
 	struct devfreq *df = b->df;
 	if (!READ_ONCE(b->df))
 		return;
-	if (!test_bit(SCREEN_ON, &state)) {
+	if (unlikely(!(0x01 & state))) {
 		mutex_lock(&df->lock);
 		df->min_freq = df->profile->freq_table[0];
-		df->max_boost = test_bit(WAKE_BOOST, &state) ? 
+		df->max_boost = 0x08 & state ? 
 					true :
 					false;
 		update_devfreq(df);
 		mutex_unlock(&df->lock);
 	} else {
 		mutex_lock(&df->lock);
-		df->min_freq = test_bit(FLEX_BOOST, &state) ?
+		df->min_freq = 0x04 & state ?
 			devfreq_boost_freq_low :
 			df->profile->freq_table[0];
-		df->min_freq = test_bit(INPUT_BOOST, &state) ?
+		df->min_freq = 0x02 & state ?
 			devfreq_boost_freq :
 			df->profile->freq_table[0];
-			df->max_boost = test_bit(MAX_BOOST, &state);
+			df->max_boost = 0x10 & state;
 		update_devfreq(df);
 		mutex_unlock(&df->lock);
 	}
