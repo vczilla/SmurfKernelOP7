@@ -97,12 +97,6 @@
 #ifdef CONFIG_DEVFREQ_BOOST
 #include <linux/devfreq_boost.h>
 #endif
-#ifdef CONFIG_DEVFREQ_BOOST_DDR
-#include <linux/devfreq_boost_ddr.h>
-#endif
-#ifdef CONFIG_DEVFREQ_BOOST_GPU
-#include <linux/devfreq_boost_gpu.h>
-#endif
 #include <linux/simple_lmk.h>
 
 #include <asm/pgtable.h>
@@ -2087,12 +2081,8 @@ long _do_fork(unsigned long clone_flags,
 			cpu_input_boost_kick_cluster2(750);
 #ifdef CONFIG_DEVFREQ_BOOST
 			devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 750);
-#endif
-#ifdef CONFIG_DEVFREQ_BOOST_DDR
-			devfreq_boost_ddr_kick_max(DEVFREQ_MSM_DDRBW, 750);
-#endif
-#ifdef CONFIG_DEVFREQ_BOOST_GPU
-			devfreq_boost_gpu_kick_max(DEVFREQ_MSM_GPUBW, 750);
+			devfreq_boost_kick_max(DEVFREQ_MSM_DDRBW, 750);
+			devfreq_boost_kick_max(DEVFREQ_MSM_GPUBW, 750);
 #endif
 		}
 	}
