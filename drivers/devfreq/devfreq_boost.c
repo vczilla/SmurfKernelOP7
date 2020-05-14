@@ -37,10 +37,6 @@ module_param(flex_boost_duration, short, 0644);
 module_param(input_boost_duration, short, 0644);
 module_param(devfreq_boost_freq, uint, 0644);
 module_param(devfreq_boost_freq_low, uint, 0644);
-module_param(devfreq_boost_ddr_freq, uint, 0644);
-module_param(devfreq_boost_ddr_freq_low, uint, 0644);
-module_param(devfreq_boost_gpu_freq, uint, 0644);
-module_param(devfreq_boost_gpu_freq_low, uint, 0644);
 
 enum {
 	SCREEN_ON,
@@ -225,23 +221,23 @@ static void devfreq_update_boosts(struct boost_dev *b, unsigned long state)
 	struct devfreq *df = b->df;
 	if (!READ_ONCE(b->df))
 		return;
-	if (unlikely(!(0x01 & state))) {
+	if (!test_bit(SCREEN_ON, &state)) {
 		mutex_lock(&df->lock);
 		df->min_freq = df->profile->freq_table[0];
-		df->max_boost = 0x08 & state ? 
+		df->max_boost = test_bit(WAKE_BOOST, &state) ? 
 					true :
 					false;
 		update_devfreq(df);
 		mutex_unlock(&df->lock);
 	} else {
 		mutex_lock(&df->lock);
-		df->min_freq = 0x04 & state ?
+		df->min_freq = test_bit(FLEX_BOOST, &state) ?
 			b->boost_freq_low :
 			df->profile->freq_table[0];
-		df->min_freq = 0x02 & state ?
+		df->min_freq = test_bit(INPUT_BOOST, &state) ?
 			b->boost_freq :
 			df->profile->freq_table[0];
-		df->max_boost = 0x08 & state;
+		df->max_boost = test_bit(MAX_BOOST, &state);
 		update_devfreq(df);
 		mutex_unlock(&df->lock);
 	}
