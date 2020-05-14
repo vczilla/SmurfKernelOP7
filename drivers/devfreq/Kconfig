@@ -274,6 +274,28 @@ config DEVFREQ_BOOST
 	  achieve optimal device performance by requesting boosts on key events,
 	  such as when a frame is ready to rendered to the display.
 
+config DEVFREQ_BOOST_DDR
+	bool "Devfreq Boost DDR"
+	help
+	  Boosts enumerated devfreq devices upon input, and allows for boosting
+	  specific devfreq devices on other custom events. The boost frequencies
+	  for this driver should be set so that frame drops are near-zero at the
+	  boosted frequencies and power consumption is minimized at said
+	  frequencies. The goal of this driver is to provide an interface to
+	  achieve optimal device performance by requesting boosts on key events,
+	  such as when a frame is ready to rendered to the display.
+
+config DEVFREQ_BOOST_GPU
+	bool "Devfreq Boost GPU"
+	help
+	  Boosts enumerated devfreq devices upon input, and allows for boosting
+	  specific devfreq devices on other custom events. The boost frequencies
+	  for this driver should be set so that frame drops are near-zero at the
+	  boosted frequencies and power consumption is minimized at said
+	  frequencies. The goal of this driver is to provide an interface to
+	  achieve optimal device performance by requesting boosts on key events,
+	  such as when a frame is ready to rendered to the display.
+
 if DEVFREQ_BOOST
 
 config FLEX_DEVFREQ_BOOST_DURATION_MS
@@ -310,6 +332,10 @@ config DEVFREQ_THREAD_PRIORITY
 	int "Input hread priority"
 	default "25"
 
+endif
+
+if DEVFREQ_BOOST_DDR
+
 config FLEX_DEVFREQ_BOOST_DDR_DURATION_MS
 	int "Flex boost duration"
 	default "150"
@@ -340,6 +366,14 @@ config DEVFREQ_MSM_DDRBW_BOOST_FREQ_LOW
 	help
 	  Boost frequency for the MSM DDR bus.
 
+config DEVFREQ_DDR_THREAD_PRIORITY
+	int "Input hread priority"
+	default "25"
+
+endif
+
+if DEVFREQ_BOOST_GPU
+
 config FLEX_DEVFREQ_BOOST_GPU_DURATION_MS
 	int "Flex boost duration"
 	default "150"
@@ -369,6 +403,10 @@ config DEVFREQ_MSM_GPUBW_BOOST_FREQ_LOW
 	default "0"
 	help
 	  Boost frequency for the MSM DDR bus.
+
+config DEVFREQ_GPU_THREAD_PRIORITY
+	int "Input hread priority"
+	default "25"
 
 endif
 
