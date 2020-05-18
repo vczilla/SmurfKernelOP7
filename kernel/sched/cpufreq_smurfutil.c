@@ -1082,8 +1082,8 @@ static struct attribute *smugov_attributes[] = {
 	&silver_suspend_max_freq.attr,
 	&gold_suspend_max_freq.attr,
 	&iowait_boost_enable.attr,
-	&turbo_mode,
-	&load_based_boost,
+	&turbo_mode.attr,
+	&load_based_boost.attr,
 	NULL
 };
 
