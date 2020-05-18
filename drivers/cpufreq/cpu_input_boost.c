@@ -777,7 +777,7 @@ static int cpu_notifier_cb(struct notifier_block *nb, unsigned long action,
 		smumode = false;
 
 	if (smumode) {
-		if (!test_bit(SCREEN_ON, &b->cpu_state)) {
+		if (!(0x01 & b->cpu_state)) {
 			if (policy->cpu < 4) {
 				policy->min=sleep_freq_lp;
 			}
@@ -789,7 +789,7 @@ static int cpu_notifier_cb(struct notifier_block *nb, unsigned long action,
 			}
 			return NOTIFY_OK;
 		}
-		if (test_bit(SCREEN_ON, &b->cpu_state)) {
+		if (0x01 & b->cpu_state) {
 			if (policy->cpu < 4) {
 				policy->min=get_min_freq(policy);
 			}

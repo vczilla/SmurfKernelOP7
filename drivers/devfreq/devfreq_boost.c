@@ -28,11 +28,19 @@ static unsigned short input_boost_duration __read_mostly = CONFIG_DEVFREQ_INPUT_
 static unsigned int devfreq_thread_prio __read_mostly = CONFIG_DEVFREQ_THREAD_PRIORITY;
 static unsigned int devfreq_boost_freq_low  __read_mostly = CONFIG_DEVFREQ_MSM_CPUBW_BOOST_FREQ_LOW;
 static unsigned int devfreq_boost_freq __read_mostly = CONFIG_DEVFREQ_MSM_CPUBW_BOOST_FREQ;
+static unsigned int devfreq_boost_ddr_freq_low  __read_mostly = CONFIG_DEVFREQ_MSM_DDRBW_BOOST_FREQ_LOW;
+static unsigned int devfreq_boost_ddr_freq __read_mostly = CONFIG_DEVFREQ_MSM_DDRBW_BOOST_FREQ;
+static unsigned int devfreq_boost_gpu_freq_low  __read_mostly = CONFIG_DEVFREQ_MSM_GPUBW_BOOST_FREQ_LOW;
+static unsigned int devfreq_boost_gpu_freq __read_mostly = CONFIG_DEVFREQ_MSM_GPUBW_BOOST_FREQ;
 
 module_param(flex_boost_duration, short, 0644);
 module_param(input_boost_duration, short, 0644);
 module_param(devfreq_boost_freq, uint, 0644);
 module_param(devfreq_boost_freq_low, uint, 0644);
+module_param(devfreq_boost_ddr_freq, uint, 0644);
+module_param(devfreq_boost_ddr_freq_low, uint, 0644);
+module_param(devfreq_boost_gpu_freq, uint, 0644);
+module_param(devfreq_boost_gpu_freq_low, uint, 0644);
 
 enum {
 	SCREEN_ON,
@@ -51,6 +59,8 @@ struct boost_dev {
 	struct delayed_work flex_unboost;
 	struct delayed_work max_unboost;
 	struct work_struct boost;
+	unsigned long *boost_freq;
+	unsigned long *boost_freq_low;
 	wait_queue_head_t boost_waitq;
 	unsigned long state;
 };
@@ -68,7 +78,7 @@ static void devfreq_input_unboost(struct work_struct *work);
 static void devfreq_max_unboost(struct work_struct *work);
 static void devfreq_flex_unboost(struct work_struct *work);
 
-#define BOOST_DEV_INIT(b, dev, freq) .devices[dev] = {				\
+#define BOOST_DEV_INIT(b, dev) .devices[dev] = {				\
 	.input_unboost =							\
 		__DELAYED_WORK_INITIALIZER((b).devices[dev].input_unboost,	\
 					   devfreq_input_unboost, 0),		\
@@ -83,8 +93,9 @@ static void devfreq_flex_unboost(struct work_struct *work);
 }
 
 static struct df_boost_drv df_boost_drv_g __read_mostly = {
-	BOOST_DEV_INIT(df_boost_drv_g, DEVFREQ_MSM_CPUBW,
-		       CONFIG_DEVFREQ_MSM_CPUBW_BOOST_FREQ_LOW)
+	BOOST_DEV_INIT(df_boost_drv_g, DEVFREQ_MSM_CPUBW),
+	BOOST_DEV_INIT(df_boost_drv_g, DEVFREQ_MSM_DDRBW),
+	BOOST_DEV_INIT(df_boost_drv_g, DEVFREQ_MSM_GPUBW)
 };
 
 static void __devfreq_boost_kick(struct boost_dev *b)
@@ -214,23 +225,23 @@ static void devfreq_update_boosts(struct boost_dev *b, unsigned long state)
 	struct devfreq *df = b->df;
 	if (!READ_ONCE(b->df))
 		return;
-	if (!test_bit(SCREEN_ON, &state)) {
+	if (unlikely(!(0x01 & state))) {
 		mutex_lock(&df->lock);
 		df->min_freq = df->profile->freq_table[0];
-		df->max_boost = test_bit(WAKE_BOOST, &state) ? 
+		df->max_boost = 0x08 & state ? 
 					true :
 					false;
 		update_devfreq(df);
 		mutex_unlock(&df->lock);
 	} else {
 		mutex_lock(&df->lock);
-		df->min_freq = test_bit(FLEX_BOOST, &state) ?
-			devfreq_boost_freq_low :
+		df->min_freq = 0x04 & state ?
+			b->boost_freq_low :
 			df->profile->freq_table[0];
-		df->min_freq = test_bit(INPUT_BOOST, &state) ?
-			devfreq_boost_freq :
+		df->min_freq = 0x02 & state ?
+			b->boost_freq :
 			df->profile->freq_table[0];
-			df->max_boost = test_bit(MAX_BOOST, &state);
+		df->max_boost = 0x08 & state;
 		update_devfreq(df);
 		mutex_unlock(&df->lock);
 	}
@@ -421,6 +432,19 @@ static int __init devfreq_boost_init(void)
 		b->wq_i = alloc_workqueue("devfreq_boost_wq_i", WQ_POWER_EFFICIENT, 0);
 		b->wq_f = alloc_workqueue("devfreq_boost_wq_f", WQ_POWER_EFFICIENT, 0);
 		b->wq_m = alloc_workqueue("devfreq_boost_wq_m", WQ_POWER_EFFICIENT, 0);
+		
+		if (i==DEVFREQ_MSM_CPUBW) {
+			b->boost_freq = &devfreq_boost_freq;
+			b->boost_freq_low = &devfreq_boost_freq_low;
+		}
+		if (i==DEVFREQ_MSM_DDRBW) {
+			b->boost_freq = &devfreq_boost_ddr_freq;
+			b->boost_freq_low = &devfreq_boost_ddr_freq_low;
+		}
+		if (i==DEVFREQ_MSM_GPUBW) {
+			b->boost_freq = &devfreq_boost_gpu_freq;
+			b->boost_freq_low = &devfreq_boost_gpu_freq_low;
+		}
 		
 		thread[i] = kthread_run_low_power(devfreq_boost_thread, b,
 						      "devfreq_boostd/%d", i);

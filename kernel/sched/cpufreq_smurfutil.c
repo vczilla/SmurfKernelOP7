@@ -191,7 +191,6 @@ static void smugov_update_commit(struct smugov_policy *sg_policy, u64 time,
 				unsigned int next_freq)
 {
 	struct cpufreq_policy *policy = sg_policy->policy;
-	unsigned int cpu;
 
 	if (sg_policy->next_freq == next_freq)
 		return;
@@ -211,14 +210,83 @@ static void smugov_update_commit(struct smugov_policy *sg_policy, u64 time,
 			return;
 
 		policy->cur = next_freq;
-		for_each_cpu(cpu, policy->cpus) {
-			trace_cpu_frequency(next_freq, cpu);
-		}
 	} else {
 		if (use_pelt())
 			sg_policy->work_in_progress = true;
 		irq_work_queue(&sg_policy->irq_work);
 	}
+}
+
+static unsigned int boost_little_off(struct smugov_policy *b_policy) {
+	/* boost decisions screen off for little cluster */
+	if (0x40 & gov_cpu_state->cpu_state)
+		return get_max_boost_freq(b_policy->policy);
+	return b_policy->tunables->silver_suspend_max_freq;
+}
+
+static unsigned int boost_little(struct smugov_policy *b_policy, unsigned long load) {
+	/* boost decisions screen on for little cluster */
+	if (0x04 & gov_cpu_state->cpu_state) {
+		if (!b_policy->tunables->load_based_boost)
+			return get_flex_boost_freq(b_policy->policy);
+		else if (load >= b_policy->tunables->target_load1)
+			return get_flex_boost_freq(b_policy->policy);
+	}
+	if (0x02 & gov_cpu_state->cpu_state) {
+		if (!b_policy->tunables->load_based_boost)
+			return get_input_boost_freq(b_policy->policy);
+		else if (load >= b_policy->tunables->target_load1)
+			return get_input_boost_freq(b_policy->policy);
+	}
+	if (0x08 & gov_cpu_state->cpu_state) {
+		if (!b_policy->tunables->load_based_boost)
+			return get_max_boost_freq(b_policy->policy);
+		else if (load >= b_policy->tunables->target_load2)
+			return get_max_boost_freq(b_policy->policy);
+		else if (load >= b_policy->tunables->target_load1)
+			return get_input_boost_freq(b_policy->policy);
+	}
+	if ((0x20 & gov_cpu_state->cpu_state) && (b_policy->policy->cpu == gov_cpu_state->cpu)) {
+		gov_cpu_state->cpu = 8;
+		return get_max_boost_freq(b_policy->policy);
+	}
+	return 0;
+}
+
+static unsigned int boost_big_off(struct smugov_policy *b_policy) {
+	/* boost decisions screen off for big cluster */
+	if (0x80 & gov_cpu_state->cpu_state)
+		return get_max_boost_freq(b_policy->policy);
+	return b_policy->tunables->silver_suspend_max_freq;
+}
+
+static unsigned int boost_big(struct smugov_policy *b_policy, unsigned long load) {
+	/* boost decisions screen on for big cluster */
+	if (0x04 & gov_cpu_state->cpu_state) {
+		if (!b_policy->tunables->load_based_boost)
+			return get_flex_boost_freq(b_policy->policy);
+		else if (load >= b_policy->tunables->target_load1)
+			return get_flex_boost_freq(b_policy->policy);
+	}
+	if (0x02 & gov_cpu_state->cpu_state) {
+		if (!b_policy->tunables->load_based_boost)
+			return get_input_boost_freq(b_policy->policy);
+		else if (load >= b_policy->tunables->target_load1)
+			return get_input_boost_freq(b_policy->policy);
+	}
+	if (0x10 & gov_cpu_state->cpu_state) {
+		if (!b_policy->tunables->load_based_boost)
+			return get_max_boost_freq(b_policy->policy);
+		else if (load >= b_policy->tunables->target_load2)
+			return get_max_boost_freq(b_policy->policy);
+		else if (load >= b_policy->tunables->target_load1)
+			return get_input_boost_freq(b_policy->policy);
+	}
+	if ((0x20 & gov_cpu_state->cpu_state) && (b_policy->policy->cpu == gov_cpu_state->cpu)) {
+		gov_cpu_state->cpu = 8;
+		return get_max_boost_freq(b_policy->policy);
+	}
+	return 0;
 }
 
 /**
@@ -266,208 +334,38 @@ static unsigned int get_next_freq(struct smugov_policy *sg_policy,
 			freq = (freq - (freq >> tunables->bit_shift2)) * util / max;
 	}
 
-	if (gov_cpu_state != NULL) {
-		apply_boost=false;
-		if (!(0x01 & gov_cpu_state->cpu_state)) {
-			if ((0x40 & gov_cpu_state->cpu_state) && (policy->cpu < 4)) {
-				if (!tunables->load_based_boost) {
-					boost_freq = get_max_boost_freq(policy);
-					apply_boost = true;
-					goto boost;
-				} else if (load >= tunables->target_load2) {
-					boost_freq = get_max_boost_freq(policy);
-					apply_boost = true;
-					goto boost;
-				} else if (load >= tunables->target_load1) {
-					boost_freq = get_input_boost_freq(policy);
-					apply_boost = true;
-					goto boost;
-				}
-			}
-
-			if (0x80 & gov_cpu_state->cpu_state) {
-				if ((policy->cpu > 3) && (policy->cpu < 7)) {
-					if (!tunables->load_based_boost) {
-						boost_freq = get_max_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					} else if (load >= tunables->target_load2) {
-						boost_freq = get_max_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					} else if (load >= tunables->target_load1) {
-						boost_freq = get_input_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
+	if (likely(gov_cpu_state != NULL)) {
+		switch (policy->cpu) {
+			case 0:
+			case 1:
+			case 2:
+			case 3: if (likely(0x01 & gov_cpu_state->cpu_state)) {
+					boost_freq=boost_little(sg_policy, load);
+					if (freq < boost_freq)
+						freq = boost_freq;
+				} else 
+					freq=boost_little_off(sg_policy);
+				break;
+			case 4:
+			case 5:
+			case 6: if (likely(0x01 & gov_cpu_state->cpu_state)) {
+					boost_freq=boost_big(sg_policy, load);
+					if (freq < boost_freq)
+						freq = boost_freq;
+				} else
+					freq=boost_big_off(sg_policy);
+				break;
+			case 7: if (likely(0x01 & gov_cpu_state->cpu_state)) {
+					if (boost_gold) {
+						boost_freq=boost_big(sg_policy, load);
+						if (freq < boost_freq)	
+							freq = boost_freq;
 					}
-				}
-				if ((policy->cpu  == 7) && boost_gold) {
-					if (!tunables->load_based_boost) {
-						boost_freq = get_max_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					} else if (load >= tunables->target_load2) {
-						boost_freq = get_max_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					} else if (load >= tunables->target_load1) {
-						boost_freq = get_input_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					}
-				}
-			}
-			if (policy->cpu < 4) {
-				if (freq > sg_policy->tunables->silver_suspend_max_freq) {
-					boost_freq = sg_policy->tunables->silver_suspend_max_freq;
-					apply_boost = true;
-					goto sleep;
-				}
-			}
-			if (policy->cpu > 3) {
-				if (freq > sg_policy->tunables->gold_suspend_max_freq) {
-					boost_freq = sg_policy->tunables->gold_suspend_max_freq;
-					apply_boost = true;
-					goto sleep;
-				}
-			}
-		}
-
-		if ((0x08 & gov_cpu_state->cpu_state) && (policy->cpu < 4)) {
-			if (!tunables->load_based_boost) {
-				boost_freq = get_max_boost_freq(policy);
-				apply_boost = true;
-				goto boost;
-			} else if (load >= tunables->target_load2) {
-				boost_freq = get_max_boost_freq(policy);
-				apply_boost = true;
-				goto boost;
-			} else if (load >= tunables->target_load1) {
-				boost_freq = get_input_boost_freq(policy);
-				apply_boost = true;
-				goto boost;
-			}
-		}
-
-		if (0x10 & gov_cpu_state->cpu_state) {
-			if ((policy->cpu > 3) && (policy->cpu < 7)) {
-				if (!tunables->load_based_boost) {
-					boost_freq = get_max_boost_freq(policy);
-					apply_boost = true;
-					goto boost;
-				} else if (load >= tunables->target_load2) {
-					boost_freq = get_max_boost_freq(policy);
-					apply_boost = true;
-					goto boost;
-				} else if (load >= tunables->target_load1) {
-					boost_freq = get_input_boost_freq(policy);
-					apply_boost = true;
-					goto boost;
-				}
-			}
-			if ((policy->cpu  == 7) && boost_gold) {
-				if (!tunables->load_based_boost) {
-					boost_freq = get_max_boost_freq(policy);
-					apply_boost = true;
-					goto boost;
-				} else if (load >= tunables->target_load2) {
-					boost_freq = get_max_boost_freq(policy);
-					apply_boost = true;
-					goto boost;
-				} else if (load >= tunables->target_load1) {
-					boost_freq = get_input_boost_freq(policy);
-					apply_boost = true;
-					goto boost;
-				}
-			}
-		}
-
-		if ((0x20 & gov_cpu_state->cpu_state) && (policy->cpu == gov_cpu_state->cpu)) {
-			gov_cpu_state->cpu = 8;
-			boost_freq =  get_max_boost_freq(policy);
-			apply_boost = true;
-			goto boost;
-		}
-
-		if ((0x02 & gov_cpu_state->cpu_state) || (0x04 & gov_cpu_state->cpu_state)) {
-			if (0x02 & gov_cpu_state->cpu_state) {
-				if (policy->cpu < 4) {
-					if (!tunables->load_based_boost) {
-						boost_freq = get_input_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					} else if (load >= tunables->target_load1) {
-						boost_freq = get_input_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					}
-				}
-				if ((policy->cpu > 3) && (policy->cpu < 7)) {
-					if (!tunables->load_based_boost) {
-						boost_freq = get_input_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					} else if (load >= tunables->target_load1) {
-						boost_freq = get_input_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					}
-				}
-				if ((policy->cpu  == 7) && boost_gold) {
-					if (!tunables->load_based_boost) {
-						boost_freq = get_input_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					} else if (load >= tunables->target_load1) {
-						boost_freq = get_input_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					}
-				}
-			}
-			if (0x04 & gov_cpu_state->cpu_state) {
-				if (policy->cpu < 4) {
-					if (!tunables->load_based_boost) {
-						boost_freq = get_flex_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					} else if (load >= tunables->target_load1) {
-						freq = get_flex_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					}
-				}
-				if ((policy->cpu > 3) && (policy->cpu < 7)) {
-					if (!tunables->load_based_boost) {
-						boost_freq = get_flex_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					} else if (load >= tunables->target_load1) {
-						boost_freq = get_flex_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					}
-				}
-				if ((policy->cpu  == 7) && boost_gold) {
-					if (!tunables->load_based_boost) {
-						boost_freq = get_flex_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					} else if (load >= tunables->target_load1) {
-						boost_freq = get_flex_boost_freq(policy);
-						apply_boost = true;
-						goto boost;
-					}
-				}
-			}
+				} else
+					freq=boost_big_off(sg_policy);
+				break;
 		}
 	}
-
-boost:
-	if (apply_boost)
-		if (freq < boost_freq)
-sleep:
-			freq = boost_freq;
 
 	trace_smugov_next_freq(policy->cpu, util, max, freq);
 

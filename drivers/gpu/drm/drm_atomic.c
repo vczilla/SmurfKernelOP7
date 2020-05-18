@@ -33,8 +33,6 @@
 #include <linux/sync_file.h>
 #include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
-#include <linux/devfreq_boost_ddr.h>
-#include <linux/devfreq_boost_gpu.h>
 
 #include "drm_crtc_internal.h"
 
@@ -2253,9 +2251,9 @@ int drm_mode_atomic_ioctl(struct drm_device *dev,
 
 	if (!(arg->flags & DRM_MODE_ATOMIC_TEST_ONLY)) {
 		cpu_input_boost_kick_flex(0);
-		devfreq_boost_gpu_kick_flex(DEVFREQ_MSM_GPUBW,0);
-		devfreq_boost_ddr_kick_flex(DEVFREQ_MSM_DDRBW,0);
 		devfreq_boost_kick_flex(DEVFREQ_MSM_CPUBW,0);
+		devfreq_boost_kick_flex(DEVFREQ_MSM_DDRBW,0);
+		devfreq_boost_kick_flex(DEVFREQ_MSM_GPUBW,0);
 	}
 
 	drm_modeset_acquire_init(&ctx, 0);
