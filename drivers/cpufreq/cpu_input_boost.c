@@ -202,12 +202,9 @@ static void update_online_cpu_policy(void)
 	unsigned int cpu;
 	/* Only one CPU from each cluster needs to be updated */
 	get_online_cpus();
-	cpu = cpumask_first_and(cpu_lp_mask, cpu_online_mask);
-	cpufreq_update_policy(cpu);
-	cpu = cpumask_first_and(cpu_perf_mask, cpu_online_mask);
-	cpufreq_update_policy(cpu);
-	cpu = cpumask_first_and(cpu_gold_mask, cpu_online_mask);
-	cpufreq_update_policy(cpu);
+	cpufreq_update_policy(0);
+	cpufreq_update_policy(4);
+	cpufreq_update_policy(7);
 	put_online_cpus();
 }
 	

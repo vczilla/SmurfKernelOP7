@@ -334,28 +334,27 @@ static unsigned int get_next_freq(struct smugov_policy *sg_policy,
 			freq = (freq - (freq >> tunables->bit_shift2)) * util / max;
 	}
 
-	if (likely(gov_cpu_state != NULL)) {
-		switch (policy->cpu) {
-			case 0:
-			case 1:
-			case 2:
-			case 3: if (likely(0x01 & gov_cpu_state->cpu_state)) {
+	switch (policy->cpu) {
+		case 0: if (likely(gov_cpu_state != NULL)) {
+			 	if (likely(0x01 & gov_cpu_state->cpu_state)) {
 					boost_freq=boost_little(sg_policy, load);
 					if (freq < boost_freq)
 						freq = boost_freq;
 				} else 
 					freq=boost_little_off(sg_policy);
-				break;
-			case 4:
-			case 5:
-			case 6: if (likely(0x01 & gov_cpu_state->cpu_state)) {
+			}
+			break;
+		case 4: if (likely(gov_cpu_state != NULL)) {
+				if (likely(0x01 & gov_cpu_state->cpu_state)) {
 					boost_freq=boost_big(sg_policy, load);
 					if (freq < boost_freq)
 						freq = boost_freq;
 				} else
 					freq=boost_big_off(sg_policy);
-				break;
-			case 7: if (likely(0x01 & gov_cpu_state->cpu_state)) {
+			}
+			break;
+		case 7: if (likely(gov_cpu_state != NULL)) {
+				if (likely(0x01 & gov_cpu_state->cpu_state)) {
 					if (boost_gold) {
 						boost_freq=boost_big(sg_policy, load);
 						if (freq < boost_freq)	
@@ -363,8 +362,8 @@ static unsigned int get_next_freq(struct smugov_policy *sg_policy,
 					}
 				} else
 					freq=boost_big_off(sg_policy);
-				break;
-		}
+			}
+			break;
 	}
 
 	trace_smugov_next_freq(policy->cpu, util, max, freq);
