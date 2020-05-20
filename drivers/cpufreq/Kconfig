@@ -382,17 +382,35 @@ config REMOVE_INPUT_BOOST_FREQ_GOLD
 
 config FLEX_BOOST_FREQ_LP
 	int "Low-power cluster general boost freq"
-	default "1209600"
+	default "1478400"
 	help
 	  Flex boost frequency for the low-power CPU cluster.
 
 config FLEX_BOOST_FREQ_PERF
 	int "Performance cluster general boost freq"
-	default "1171200"
+	default "1286400"
 	help
 	  Flex boost frequency for the performance CPU cluster.
 
 config FLEX_BOOST_FREQ_GOLD
+	int "Gold cluster flex boost freq"
+	default "1286400"
+	help
+	  Flex boost frequency for the gold CPU cluster.
+	  
+config FLEX_BOOST_FREQ_LP_1
+	int "Low-power cluster general boost freq"
+	default "1305600"
+	help
+	  Flex boost frequency for the low-power CPU cluster.
+
+config FLEX_BOOST_FREQ_PERF_1
+	int "Performance cluster general boost freq"
+	default "1171200"
+	help
+	  Flex boost frequency for the performance CPU cluster.
+
+config FLEX_BOOST_FREQ_GOLD_1
 	int "Gold cluster flex boost freq"
 	default "1171200"
 	help
@@ -454,9 +472,45 @@ config MAX_BOOST_FREQ_LP
 	help
 	  Max-boost frequency for the performance CPU cluster.
 
+config MAX_BOOST_FREQ_LP_1
+	int "Low-power cluster max-boost freq"
+	default "1708800"
+	help
+	  Max-boost frequency for the low-power CPU cluster.
+
+ config MAX_BOOST_FREQ_PERF_1
+	int "Performance cluster max-boost freq"
+	default "2227200"
+	help
+	  Max-boost frequency for the performance CPU cluster.
+
+config MAX_BOOST_FREQ_LP_2
+	int "Low-power cluster max-boost freq"
+	default "1632000"
+	help
+	  Max-boost frequency for the low-power CPU cluster.
+
+ config MAX_BOOST_FREQ_PERF_2
+	int "Performance cluster max-boost freq"
+	default "2016000"
+	help
+	  Max-boost frequency for the performance CPU cluster.
+
  config MAX_BOOST_FREQ_GOLD
 	int "Gold cluster max-boost freq"
-	default "2534400"
+	default "2841600"
+	help
+	  Max-boost frequency for the Gold CPU cluster.
+  
+ config MAX_BOOST_FREQ_GOLD_1
+	int "Gold cluster max-boost freq"
+	default "2649600"
+	help
+	  Max-boost frequency for the Gold CPU cluster.
+
+ config MAX_BOOST_FREQ_GOLD_2
+	int "Gold cluster max-boost freq"
+	default "2419200"
 	help
 	  Max-boost frequency for the Gold CPU cluster.
 

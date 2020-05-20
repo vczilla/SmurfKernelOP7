@@ -220,7 +220,7 @@ static void smugov_update_commit(struct smugov_policy *sg_policy, u64 time,
 static unsigned int boost_little_off(struct smugov_policy *b_policy) {
 	/* boost decisions screen off for little cluster */
 	if (0x40 & gov_cpu_state->cpu_state)
-		return get_max_boost_freq(b_policy->policy);
+		return get_max_boost_freq(b_policy->policy, 0);
 	return b_policy->tunables->silver_suspend_max_freq;
 }
 
@@ -228,27 +228,27 @@ static unsigned int boost_little(struct smugov_policy *b_policy, unsigned long l
 	/* boost decisions screen on for little cluster */
 	if (0x04 & gov_cpu_state->cpu_state) {
 		if (!b_policy->tunables->load_based_boost)
-			return get_flex_boost_freq(b_policy->policy);
+			return get_flex_boost_freq(b_policy->policy, 0);
 		else if (load >= b_policy->tunables->target_load1)
-			return get_flex_boost_freq(b_policy->policy);
+			return get_flex_boost_freq(b_policy->policy, 0);
+		else
+			return get_flex_boost_freq(b_policy->policy, 1);
 	}
-	if (0x02 & gov_cpu_state->cpu_state) {
-		if (!b_policy->tunables->load_based_boost)
-			return get_input_boost_freq(b_policy->policy);
-		else if (load >= b_policy->tunables->target_load1)
-			return get_input_boost_freq(b_policy->policy);
-	}
+	if (0x02 & gov_cpu_state->cpu_state)
+		return get_input_boost_freq(b_policy->policy);
 	if (0x08 & gov_cpu_state->cpu_state) {
 		if (!b_policy->tunables->load_based_boost)
-			return get_max_boost_freq(b_policy->policy);
+			return get_max_boost_freq(b_policy->policy, 0);
 		else if (load >= b_policy->tunables->target_load2)
-			return get_max_boost_freq(b_policy->policy);
+			return get_max_boost_freq(b_policy->policy, 0);
 		else if (load >= b_policy->tunables->target_load1)
-			return get_input_boost_freq(b_policy->policy);
+			return get_max_boost_freq(b_policy->policy, 1);
+		else
+			return get_max_boost_freq(b_policy->policy, 2);
 	}
 	if ((0x20 & gov_cpu_state->cpu_state) && (b_policy->policy->cpu == gov_cpu_state->cpu)) {
 		gov_cpu_state->cpu = 8;
-		return get_max_boost_freq(b_policy->policy);
+		return get_max_boost_freq(b_policy->policy, 0);
 	}
 	return 0;
 }
@@ -256,7 +256,7 @@ static unsigned int boost_little(struct smugov_policy *b_policy, unsigned long l
 static unsigned int boost_big_off(struct smugov_policy *b_policy) {
 	/* boost decisions screen off for big cluster */
 	if (0x80 & gov_cpu_state->cpu_state)
-		return get_max_boost_freq(b_policy->policy);
+		return get_max_boost_freq(b_policy->policy, 0);
 	return b_policy->tunables->silver_suspend_max_freq;
 }
 
@@ -264,27 +264,27 @@ static unsigned int boost_big(struct smugov_policy *b_policy, unsigned long load
 	/* boost decisions screen on for big cluster */
 	if (0x04 & gov_cpu_state->cpu_state) {
 		if (!b_policy->tunables->load_based_boost)
-			return get_flex_boost_freq(b_policy->policy);
+			return get_flex_boost_freq(b_policy->policy, 0);
 		else if (load >= b_policy->tunables->target_load1)
-			return get_flex_boost_freq(b_policy->policy);
+			return get_flex_boost_freq(b_policy->policy, 0);
+		else 
+			return get_flex_boost_freq(b_policy->policy, 1);
 	}
-	if (0x02 & gov_cpu_state->cpu_state) {
-		if (!b_policy->tunables->load_based_boost)
-			return get_input_boost_freq(b_policy->policy);
-		else if (load >= b_policy->tunables->target_load1)
-			return get_input_boost_freq(b_policy->policy);
-	}
+	if (0x02 & gov_cpu_state->cpu_state)
+		return get_input_boost_freq(b_policy->policy);
 	if (0x10 & gov_cpu_state->cpu_state) {
 		if (!b_policy->tunables->load_based_boost)
-			return get_max_boost_freq(b_policy->policy);
+			return get_max_boost_freq(b_policy->policy, 0);
 		else if (load >= b_policy->tunables->target_load2)
-			return get_max_boost_freq(b_policy->policy);
+			return get_max_boost_freq(b_policy->policy, 0);
 		else if (load >= b_policy->tunables->target_load1)
-			return get_input_boost_freq(b_policy->policy);
+			return get_max_boost_freq(b_policy->policy, 1);
+		else
+			return get_max_boost_freq(b_policy->policy, 2);
 	}
 	if ((0x20 & gov_cpu_state->cpu_state) && (b_policy->policy->cpu == gov_cpu_state->cpu)) {
 		gov_cpu_state->cpu = 8;
-		return get_max_boost_freq(b_policy->policy);
+		return get_max_boost_freq(b_policy->policy, 0);
 	}
 	return 0;
 }
