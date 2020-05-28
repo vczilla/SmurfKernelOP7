@@ -98,7 +98,7 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 
 	code = readl_relaxed_no_log(trdy);
 
->	if (!((code & TSENS_TM_TRDY_FIRST_ROUND_COMPLETE) >>
+	if (!((code & TSENS_TM_TRDY_FIRST_ROUND_COMPLETE) >>
 		TSENS_TM_TRDY_FIRST_ROUND_COMPLETE_SHIFT)) {
 		pr_err("%s: tsens device first round not complete0x%x\n",
 			__func__, code);
