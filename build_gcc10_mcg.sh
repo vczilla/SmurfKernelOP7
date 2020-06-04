@@ -23,7 +23,7 @@ export CROSS_COMPILE_ARM32=/media/${USER}/ExtremeExt4/Toolchains/gcc9eabi_92/bin
 DEFCONFIG="smurfmc_defconfig"
 
 # Kernel Details
-VER=".3.5.2.memcg.unified"
+VER=".3.5.4.memcg.unified"
 
 # Paths
 KERNEL_DIR=`pwd`

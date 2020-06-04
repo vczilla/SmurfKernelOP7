@@ -35,9 +35,18 @@ static unsigned int input_boost_freq_gold __read_mostly = CONFIG_INPUT_BOOST_FRE
 static unsigned int flex_boost_freq_lp __read_mostly = CONFIG_FLEX_BOOST_FREQ_LP;
 static unsigned int flex_boost_freq_hp __read_mostly = CONFIG_FLEX_BOOST_FREQ_PERF;
 static unsigned int flex_boost_freq_gold __read_mostly = CONFIG_FLEX_BOOST_FREQ_GOLD;
+static unsigned int flex_boost_freq_lp_1 __read_mostly = CONFIG_FLEX_BOOST_FREQ_LP_1;
+static unsigned int flex_boost_freq_hp_1 __read_mostly = CONFIG_FLEX_BOOST_FREQ_PERF_1;
+static unsigned int flex_boost_freq_gold_1 __read_mostly = CONFIG_FLEX_BOOST_FREQ_GOLD_1;
 static unsigned int max_boost_freq_lp __read_mostly = CONFIG_MAX_BOOST_FREQ_LP;
 static unsigned int max_boost_freq_hp __read_mostly = CONFIG_MAX_BOOST_FREQ_PERF;
 static unsigned int max_boost_freq_gold __read_mostly = CONFIG_MAX_BOOST_FREQ_GOLD;
+static unsigned int max_boost_freq_lp_1 __read_mostly = CONFIG_MAX_BOOST_FREQ_LP_1;
+static unsigned int max_boost_freq_hp_1 __read_mostly = CONFIG_MAX_BOOST_FREQ_PERF_1;
+static unsigned int max_boost_freq_gold_1 __read_mostly = CONFIG_MAX_BOOST_FREQ_GOLD_1;
+static unsigned int max_boost_freq_lp_2 __read_mostly = CONFIG_MAX_BOOST_FREQ_LP_2;
+static unsigned int max_boost_freq_hp_2 __read_mostly = CONFIG_MAX_BOOST_FREQ_PERF_2;
+static unsigned int max_boost_freq_gold_2 __read_mostly = CONFIG_MAX_BOOST_FREQ_GOLD_2;
 static unsigned int remove_input_boost_freq_lp __read_mostly = CONFIG_REMOVE_INPUT_BOOST_FREQ_LP;
 static unsigned int remove_input_boost_freq_perf __read_mostly = CONFIG_REMOVE_INPUT_BOOST_FREQ_PERF;
 static unsigned int remove_input_boost_freq_gold __read_mostly = CONFIG_REMOVE_INPUT_BOOST_FREQ_GOLD;
@@ -170,22 +179,60 @@ unsigned int get_input_boost_freq(struct cpufreq_policy *policy)
 	return  input_boost_freq_gold; 
 }
 
-unsigned int get_max_boost_freq(struct cpufreq_policy *policy)
+unsigned int get_max_boost_freq(struct cpufreq_policy *policy, int stage)
 {
-	if (cpumask_test_cpu(policy->cpu, cpu_lp_mask))
-		return max_boost_freq_lp;
-	else if (cpumask_test_cpu(policy->cpu, cpu_perf_mask))
-		return max_boost_freq_hp;
-	return max_boost_freq_gold;
+	if (cpumask_test_cpu(policy->cpu, cpu_lp_mask)) {
+		switch (stage) {
+			case 0: return max_boost_freq_lp;
+				break;
+			case 1: return max_boost_freq_lp_1;
+				break;
+			case 2: return max_boost_freq_lp_2;
+				break;
+		}
+	} else if (cpumask_test_cpu(policy->cpu, cpu_perf_mask)) {
+		switch (stage) {
+			case 0: return max_boost_freq_hp;
+				break;
+			case 1: return max_boost_freq_hp_1;
+				break;
+			case 2: return max_boost_freq_hp_2;
+				break;
+		}
+	}
+	switch (stage) {
+		case 0: return max_boost_freq_gold;
+			break;
+		case 1: return max_boost_freq_gold_1;
+			break;
+		case 2: return max_boost_freq_gold_2;
+			break;
+	}
 }
 
-unsigned int get_flex_boost_freq(struct cpufreq_policy *policy)
+unsigned int get_flex_boost_freq(struct cpufreq_policy *policy, int stage)
 {
-	if (cpumask_test_cpu(policy->cpu, cpu_lp_mask))
-		return flex_boost_freq_lp;
-	else if (cpumask_test_cpu(policy->cpu, cpu_perf_mask))
-		return  flex_boost_freq_hp;
-	return  flex_boost_freq_gold; 
+	if (cpumask_test_cpu(policy->cpu, cpu_lp_mask)) {
+		switch (stage) {
+			case 0: return flex_boost_freq_lp;
+				break;
+			case 1: return flex_boost_freq_lp_1;
+				break;
+		}
+	} else if (cpumask_test_cpu(policy->cpu, cpu_perf_mask)) {
+		switch (stage) {
+			case 0: return flex_boost_freq_hp;
+				break;
+			case 1: return flex_boost_freq_hp_1;
+				break;
+		}
+	}
+	switch (stage) {
+		case 0: return flex_boost_freq_gold;
+			break;
+		case 1: return flex_boost_freq_gold_1;
+			break;
+	}
 }
 
 unsigned int get_min_freq(struct cpufreq_policy *policy)
@@ -202,12 +249,9 @@ static void update_online_cpu_policy(void)
 	unsigned int cpu;
 	/* Only one CPU from each cluster needs to be updated */
 	get_online_cpus();
-	cpu = cpumask_first_and(cpu_lp_mask, cpu_online_mask);
-	cpufreq_update_policy(cpu);
-	cpu = cpumask_first_and(cpu_perf_mask, cpu_online_mask);
-	cpufreq_update_policy(cpu);
-	cpu = cpumask_first_and(cpu_gold_mask, cpu_online_mask);
-	cpufreq_update_policy(cpu);
+	cpufreq_update_policy(0);
+	cpufreq_update_policy(4);
+	cpufreq_update_policy(7);
 	put_online_cpus();
 }
 	
@@ -805,15 +849,15 @@ static int cpu_notifier_cb(struct notifier_block *nb, unsigned long action,
 
 	if (!smumode) {
 		if (test_bit(CLUSTER1_WAKE_BOOST, &b->cpu_state) && (policy->cpu < 4)) {
-			policy->min = get_max_boost_freq(policy);
+			policy->min = get_max_boost_freq(policy, 0);
 			return NOTIFY_OK;
 		}
 
 		if (test_bit(CLUSTER2_WAKE_BOOST, &b->cpu_state)) {
 			if ((policy->cpu > 3) && (policy->cpu < 7))
-				policy->min = get_max_boost_freq(policy);
+				policy->min = get_max_boost_freq(policy, 0);
 			if ((policy->cpu  == 7) && boost_gold) 
-				policy->min = get_max_boost_freq(policy);
+				policy->min = get_max_boost_freq(policy, 0);
 			return NOTIFY_OK;
 		}
 
@@ -838,14 +882,14 @@ static int cpu_notifier_cb(struct notifier_block *nb, unsigned long action,
 
 		/* Boost CPU to max frequency for max boost */
 		if (test_bit(CLUSTER1_BOOST, &b->cpu_state) && (policy->cpu < 4)) {
-			policy->min = get_max_boost_freq(policy);
+			policy->min = get_max_boost_freq(policy, 0);
 			return NOTIFY_OK;
 		}
 		if (test_bit(CLUSTER2_BOOST, &b->cpu_state)) {
 			if ((policy->cpu > 3) && (policy->cpu < 7))
-				policy->min = get_max_boost_freq(policy);
+				policy->min = get_max_boost_freq(policy, 0);
 			if ((policy->cpu  == 7) && boost_gold)
-				policy->min = get_max_boost_freq(policy);
+				policy->min = get_max_boost_freq(policy, 0);
 			return NOTIFY_OK;
 		}
 
@@ -861,11 +905,11 @@ static int cpu_notifier_cb(struct notifier_block *nb, unsigned long action,
 			}
 			if (test_bit(FLEX_BOOST, &b->cpu_state)) {
 				if (policy->cpu < 4)
-					policy->min = get_flex_boost_freq(policy);
+					policy->min = get_flex_boost_freq(policy, 0);
 				if ((policy->cpu > 3) && (policy->cpu < 7))
-					policy->min = get_flex_boost_freq(policy);
+					policy->min = get_flex_boost_freq(policy, 0);
 				if ((policy->cpu  == 7) && boost_gold)
-					policy->min = get_flex_boost_freq(policy);
+					policy->min = get_flex_boost_freq(policy, 0);
 				return NOTIFY_OK;
 			}
 		}

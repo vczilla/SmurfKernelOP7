@@ -16,6 +16,12 @@
 #ifdef CONFIG_DEVFREQ_BOOST
 #include <linux/devfreq_boost.h>
 #endif
+#ifdef CONFIG_DEVFREQ_BOOST_DDR
+#include <linux/devfreq_boost_ddr.h>
+#endif
+#ifdef CONFIG_DEVFREQ_BOOST_GPU
+#include <linux/devfreq_boost_gpu.h>
+#endif
 
 #include "walt.h"
 
@@ -1787,10 +1793,15 @@ static int rt_energy_aware_wake_cpu(struct task_struct *task)
 #endif
 
 	if (task->is_surfaceflinger && tutil > 85) {
-		cpu_input_boost_kick_core(1000, task->cpu);
+		if (task->cpu < 4)
+			cpu_input_boost_kick_cluster1(1000);
+		else if ((task->cpu > 3) && (task->cpu < 7))
+			cpu_input_boost_kick_cluster2(1000);
+		devfreq_boost_gpu_kick_max(DEVFREQ_MSM_GPUBW, 1000);
+		devfreq_boost_ddr_kick_max(DEVFREQ_MSM_DDRBW, 1000);
 		devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
-		devfreq_boost_kick_max(DEVFREQ_MSM_DDRBW, 1000);
-		devfreq_boost_kick_max(DEVFREQ_MSM_GPUBW, 1000);	
+		
+			
 	}
 
 	rcu_read_lock();

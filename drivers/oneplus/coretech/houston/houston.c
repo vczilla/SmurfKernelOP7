@@ -26,6 +26,8 @@
 #include <linux/oneplus/houston.h>
 #include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
+#include <linux/devfreq_boost_ddr.h>
+#include <linux/devfreq_boost_gpu.h>
 
 static DECLARE_WAIT_QUEUE_HEAD(ht_poll_waitq);
 
@@ -238,9 +240,9 @@ static int ht_fps_boost_store(const char *buf, const struct kernel_param *kp)
 			cpu_input_boost_kick_core(vals[4], cpu1);
 		if (cpu2 > -1)
 			cpu_input_boost_kick_core(vals[4], cpu2);
+		devfreq_boost_gpu_kick_flex(DEVFREQ_MSM_GPUBW,vals[4]);
+		devfreq_boost_ddr_kick_flex(DEVFREQ_MSM_DDRBW,vals[4]);
 		devfreq_boost_kick_flex(DEVFREQ_MSM_CPUBW,vals[4]);
-		devfreq_boost_kick_flex(DEVFREQ_MSM_DDRBW,vals[4]);
-		devfreq_boost_kick_flex(DEVFREQ_MSM_GPUBW,vals[4]);
 		gpu_boost_flex(vals[4]);
 	}
 

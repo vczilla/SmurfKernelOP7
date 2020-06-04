@@ -68,6 +68,12 @@
 #ifdef CONFIG_DEVFREQ_BOOST
 #include <linux/devfreq_boost.h>
 #endif
+#ifdef CONFIG_DEVFREQ_BOOST_DDR
+#include <linux/devfreq_boost_ddr.h>
+#endif
+#ifdef CONFIG_DEVFREQ_BOOST_GPU
+#include <linux/devfreq_boost_gpu.h>
+#endif
 
 #include <linux/uaccess.h>
 #include <asm/mmu_context.h>
@@ -1289,6 +1295,8 @@ int flush_old_exec(struct linux_binprm * bprm)
 	 */
 	set_mm_exe_file(bprm->mm, bprm->file);
 
+	would_dump(bprm, bprm->file);
+
 	/*
 	 * Release all of the old mmap stuff
 	 */
@@ -1723,8 +1731,8 @@ void run_boost(void) {
 	cpu_input_boost_kick_cluster1(1000);
 	cpu_input_boost_kick_cluster2(1000);
 	devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
-	devfreq_boost_kick_max(DEVFREQ_MSM_DDRBW, 1000);
-	devfreq_boost_kick_max(DEVFREQ_MSM_GPUBW, 1000);
+	devfreq_boost_ddr_kick_max(DEVFREQ_MSM_DDRBW, 1000);
+	devfreq_boost_gpu_kick_max(DEVFREQ_MSM_GPUBW, 1000);
 #endif
 }
 
@@ -1841,8 +1849,6 @@ static int do_execveat_common(int fd, struct filename *filename,
 	retval = copy_strings(bprm->argc, argv, bprm);
 	if (retval < 0)
 		goto out;
-
-	would_dump(bprm, bprm->file);
 
 	retval = exec_binprm(bprm);
 	if (retval < 0)
