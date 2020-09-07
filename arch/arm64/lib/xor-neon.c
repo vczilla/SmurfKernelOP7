@@ -13,6 +13,8 @@
 #include <linux/module.h>
 #include <asm/neon-intrinsics.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wincompatible-pointer-types"
 void xor_arm64_neon_2(unsigned long bytes, unsigned long *p1,
 	unsigned long *p2)
 {
@@ -182,3 +184,4 @@ EXPORT_SYMBOL(xor_block_inner_neon);
 MODULE_AUTHOR("Jackie Liu <liuyun01@kylinos.cn>");
 MODULE_DESCRIPTION("ARMv8 XOR Extensions");
 MODULE_LICENSE("GPL");
+#pragma clang diagnostic pop

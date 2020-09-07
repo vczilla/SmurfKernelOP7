@@ -3,7 +3,8 @@
 
 config HAVE_KVM
        bool
-
+	   default y
+	   
 config HAVE_KVM_IRQCHIP
        bool
 

@@ -4,7 +4,7 @@
  */
 #ifndef _CPU_INPUT_BOOST_H_
 #define _CPU_INPUT_BOOST_H_
-
+typedef struct cpufreq_policy cpufreq_policy;
 #ifdef CONFIG_CPU_INPUT_BOOST
 struct boost_drv {
 	struct workqueue_struct *wq_i;
