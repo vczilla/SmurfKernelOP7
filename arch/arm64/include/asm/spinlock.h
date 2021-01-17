@@ -81,6 +81,7 @@ static inline int arch_spin_trylock(arch_spinlock_t *lock)
 	"	add	%w0, %w0, %3\n"
 	"	stxr	%w1, %w0, %2\n"
 	"	cbnz	%w1, 1b\n"
+	__nops(1)
 	"2:",
 	/* LSE atomics */
 	"	ldr	%w0, %2\n"

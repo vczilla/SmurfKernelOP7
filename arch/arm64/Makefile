@@ -57,6 +57,9 @@ ifeq ($(CONFIG_ARM64_LSE_ATOMICS), y)
   ifeq ($(lseinstr),)
 $(warning LSE atomics not supported by binutils)
   endif
+  ifeq ($(cc-name),clang)
+KBUILD_CFLAGS += -march=armv8.2-a
+  endif
 endif
 
 ifeq ($(CONFIG_ARM64), y)

@@ -26,7 +26,7 @@
 #include <linux/cpu_cooling.h>
 #include <linux/mutex.h>
 #include <linux/debugfs.h>
-
+#include <linux/cpu.h>
 #include <microvisor/microvisor.h>
 
 #define MAX_RESERVE_CPUS (num_possible_cpus()/2)

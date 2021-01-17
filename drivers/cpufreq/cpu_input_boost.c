@@ -208,6 +208,7 @@ unsigned int get_max_boost_freq(struct cpufreq_policy *policy, int stage)
 		case 2: return max_boost_freq_gold_2;
 			break;
 	}
+	return 0;
 }
 
 unsigned int get_flex_boost_freq(struct cpufreq_policy *policy, int stage)
@@ -233,6 +234,7 @@ unsigned int get_flex_boost_freq(struct cpufreq_policy *policy, int stage)
 		case 1: return flex_boost_freq_gold_1;
 			break;
 	}
+	return 0;
 }
 
 unsigned int get_min_freq(struct cpufreq_policy *policy)
@@ -246,7 +248,7 @@ unsigned int get_min_freq(struct cpufreq_policy *policy)
 
 static void update_online_cpu_policy(void)
 {
-	unsigned int cpu;
+	unsigned int __maybe_unused cpu;
 	/* Only one CPU from each cluster needs to be updated */
 	get_online_cpus();
 	cpufreq_update_policy(0);
@@ -373,7 +375,7 @@ static void __cpu_input_boost_kick_core(struct boost_drv *b,
 
 void cpu_input_boost_kick_core(unsigned int duration_ms, unsigned int cpu)
 {
-	unsigned long boost_jiffies = msecs_to_jiffies(duration_ms);
+	unsigned long __maybe_unused  boost_jiffies = msecs_to_jiffies(duration_ms);
 	struct boost_drv *b = &boost_drv_g;
 
 	if (duration_ms == 0)
@@ -440,7 +442,7 @@ static void __cpu_input_boost_kick_cluster2(struct boost_drv *b,
 
 void cpu_input_boost_kick_ufs(unsigned int duration_ms)
 {
-	unsigned long boost_jiffies = msecs_to_jiffies(duration_ms);
+	unsigned long __maybe_unused  boost_jiffies = msecs_to_jiffies(duration_ms);
 	struct boost_drv *b = &boost_drv_g;
 
 	if (duration_ms == 0)
@@ -454,7 +456,7 @@ void cpu_input_boost_kick_ufs(unsigned int duration_ms)
 
 void cpu_input_boost_kick_cluster1(unsigned int duration_ms)
 {
-	unsigned long boost_jiffies = msecs_to_jiffies(duration_ms);
+	unsigned long __maybe_unused  boost_jiffies = msecs_to_jiffies(duration_ms);
 	struct boost_drv *b = &boost_drv_g;
 
 	if (duration_ms == 0)
@@ -468,7 +470,7 @@ void cpu_input_boost_kick_cluster1(unsigned int duration_ms)
 
 void cpu_input_boost_kick_cluster2(unsigned int duration_ms)
 {
-	unsigned long boost_jiffies = msecs_to_jiffies(duration_ms);
+	unsigned long __maybe_unused  boost_jiffies = msecs_to_jiffies(duration_ms);
 	struct boost_drv *b = &boost_drv_g;
 
 	if (little_only || duration_ms == 0)
@@ -515,7 +517,7 @@ static void __cpu_input_boost_kick_cluster2_wake(struct boost_drv *b,
 
 void cpu_input_boost_kick_cluster1_wake(unsigned int duration_ms)
 {
-	unsigned long boost_jiffies = msecs_to_jiffies(duration_ms);
+	unsigned long __maybe_unused  boost_jiffies = msecs_to_jiffies(duration_ms);
 	struct boost_drv *b = &boost_drv_g;
 
 	if (duration_ms == 0)
@@ -526,7 +528,7 @@ void cpu_input_boost_kick_cluster1_wake(unsigned int duration_ms)
 
 void cpu_input_boost_kick_cluster2_wake(unsigned int duration_ms)
 {
-	unsigned long boost_jiffies = msecs_to_jiffies(duration_ms);
+	unsigned long __maybe_unused  boost_jiffies = msecs_to_jiffies(duration_ms);
 	struct boost_drv *b = &boost_drv_g;
 
 	if (duration_ms == 0)
@@ -716,7 +718,7 @@ static void cancel_all_wq (struct boost_drv *b)
 	cancel_delayed_work(&b->gpu_flex_unboost);
 }
 
-update_ufs_boost(struct boost_drv *b) {
+static void update_ufs_boost(struct boost_drv *b) {
 	if (ufs_boost) {
 		if (test_bit(UFS_BOOST, &b->cpu_state)) {
 			//set_ufshcd_hibern8_enable_status(0);
@@ -810,7 +812,7 @@ static int cpu_notifier_cb(struct notifier_block *nb, unsigned long action,
 {
 	struct boost_drv *b = container_of(nb, typeof(*b), cpu_notif);
 	struct cpufreq_policy *policy = data;
-	unsigned int min_freq;
+	unsigned int __maybe_unused min_freq;
 
 	if (action != CPUFREQ_ADJUST)
 		return NOTIFY_OK;
@@ -914,8 +916,8 @@ static int cpu_notifier_cb(struct notifier_block *nb, unsigned long action,
 			}
 		}
 		policy->min = get_min_freq(policy);
-		return NOTIFY_OK;
 	}
+	return NOTIFY_OK;
 }
 
 #ifdef CONFIG_DRM_MSM
@@ -1092,8 +1094,9 @@ static int __init cpu_input_boost_init(void)
 	struct task_struct *boost_thread_gpu;
 	struct task_struct *boost_thread_stune;
 	struct boost_drv *b = &boost_drv_g;
-	gov_cpu_state = &boost_drv_g;
 	int ret;
+
+	gov_cpu_state = &boost_drv_g;
 	
 	b->cpu_state = 0;
 	b->gpu_state = 0;
